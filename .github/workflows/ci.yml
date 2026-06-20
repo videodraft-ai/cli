@@ -1,0 +1,86 @@
+# CI for the public videodraft-ai/cli repo. Copy to .github/workflows/ci.yml
+# during extraction (workflows are kept under release/ in the monorepo so the
+# private repo's CI doesn't try to run them).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 7 * * *" # daily 07:00 UTC — drives the schema-drift job below
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Smoke the built binary
+        run: node dist/index.js --version && node dist/index.js --help
+      - name: E2E against mock MCP server
+        run: node test/e2e-mock.mjs
+
+  bun-client-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+      - run: pnpm install --frozen-lockfile && pnpm build
+      - name: videodraft/client must run under Bun (macOS app sidecar contract)
+        # Written in the checkout root so the relative import resolves to
+        # ./dist/client.js (not /tmp/dist/...). .mjs = plain ESM, no TS types.
+        run: |
+          cat > bun-client-check.mjs <<'EOF'
+          import { VideoDraftClient, staticTokenProvider } from "./dist/client.js";
+          const c = new VideoDraftClient({ baseUrl: "https://x.test", tokenProvider: staticTokenProvider("vd_mcp_x"),
+            fetchImpl: (async () => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: "{\"ok\":true}" }], isError: false } }))) });
+          const r = await c.callTool("whoami");
+          if (!r.ok) throw new Error("client check failed");
+          console.log("bun client check ok");
+          EOF
+          bun run bun-client-check.mjs
+
+  schema-drift:
+    # Nightly: detect MCP tool-schema changes that would break curated commands.
+    # The `call` passthrough is immune by design; this guards the typed flags.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Diff live MCP tool names against the committed snapshot
+        env:
+          VIDEODRAFT_API_KEY: ${{ secrets.VIDEODRAFT_DRIFT_TOKEN }}
+        run: |
+          # Compare the SET OF TOOL NAMES (stable, low-noise) — a tool being
+          # added/removed/renamed is the drift that warrants a curated-command
+          # review. Param-level changes are absorbed by the `call` passthrough.
+          curl -sX POST https://app.videodraft.ai/api/mcp \
+            -H "Authorization: Bearer $VIDEODRAFT_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const t=JSON.parse(d).result.tools.map(x=>x.name).sort();process.stdout.write(JSON.stringify(t,null,2)+"\n")})' \
+            > /tmp/live-tool-names.json
+          diff -u test/fixtures/tool-names.json /tmp/live-tool-names.json || {
+            echo "::warning::MCP tool set changed — add a curated flag if needed, then update cli/test/fixtures/tool-names.json"; exit 1; }

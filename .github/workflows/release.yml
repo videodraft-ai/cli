@@ -1,0 +1,42 @@
+# Release for the public videodraft-ai/cli repo (copy to .github/workflows/).
+#
+# Publishing uses npm Trusted Publishing (OIDC) — configure the repo + workflow
+# on npmjs.com under the package's "Trusted publishers" settings. No NPM_TOKEN
+# secret. Provenance is generated automatically for public repos.
+#
+# The PostHog public key is injected at build time so dev builds stay silent.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write # OIDC for npm trusted publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # npm >= 11.5.1 required for trusted publishing
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck && pnpm test
+      - name: Build with telemetry key
+        env:
+          VIDEODRAFT_POSTHOG_KEY: ${{ secrets.VIDEODRAFT_POSTHOG_KEY }}
+        run: pnpm build
+      - name: Publish to npm (trusted publishing + provenance)
+        run: npm publish --access public
+      - name: GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
