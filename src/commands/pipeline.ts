@@ -7,7 +7,8 @@
 import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { emit, fmt, note, spinner } from "../cli/output.js";
-import { pollGenerationsBatch, pollExport } from "../core/poll.js";
+import { extractOutputUrls, pollGenerationsBatch, pollExport } from "../core/poll.js";
+import { buildMediaDescriptors } from "../core/media.js";
 import { downloadOutputs, type DownloadedFile } from "../core/download.js";
 import { uploadFile } from "../core/upload.js";
 import { capture } from "../cli/telemetry.js";
@@ -155,7 +156,18 @@ export function registerPipelineCommands(program: Command): void {
         const failed = results.filter((r) => r.status === "failed").length;
         emit(
           ctx.out,
-          { job_ids: jobIds, results: results.map((r) => ({ status: r.status, outputs: r.outputUrls })) },
+          {
+            job_ids: jobIds,
+            results: jobIds.map((jobId) => {
+              const result = resultMap.get(jobId)!;
+              return {
+                job_id: jobId,
+                status: result.status,
+                outputs: result.outputUrls,
+                output_media: buildMediaDescriptors(result.outputUrls, result.payload?.type),
+              };
+            }),
+          },
           (o) => {
             note(
               o,
@@ -331,11 +343,16 @@ export function registerPipelineCommands(program: Command): void {
             name: "export",
           });
         }
-        emit(ctx.out, { export_id: exportId, video_url: result.videoUrl, downloaded_files: downloaded }, (o) => {
-          note(o, fmt.green(o, "Export finished."));
-          process.stdout.write(`${result.videoUrl}\n`);
-          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
-        });
+        const media = buildMediaDescriptors([result.videoUrl], "video");
+        emit(
+          ctx.out,
+          { export_id: exportId, video_url: result.videoUrl, downloaded_files: downloaded, output_media: media },
+          (o) => {
+            note(o, fmt.green(o, "Export finished."));
+            process.stdout.write(`${result.videoUrl}\n`);
+            for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+          },
+        );
       } catch (err) {
         spin.stop();
         throw err;
@@ -358,7 +375,8 @@ export function registerPipelineCommands(program: Command): void {
           wait_seconds: opts.wait ? Number(opts.wait) : undefined,
         }),
       );
-      emit(ctx.out, result);
+      const media = buildMediaDescriptors(extractOutputUrls(result), "video");
+      emit(ctx.out, { ...result, output_media: media });
     });
 
   program

@@ -6,6 +6,7 @@ import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { emit, fmt, note, spinner, table } from "../cli/output.js";
 import { pollGenerationsBatch, extractOutputUrls } from "../core/poll.js";
+import { buildMediaDescriptors } from "../core/media.js";
 import { downloadOutputs, type DownloadedFile } from "../core/download.js";
 import { CliError, EXIT } from "../core/errors.js";
 
@@ -22,7 +23,8 @@ export function registerJobCommands(program: Command): void {
         "check_generation_status",
         compact({ job_id: jobId, project_id: opts.project, scene_id: opts.sceneId }),
       );
-      emit(ctx.out, result, (o) => {
+      const media = buildMediaDescriptors(extractOutputUrls(result), result?.type);
+      emit(ctx.out, { ...result, output_media: media }, (o) => {
         note(o, `${jobId}: ${result?.status ?? "unknown"}`);
         for (const url of extractOutputUrls(result)) process.stdout.write(`${url}\n`);
       });
@@ -76,6 +78,7 @@ export function registerJobCommands(program: Command): void {
             status: result.status,
             outputs: result.outputUrls,
             downloaded_files: downloaded,
+            output_media: buildMediaDescriptors(result.outputUrls, result.payload?.type),
             ...(result.status === "failed" ? { error: result.payload?.error } : {}),
           });
         }

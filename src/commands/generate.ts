@@ -14,6 +14,7 @@ import type { Command } from "commander";
 import { buildContext, collect, compact, type CommandContext } from "../cli/context.js";
 import { emit, fmt, note, spinner } from "../cli/output.js";
 import { pollGeneration, extractOutputUrls } from "../core/poll.js";
+import { buildMediaDescriptors } from "../core/media.js";
 import { downloadOutputs, type DownloadedFile } from "../core/download.js";
 import { uploadFile } from "../core/upload.js";
 import { capture } from "../cli/telemetry.js";
@@ -132,9 +133,10 @@ async function handleAsyncJob(
     if (options.download && result.outputUrls.length > 0) {
       downloaded = await downloadOutputs(result.outputUrls, options.download, { job_id: jobId });
     }
+    const media = buildMediaDescriptors(result.outputUrls, result.payload?.type);
     emit(
       ctx.out,
-      { job_id: jobId, status: result.status, outputs: result.outputUrls, downloaded_files: downloaded },
+      { job_id: jobId, status: result.status, outputs: result.outputUrls, downloaded_files: downloaded, output_media: media },
       (o) => {
         note(o, fmt.green(o, `Completed — job ${jobId}`));
         for (const url of result.outputUrls) process.stdout.write(`${url}\n`);
@@ -343,7 +345,8 @@ export function registerGenerateCommands(program: Command): void {
       if (opts.download && urls.length > 0) {
         downloaded = await downloadOutputs(urls, opts.download, { name: "voiceover" });
       }
-      emit(ctx.out, { ...result, downloaded_files: downloaded }, (o) => {
+      const media = buildMediaDescriptors(urls, "audio");
+      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
         for (const url of urls) process.stdout.write(`${url}\n`);
         for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
       });
@@ -383,7 +386,8 @@ export function registerGenerateCommands(program: Command): void {
       if (opts.download && urls.length > 0) {
         downloaded = await downloadOutputs(urls, opts.download, { name: "music" });
       }
-      emit(ctx.out, { ...result, downloaded_files: downloaded }, (o) => {
+      const media = buildMediaDescriptors(urls, "music");
+      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
         for (const url of urls) process.stdout.write(`${url}\n`);
         for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
       });
@@ -411,7 +415,8 @@ export function registerGenerateCommands(program: Command): void {
       if (opts.download && urls.length > 0) {
         downloaded = await downloadOutputs(urls, opts.download, { name: "upscaled" });
       }
-      emit(ctx.out, { ...result, downloaded_files: downloaded }, (o) => {
+      const media = buildMediaDescriptors(urls, "image");
+      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
         for (const u of urls) process.stdout.write(`${u}\n`);
         for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
       });

@@ -6,6 +6,8 @@ import fs from "node:fs";
 import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { emit, fmt, note, spinner, table } from "../cli/output.js";
+import { buildMediaDescriptors } from "../core/media.js";
+import { extractOutputUrls } from "../core/poll.js";
 import { uploadFile } from "../core/upload.js";
 import { TimeoutError } from "../core/errors.js";
 import { capture } from "../cli/telemetry.js";
@@ -54,7 +56,8 @@ export function registerAvatarCommands(program: Command): void {
           target_language: opts.language,
         }),
       );
-      emit(ctx.out, result, (o) => {
+      const media = buildMediaDescriptors(extractOutputUrls(result), "audio");
+      emit(ctx.out, { ...result, output_media: media }, (o) => {
         note(o, fmt.green(o, `Avatar video ${result?.avatar_video_id ?? "created"}.`));
         note(o, fmt.dim(o, `Render (paid): videodraft avatar render ${result?.avatar_video_id}`));
       });
@@ -90,7 +93,8 @@ export function registerAvatarCommands(program: Command): void {
           spin.update(`Rendering avatar video — ${exportStatus}`);
           if (exportStatus === "completed") {
             spin.stop();
-            emit(ctx.out, status, (o) => {
+            const media = buildMediaDescriptors(extractOutputUrls(status), "video");
+            emit(ctx.out, { ...status, output_media: media }, (o) => {
               note(o, fmt.green(o, "Avatar render completed."));
               if (status?.video_url) process.stdout.write(`${status.video_url}\n`);
             });
@@ -120,8 +124,9 @@ export function registerAvatarCommands(program: Command): void {
     .description("Fetch one avatar video (status + video_url when rendered)")
     .action(async function (this: Command, avatarVideoId: string) {
       const ctx = buildContext(this);
-      const result = await ctx.client.callTool("get_avatar_video", { avatar_video_id: avatarVideoId });
-      emit(ctx.out, result);
+      const result: any = await ctx.client.callTool("get_avatar_video", { avatar_video_id: avatarVideoId });
+      const media = buildMediaDescriptors(extractOutputUrls(result), "video");
+      emit(ctx.out, { ...result, output_media: media });
     });
 
   avatar

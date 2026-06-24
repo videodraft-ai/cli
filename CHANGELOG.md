@@ -3,6 +3,15 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.1.2]
+
+### Added
+
+- JSON output for media-producing commands now includes `output_media` descriptors
+  with explicit `{ kind, url }` entries, so desktop and agent clients can render
+  generated images, videos and audio without scraping human text or guessing from
+  file extensions.
+
 ## [0.1.1]
 
 ### Fixed
