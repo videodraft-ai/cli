@@ -75,6 +75,30 @@ const server = http.createServer((req, res) => {
           return toolResult({ user_id: "u_1", email: "e2e@test", workspace_id: "w_1", echo: args });
         case "get_credits_balance":
           return toolResult({ availableCredits: 1234, totalCreditsMonthly: 5000, monthlyCreditsUsed: 100 });
+        case "get_tool_catalog":
+          return toolResult({
+            tools: [
+              {
+                name: "whoami",
+                description: "who",
+                category: "account_models_costs",
+                subcategory: "identity",
+                lanes: ["account"],
+                risks: ["read"],
+              },
+              {
+                name: "generate_image",
+                description: "gen",
+                category: "asset_generation",
+                subcategory: "image",
+                lanes: ["assets"],
+                risks: ["write", "paid"],
+              },
+            ],
+            total: 2,
+            lanes: ["assets", "account"],
+            categories: ["asset_generation", "account_models_costs"],
+          });
         case "generate_image":
           return toolResult({ job_id: "job_123", status: "submitted", received: args });
         case "check_generation_status": {
