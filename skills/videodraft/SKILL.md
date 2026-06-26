@@ -5,7 +5,11 @@ description: Create AI videos, images, voiceovers, music, sound effects, dialogu
 
 # VideoDraft
 
-VideoDraft is an AI video creation platform: idea → script → storyboard (scenes + shot images) → production (voiceover, captions, motion clips, music) → exported MP4. You can drive all of it from this environment.
+VideoDraft is an AI video creation platform where asset generation is the priority lane:
+
+- **Asset generation**: standalone images, video clips, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
+- **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
+- **Project production**: idea → script → storyboard (scenes + shot images) → project data → production timeline → exported MP4. Use this only when the user asks for a story, storyboard, editable project, timeline, or final video.
 
 ## How to connect
 
@@ -17,15 +21,18 @@ Two equivalent surfaces (same backend, same credits, same projects):
      • HEADLESS / CI (no browser): set `VIDEODRAFT_API_KEY=vd_mcp_...` (a token the user mints at https://app.videodraft.ai/mcp-keys).
      • SECURITY: never ask the user to paste a `vd_mcp_...` token into the chat — use browser `login` or the env var so the token never lands in the transcript.
    - Every command accepts `--json` (parse this, don't scrape text). Exit codes: 0 ok, 1 error, 2 usage, 3 auth (see Auth above), 4 insufficient credits (→ tell the user, don't retry).
-   - Full API access: `videodraft tools list`, `videodraft tools schema <name>`, `videodraft call <tool> --args '<json>'`.
+   - Tool discovery: start with `videodraft tools list` for the grouped catalog, then narrow with `videodraft tools list --lane assets`, `--lane asset_io`, `--lane project_data`, or `--lane production`.
+   - Asset lane: `videodraft generate image|video|voiceover|music|sound-effect|dialogue|voice-changer|dub`, `videodraft upload`, and `videodraft download`.
+   - Full API access: `videodraft tools schema <name>`, `videodraft call <tool> --args '<json>'`.
 2. **MCP connector**: if VideoDraft MCP tools (e.g. `generate_storyboard_from_idea`) are available, call them directly — the CLI's curated commands map 1:1 onto these tools.
 
-## First decision: asset or video?
+## First decision: asset or project?
 
-- **One standalone asset** (a single image, clip, voiceover, music track, sound effect, dialogue track, voice-changed file, or dubbed media file, no story): generate it directly. Do NOT create a project.
+- **One standalone asset** (image, clip, voiceover, music track, sound effect, dialogue track, voice-changed file, dubbed media file, upscale, or description): generate it directly. Do NOT create a project.
   - `videodraft generate image "a red fox in snow, cinematic" --ar 16:9 --download ./out/`
   - `videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --download ./out/`
-- **A video / ad / explainer / anything multi-scene**: create a project so the work stays organized, editable in the web app, and exportable.
+- **A small set of related assets**: still stay in the asset lane. Use an AI Studio session if you need to group related generations, but do not make a storyboard/project unless the user asks for one.
+- **A multi-scene video / ad / explainer, storyboard, timeline, or final exported video**: create a project so the work stays organized, editable in the web app, and exportable.
   - `videodraft create "30s launch video for our espresso machine" --ar 9:16`
 - **Just a script** (no video asked for): `videodraft create "..." --script-only`. Stop at the script — do not build a storyboard the user didn't ask for.
 - **Iterating on existing work**: find it first (`videodraft projects list`) and reuse that project. Never create a new project to change an existing one.

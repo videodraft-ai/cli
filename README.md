@@ -30,18 +30,9 @@ export VIDEODRAFT_API_KEY=vd_mcp_…  # headless / CI — no login command neede
 
 Credentials are stored in `~/.config/videodraft/config.json` (0600). `videodraft logout` revokes and clears them.
 
-## The pipeline
+## Asset generation first
 
-```bash
-videodraft credits                              # know your budget
-videodraft create "<idea>" --ar 9:16            # idea → script → visual assets → storyboard
-videodraft shots <project> --grid --estimate    # preview the cost…
-videodraft shots <project> --grid               # …then batch-generate every shot image
-videodraft produce <project>                    # voiceovers + captions + production timeline
-videodraft export <project> --download final.mp4
-```
-
-Single assets don't need a project:
+Standalone images, clips and audio are complete deliverables. They do not need a VideoDraft project unless you want to attach them to an existing project or turn them into a multi-scene production.
 
 ```bash
 videodraft generate image "isometric workspace, warm light" --num 4 --download "./out/{job_id}_{index}.{ext}"
@@ -56,6 +47,32 @@ videodraft upscale image ./photo.png --scale 4x --download ./photo-4x.png
 videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our launch' --json | jq -r .script)"
 ```
 
+Discover the full asset lane:
+
+```bash
+videodraft tools list
+videodraft tools list --lane assets
+videodraft tools list --lane asset_io
+videodraft models image
+videodraft models video
+videodraft models audio
+```
+
+Asset I/O is part of the asset workflow: `videodraft upload`, `videodraft download`, generation `--download`, and local refs like `--ref ./image.png` make files usable by agents and visible in local workspaces.
+
+## The project pipeline
+
+Use projects when the user asks for a story, storyboard, editable web project, timeline, production flow, or exported MP4.
+
+```bash
+videodraft credits                              # know your budget
+videodraft create "<idea>" --ar 9:16            # idea → script → visual assets → storyboard
+videodraft shots <project> --grid --estimate    # preview the cost…
+videodraft shots <project> --grid               # …then batch-generate every shot image
+videodraft produce <project>                    # voiceovers + captions + production timeline
+videodraft export <project> --download final.mp4
+```
+
 ## Commands
 
 | Group | Commands |
@@ -67,7 +84,7 @@ videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our
 | Generate | `generate image/video/voiceover/music/sound-effect/dialogue/voice-changer/dub` `upscale image/video` `avatar script/create/render/get/list` |
 | Jobs | `status <job>` `wait <job>` `generations` |
 | Media | `upload <file>` `media list` `describe <url\|file>` `download <url>` |
-| Everything else | `tools list` `tools schema <name>` `call <tool> --args '<json>'` |
+| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'` |
 | Agents | `skills install [--agent claude\|codex\|cursor]` `skills path` |
 | Utility | `config get/set/path` `completion bash\|zsh` `docs` `--version` |
 

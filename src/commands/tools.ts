@@ -2,6 +2,7 @@
  * Generic passthrough — full coverage of every MCP tool, current and future.
  *
  *   videodraft tools list
+ *   videodraft tools list --lane assets
  *   videodraft tools schema generate_image
  *   videodraft call generate_image --arg prompt="a red fox" --arg num_images=2
  *   videodraft call update_project --args '{"project_id":"...","title":"New"}'
@@ -11,7 +12,7 @@
  */
 
 import type { Command } from "commander";
-import { buildContext, collect } from "../cli/context.js";
+import { buildContext, collect, compact } from "../cli/context.js";
 import { emit, fmt, note, table } from "../cli/output.js";
 import { CliError, EXIT } from "../core/errors.js";
 import { capture } from "../cli/telemetry.js";
@@ -38,22 +39,117 @@ export function parseKeyValueArgs(pairs: string[]): Record<string, unknown> {
   return args;
 }
 
+const CATEGORY_ORDER = [
+  "asset_generation",
+  "asset_io",
+  "asset_library",
+  "project_creation",
+  "project_data",
+  "production",
+  "account_models_costs",
+  "jobs",
+  "danger_zone",
+  "raw",
+];
+
+const LANE_ORDER = [
+  "assets",
+  "asset_io",
+  "projects",
+  "project_data",
+  "production",
+  "library",
+  "account",
+  "danger",
+  "raw",
+];
+
+function firstSentence(description: string): string {
+  return description.split(/[.!]\s/)[0]!.slice(0, 90);
+}
+
 export function registerToolCommands(program: Command): void {
   const tools = program.command("tools").description("Inspect the full MCP tool catalog");
 
   tools
     .command("list", { isDefault: true })
-    .description("List every available tool")
+    .description("List the grouped VideoDraft tool catalog")
+    .option(
+      "--lane <lane>",
+      "filter by lane: assets | asset_io | projects | project_data | production | library | account | danger | raw",
+    )
+    .option(
+      "--category <category>",
+      "filter by category, e.g. asset_generation, asset_io, project_data, or production",
+    )
     .action(async function (this: Command) {
       const ctx = buildContext(this);
-      const list = await ctx.client.listTools();
-      emit(ctx.out, list.map((t) => ({ name: t.name, description: t.description })), (o) => {
-        table(
-          o,
-          ["name", "description"],
-          list.map((t) => [t.name, t.description.split(/[.!]\s/)[0]!.slice(0, 90)]),
+      const opts = this.opts<{
+        lane?: string;
+        category?: string;
+      }>();
+      if (opts.lane && !LANE_ORDER.includes(opts.lane)) {
+        throw new CliError(
+          `Unknown lane "${opts.lane}". Expected one of: ${LANE_ORDER.join(", ")}`,
+          EXIT.USAGE,
         );
-        note(o, fmt.dim(o, `\n${list.length} tools. Inspect one: videodraft tools schema <name>`));
+      }
+      if (opts.category && !CATEGORY_ORDER.includes(opts.category)) {
+        throw new CliError(
+          `Unknown category "${opts.category}". Expected one of: ${CATEGORY_ORDER.join(", ")}`,
+          EXIT.USAGE,
+        );
+      }
+      let summary: Array<{
+        name: string;
+        description: string;
+        category: string;
+        subcategory?: string;
+        lanes: string[];
+        risks: string[];
+      }>;
+      const catalog: any = await ctx.client.callTool(
+        "get_tool_catalog",
+        compact({ lane: opts.lane, category: opts.category }),
+      );
+      summary = catalog?.tools ?? [];
+      emit(ctx.out, summary, (o) => {
+        const categories = Array.from(
+          new Set(summary.map((tool) => tool.category)),
+        ).sort((a, b) => {
+          const ai = CATEGORY_ORDER.indexOf(a);
+          const bi = CATEGORY_ORDER.indexOf(b);
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.localeCompare(b);
+        });
+        if (categories.length === 0) {
+          table(o, ["name", "type", "risk", "description"], []);
+        }
+        for (const category of categories) {
+          const rows = summary.filter((tool) => tool.category === category);
+          process.stdout.write(`\n${fmt.bold(o, category)}\n`);
+          table(
+            o,
+            ["name", "type", "risk", "description"],
+            rows.map((tool) => [
+              tool.name,
+              tool.subcategory ?? "",
+              tool.risks.join(","),
+              firstSentence(tool.description),
+            ]),
+          );
+        }
+        const suffix = opts.lane
+          ? ` in lane "${opts.lane}"`
+          : opts.category
+            ? ` in category "${opts.category}"`
+            : "";
+        note(
+          o,
+          fmt.dim(
+            o,
+            `\n${summary.length} tools${suffix}. Inspect one: videodraft tools schema <name>`,
+          ),
+        );
       });
     });
 

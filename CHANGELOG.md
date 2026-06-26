@@ -3,6 +3,21 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.2.1]
+
+### Added
+
+- `videodraft tools list` now uses the grouped VideoDraft tool catalog and
+  supports `--lane` / `--category` filters, making asset generation, asset I/O,
+  project data, and production tools easier for agents to discover.
+- The bundled VideoDraft agent skill now leads with standalone asset generation
+  and keeps projects reserved for scripts, storyboards, timelines, and exports.
+
+### Fixed
+
+- Fixed the typed options call in `tools list` so the CLI package compiles with
+  the grouped catalog changes.
+
 ## [0.2.0]
 
 ### Added
