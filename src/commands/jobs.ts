@@ -103,7 +103,7 @@ export function registerJobCommands(program: Command): void {
   program
     .command("generations")
     .description("List recent + in-flight generations")
-    .option("--type <type>", "image | video")
+    .option("--type <type>", "image | video | sounds")
     .option("--status <status>", "pending | processing | completed | failed")
     .option("--limit <n>", "max rows (default 30)")
     .action(async function (this: Command) {

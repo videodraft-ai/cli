@@ -1,10 +1,6 @@
 ---
 name: videodraft
-description: Create AI videos, images, voiceovers, music, storyboards, avatar videos and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, or background music — including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.
-license: MIT
-metadata:
-  author: VideoDraft (videodraft.ai)
-  homepage: https://videodraft.ai/cli
+description: Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, or dubbing — including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.
 ---
 
 # VideoDraft
@@ -26,7 +22,7 @@ Two equivalent surfaces (same backend, same credits, same projects):
 
 ## First decision: asset or video?
 
-- **One standalone asset** (a single image, clip, voiceover, or music track, no story): generate it directly. Do NOT create a project.
+- **One standalone asset** (a single image, clip, voiceover, music track, sound effect, dialogue track, voice-changed file, or dubbed media file, no story): generate it directly. Do NOT create a project.
   - `videodraft generate image "a red fox in snow, cinematic" --ar 16:9 --download ./out/`
   - `videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --download ./out/`
 - **A video / ad / explainer / anything multi-scene**: create a project so the work stays organized, editable in the web app, and exportable.
@@ -39,10 +35,10 @@ Two equivalent surfaces (same backend, same credits, same projects):
 Generation costs credits (video is per-second; shot-image batches are the largest single spend). Before anything expensive:
 
 1. `videodraft credits` — check the balance.
-2. `videodraft generate video "..." --estimate` or `videodraft costs <model> --duration 8 --resolution 1080p` — get the quote.
+2. `videodraft generate video "..." --estimate` or `videodraft costs <model> --duration 8 --resolution 1080p` — get the quote. For ElevenLabs audio, use `--type audio` plus `--duration`, `--length`, or `--chars`.
 3. Tell the user the model + settings + rough cost and get a go-ahead. Ask rather than assume aspect ratio, duration, and model when they matter.
 
-`videodraft models image|video` lists every model with its supported inputs (aspect ratios, resolutions, reference limits) — consult it instead of guessing capabilities.
+`videodraft models image|video|audio` lists every model with its supported inputs (aspect ratios, resolutions, reference limits, audio billing inputs) — consult it instead of guessing capabilities.
 
 ## Async jobs
 
@@ -80,7 +76,7 @@ videodraft produce <project_id>                 # voiceovers + captions + produc
 videodraft export <project_id> --download final.mp4
 ```
 
-Optional between produce and export: per-shot motion clips (`videodraft generate video ... --project <id>` then place it with `videodraft attach <project> --scene N --shot M --media <url|file> --type video --duration <s>`), and music (`videodraft generate music "..." --attach <project_id>`). Details, per-step tools and editing rules: [references/pipeline.md](references/pipeline.md).
+Optional between produce and export: per-shot motion clips (`videodraft generate video ... --project <id>` then place it with `videodraft attach <project> --scene N --shot M --media <url|file> --type video --duration <s>`), music (`videodraft generate music "..." --attach <project_id>`), and standalone audio assets (`generate sound-effect`, `generate dialogue`, `generate voice-changer`, `generate dub`). Details, per-step tools and editing rules: [references/pipeline.md](references/pipeline.md).
 
 Avatar/talking-head videos are their own short flow: `videodraft avatar script` → `avatar create` → `avatar render` (paid step).
 

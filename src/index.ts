@@ -46,7 +46,7 @@ function buildProgram(): Command {
   program
     .name("videodraft")
     .description(
-      "Create AI videos, images, voiceovers and music from your terminal.\n" +
+      "Create AI videos, images and audio from your terminal.\n" +
         "Agent-friendly: every command supports --json; exit codes are stable\n" +
         "(0 ok, 1 error, 2 usage, 3 auth, 4 insufficient credits).",
     )

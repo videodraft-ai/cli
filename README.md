@@ -1,6 +1,6 @@
 # videodraft
 
-The official [VideoDraft](https://videodraft.ai) CLI — create AI videos, images, voiceovers and music from your terminal. Built for humans **and** coding agents: every command supports `--json`, exit codes are stable, async jobs are first-class.
+The official [VideoDraft](https://videodraft.ai) CLI — create AI videos, images and audio from your terminal. Built for humans **and** coding agents: every command supports `--json`, exit codes are stable, async jobs are first-class.
 
 ```bash
 npx videodraft login
@@ -48,6 +48,10 @@ videodraft generate image "isometric workspace, warm light" --num 4 --download "
 videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --estimate
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3
 videodraft generate music "minimal ambient, 60 BPM" --download bgm.mp3
+videodraft generate sound-effect "cinematic whoosh, sub hit" --duration 3 --download sfx.mp3
+videodraft generate dialogue --line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Ready?" --line "elevenlabs-s3TPKV1kjDlVtZbl4Ksh:Let's go." --download dialogue.mp3
+videodraft generate voice-changer ./speech.wav --voice elevenlabs-kPzsL2i3teMYv0FxEYQ6 --duration 12 --download changed.mp3
+videodraft generate dub ./clip.mp4 --to es --duration 30 --download dubbed.mp4
 videodraft upscale image ./photo.png --scale 4x --download ./photo-4x.png
 videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our launch' --json | jq -r .script)"
 ```
@@ -57,10 +61,10 @@ videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our
 | Group | Commands |
 |---|---|
 | Auth | `login` `logout` `whoami` |
-| Account | `credits` `costs [model]` `models [image\|video\|voices\|styles]` `workspaces` `sessions list/create` |
+| Account | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create` |
 | Projects | `projects list/get/delete/favorite/open` `checkpoint create/list/restore` |
 | Pipeline | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts` |
-| Generate | `generate image/video/voiceover/music` `upscale image/video` `avatar script/create/render/get/list` |
+| Generate | `generate image/video/voiceover/music/sound-effect/dialogue/voice-changer/dub` `upscale image/video` `avatar script/create/render/get/list` |
 | Jobs | `status <job>` `wait <job>` `generations` |
 | Media | `upload <file>` `media list` `describe <url\|file>` `download <url>` |
 | Everything else | `tools list` `tools schema <name>` `call <tool> --args '<json>'` |

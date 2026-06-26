@@ -3,6 +3,25 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.2.0]
+
+### Added
+
+- Added ElevenLabs audio commands: `generate sound-effect`, `generate dialogue`,
+  `generate voice-changer`, and `generate dub`, with local media upload,
+  JSON output, downloads, and AI Studio session/project linking.
+- Added audio model discovery/cost guidance to the bundled VideoDraft agent
+  skill so CLI users and agents can choose the right sound generation flow.
+
+### Fixed
+
+- **`--version` now reports the real version in the single-file (compiled)
+  binary.** The version is baked in at build time via an esbuild `define`
+  instead of being read from `package.json` at runtime — inside a compiled
+  binary that read resolved a path in the embedded virtual filesystem and fell
+  back to `0.0.0`. The `tsx` dev and `node dist/` paths still read
+  `package.json` as before.
+
 ## [0.1.2]
 
 ### Added

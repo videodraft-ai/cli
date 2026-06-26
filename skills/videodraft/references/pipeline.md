@@ -16,6 +16,10 @@ Everything here works through the CLI (`videodraft <command>` / `videodraft call
 | Motion clip for a shot | `videodraft generate video --project <id>` | `generate_video` |
 | Attach a finished clip to the timeline | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot` |
 | Background music | `videodraft generate music --attach <project>` | `generate_music` / `set_background_music` |
+| Sound effect | `videodraft generate sound-effect "..."` | `generate_sound_effect` |
+| Dialogue audio | `videodraft generate dialogue --line "voice:text"` | `generate_dialogue` |
+| Voice changer | `videodraft generate voice-changer <audio>` | `change_voice` |
+| Dubbing | `videodraft generate dub <audio_or_video>` | `dub_media` |
 | Scene voiceover | `videodraft generate voiceover --project <id> --scene N` | `generate_voiceover` |
 | Final MP4 | `videodraft export <project>` | `export_video` + `check_export_status` |
 

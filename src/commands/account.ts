@@ -26,12 +26,19 @@ export function registerAccountCommands(program: Command): void {
 
   program
     .command("costs [model]")
-    .description("Show credit costs — pass a model id plus video settings for an exact estimate")
-    .option("--type <type>", "image | video")
-    .option("--duration <seconds>", "video duration in seconds")
+    .description(
+      "Show credit costs — pass a model id plus settings for an exact estimate",
+    )
+    .option("--type <type>", "image | video | audio")
+    .option("--duration <seconds>", "video/audio duration in seconds")
+    .option("--length <seconds>", "ElevenLabs Music output length in seconds")
+    .option("--chars <n>", "ElevenLabs Dialogue character count")
     .option("--resolution <res>", 'e.g. "720p", "1080p", "1K", "2K"')
     .option("--quality <tier>", 'e.g. "standard", "pro", "fast"')
-    .option("--rendering-speed <tier>", 'image speed/cost tier, e.g. Ideogram V4 "Turbo"/"Balanced"/"Quality"')
+    .option(
+      "--rendering-speed <tier>",
+      'image speed/cost tier, e.g. Ideogram V4 "Turbo"/"Balanced"/"Quality"',
+    )
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
     .option("--num <n>", "image batch size")
@@ -44,6 +51,8 @@ export function registerAccountCommands(program: Command): void {
         quality?: string;
         renderingSpeed?: string;
         audio?: boolean;
+        length?: string;
+        chars?: string;
         num?: string;
       }>();
       const result: any = await ctx.client.callTool(
@@ -52,6 +61,8 @@ export function registerAccountCommands(program: Command): void {
           model_id: model,
           type: opts.type,
           duration_seconds: opts.duration ? Number(opts.duration) : undefined,
+          length_seconds: opts.length ? Number(opts.length) : undefined,
+          characters: opts.chars ? Number(opts.chars) : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
           rendering_speed: opts.renderingSpeed,
@@ -64,7 +75,9 @@ export function registerAccountCommands(program: Command): void {
 
   program
     .command("models [kind]")
-    .description("List available models: image | video | voices | styles (default: image + video)")
+    .description(
+      "List available models: image | video | audio | voices | styles (default: image + video + audio)",
+    )
     .action(async function (this: Command, kind?: string) {
       const ctx = buildContext(this);
       const wanted = kind ?? "all";
@@ -76,14 +89,24 @@ export function registerAccountCommands(program: Command): void {
       if (wanted === "video" || wanted === "all") {
         result.video = await ctx.client.callTool("list_available_video_models");
       }
-      if (wanted === "voices") result.voices = await ctx.client.callTool("list_available_voices");
-      if (wanted === "styles") result.styles = await ctx.client.callTool("list_available_styles");
+      if (wanted === "audio" || wanted === "all") {
+        result.audio = await ctx.client.callTool("list_available_audio_models");
+      }
+      if (wanted === "voices") {
+        result.voices = await ctx.client.callTool("list_available_voices");
+      }
+      if (wanted === "styles") {
+        result.styles = await ctx.client.callTool("list_available_styles");
+      }
 
       emit(ctx.out, result, (o) => {
         for (const [section, payload] of Object.entries(result)) {
           const models: any[] = Array.isArray(payload)
             ? payload
-            : ((payload as any)?.models ?? (payload as any)?.voices ?? (payload as any)?.styles ?? []);
+            : ((payload as any)?.models ??
+              (payload as any)?.voices ??
+              (payload as any)?.styles ??
+              []);
           process.stdout.write(`\n${section.toUpperCase()}\n`);
           if (!Array.isArray(models) || models.length === 0) {
             process.stdout.write(JSON.stringify(payload, null, 2) + "\n");

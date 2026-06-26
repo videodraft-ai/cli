@@ -5,6 +5,7 @@ Always consult the live catalog instead of memorizing this page — models chang
 ```bash
 videodraft models image --json     # every image model + inputs (aspect ratios, resolutions, max refs)
 videodraft models video --json     # every video model + inputs + per-second pricing metadata
+videodraft models audio --json     # standalone audio/media models + pricing inputs
 videodraft models voices --json    # TTS voices
 videodraft models styles --json    # visual style presets
 ```
@@ -14,7 +15,8 @@ videodraft models styles --json    # visual style presets
 - **Image**: `nano-banana-2` (the platform default, 1K). Use `--num 1..4` for variations of one prompt in a single call — never loop for variations.
 - **Video**: `google-veo3.1` at fast quality (6s / 720p) — the platform default.
 - **Voiceover**: ElevenLabs Brittney (default voice).
-- **Music**: `lyria-3-clip-preview` (30s, cheap); `lyria-3-pro-preview` for 180s/quality.
+- **Music**: `lyria-3-clip-preview` (30s, cheap); `lyria-3-pro-preview` for 180s/quality; `elevenlabs-music` for music that can include vocals/lyrics.
+- **ElevenLabs audio**: `generate sound-effect`, `generate dialogue`, `generate voice-changer`, and `generate dub` are synchronous audio/media calls. Voice changer and dubbing require the source media duration in seconds for billing and currently accept source media up to 300s.
 
 ## Capability gotchas
 
@@ -32,12 +34,15 @@ videodraft models styles --json    # visual style presets
 - Video: usually credits/second × duration; rate depends on model + resolution + quality + native audio on/off.
 - Shot-image batches: one image per shot (+1 grid image per scene in `--grid` mode) — the largest single spend in the pipeline.
 - Avatar renders: ~10 credits/sec at 480p, ~20/sec at 720p.
+- ElevenLabs audio: sound effects are per second, dialogue is per character, music/voice-changer/dubbing are per started minute. Voice changer and dubbing reject source media above 300s in the current synchronous flow.
 - Upscales: priced by scale and source size.
 
 Quote before spending:
 
 ```bash
 videodraft costs google-veo3.1 --type video --duration 8 --resolution 1080p --audio
+videodraft costs elevenlabs-dubbing --type audio --duration 60
+videodraft costs elevenlabs-dialogue --type audio --chars 350
 videodraft generate video "..." --estimate        # same quote, inline
 videodraft credits                                 # current balance
 ```

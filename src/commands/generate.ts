@@ -1,5 +1,6 @@
 /**
- * `videodraft generate image|video|voiceover|music` and `videodraft upscale`.
+ * `videodraft generate image|video|voiceover|music|sound-effect|dialogue|voice-changer|dub`
+ * and `videodraft upscale`.
  *
  * Conventions:
  *  - image/video are async server-side: submit → poll. We wait by default
@@ -22,6 +23,18 @@ import { CliError, EXIT } from "../core/errors.js";
 
 /** Any URI scheme (http(s), gs://, data:, …) passes through; a bare path is a local file. */
 const URI_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
+const VIDEO_SOURCE_RE = /\.(mp4|mov|webm|m4v|gif)(?:[?#].*)?$/i;
+
+function inferDubMediaType(
+  source: string,
+  explicit?: string,
+): "audio" | "video" {
+  if (explicit) {
+    if (explicit === "audio" || explicit === "video") return explicit;
+    throw new Error('--type must be "audio" or "video"');
+  }
+  return VIDEO_SOURCE_RE.test(source) ? "video" : "audio";
+}
 
 /**
  * Resolve reference inputs (images, videos, audio): pass URLs through, upload
@@ -150,7 +163,7 @@ async function handleAsyncJob(
 }
 
 export function registerGenerateCommands(program: Command): void {
-  const generate = program.command("generate").description("Generate images, video, voiceovers and music");
+  const generate = program.command("generate").description("Generate images, video and audio");
 
   generate
     .command("image <prompt...>")
@@ -227,8 +240,11 @@ export function registerGenerateCommands(program: Command): void {
     .option("--model <id>", "video model id (default google-veo3.1 fast)")
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9", "9:16"')
     .option("--duration <seconds>", "clip duration in seconds")
-    .option("--resolution <res>", 'e.g. "720p", "1080p"')
-    .option("--quality <tier>", 'e.g. "fast", "quality", "standard", "pro"')
+    .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "4k"')
+    .option(
+      "--quality <tier>",
+      'e.g. "mini", "fast", "standard", "quality", "pro"',
+    )
     .option("--audio", "generate native model audio")
     .option("--no-audio", "disable native model audio")
     .option("--start-image <url|file>", "start frame (image-to-video)")
@@ -354,9 +370,11 @@ export function registerGenerateCommands(program: Command): void {
 
   generate
     .command("music <prompt...>")
-    .description("Generate background music (Lyria 3)")
-    .option("--model <id>", "lyria-3-clip-preview (30s, default) | lyria-3-pro-preview (180s)")
-    .option("--ref <url|file>", "reference image to inspire the music (repeatable)", collect, [])
+    .description("Generate background music")
+    .option("--model <id>", "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music")
+    .option("--length <seconds>", "for --model elevenlabs-music: length 10–120s (default 30)")
+    .option("--instrumental", "for --model elevenlabs-music: force instrumental (no vocals)")
+    .option("--ref <url|file>", "reference image to inspire the music (Lyria only, repeatable)", collect, [])
     .option("--project <id>", "link the generation to a project's AI Studio session")
     .option("--attach <project_id>", "also set the track as that project's background music")
     .option("--volume <n>", "0-100 BGM volume when attaching (default 30)")
@@ -366,13 +384,19 @@ export function registerGenerateCommands(program: Command): void {
     .action(async function (this: Command, promptWords: string[]) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
-      const refs = await resolveRefs(ctx, opts.ref ?? []);
-      capture("cli_generate", { kind: "music", model: opts.model ?? "default" });
+      const musicModel = opts.model ?? "lyria-3-clip-preview";
+      const refs =
+        musicModel === "elevenlabs-music"
+          ? []
+          : await resolveRefs(ctx, opts.ref ?? []);
+      capture("cli_generate", { kind: "music", model: musicModel });
       const result: any = await ctx.client.callTool(
         "generate_music",
         compact({
           prompt: promptWords.join(" "),
-          model: opts.model,
+          model: musicModel,
+          length_seconds: opts.length ? Number(opts.length) : undefined,
+          force_instrumental: opts.instrumental ? true : undefined,
           image_urls: refs.length > 0 ? refs : undefined,
           project_id: opts.project,
           attach_to_project_id: opts.attach,
@@ -391,6 +415,211 @@ export function registerGenerateCommands(program: Command): void {
         for (const url of urls) process.stdout.write(`${url}\n`);
         for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
       });
+    });
+
+  generate
+    .command("sound-effect <prompt...>")
+    .description("Generate a sound effect (ElevenLabs Sound Effects)")
+    .option("--duration <seconds>", "length 0.5–22s (default 5)")
+    .option("--influence <0-1>", "prompt influence (default 0.3)")
+    .option("--project <id>", "link to a project's AI Studio session")
+    .option("--session <id>", "AI Studio session id")
+    .option("--download <path>", "download the audio file")
+    .action(async function (this: Command, promptWords: string[]) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      capture("cli_generate", { kind: "sound_effect" });
+      const result: any = await ctx.client.callTool(
+        "generate_sound_effect",
+        compact({
+          prompt: promptWords.join(" "),
+          duration_seconds: opts.duration ? Number(opts.duration) : undefined,
+          prompt_influence: opts.influence ? Number(opts.influence) : undefined,
+          project_id: opts.project,
+          session_id: opts.session,
+        }),
+      );
+      const urls = extractOutputUrls(result);
+      let downloaded: DownloadedFile[] | undefined;
+      if (opts.download && urls.length > 0) {
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "sound-effect",
+        });
+      }
+      const media = buildMediaDescriptors(urls, "audio");
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
+    });
+
+  generate
+    .command("dialogue")
+    .description(
+      "Generate multi-speaker dialogue (ElevenLabs Text-to-Dialogue). Repeat --line.",
+    )
+    .option(
+      "--line <voiceId:text>",
+      'a dialogue line as "voiceId:text" (repeatable)',
+      collect,
+      [],
+    )
+    .option("--stability <0|0.5|1>", "voice stability")
+    .option("--language <iso>", "ISO 639-1 language code")
+    .option("--project <id>", "link to a project's AI Studio session")
+    .option("--session <id>", "AI Studio session id")
+    .option("--download <path>", "download the audio file")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      const lines = (opts.line as string[]).map((raw) => {
+        const i = raw.indexOf(":");
+        if (i < 0) {
+          throw new Error(`--line must be "voiceId:text" (got "${raw}")`);
+        }
+        return { voice_id: raw.slice(0, i).trim(), text: raw.slice(i + 1).trim() };
+      });
+      if (lines.length === 0) throw new Error("at least one --line is required");
+      capture("cli_generate", { kind: "dialogue" });
+      const result: any = await ctx.client.callTool(
+        "generate_dialogue",
+        compact({
+          lines,
+          stability:
+            opts.stability !== undefined ? Number(opts.stability) : undefined,
+          language_code: opts.language,
+          project_id: opts.project,
+          session_id: opts.session,
+        }),
+      );
+      const urls = extractOutputUrls(result);
+      let downloaded: DownloadedFile[] | undefined;
+      if (opts.download && urls.length > 0) {
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "dialogue",
+        });
+      }
+      const media = buildMediaDescriptors(urls, "audio");
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
+    });
+
+  generate
+    .command("voice-changer <audio>")
+    .description("Restyle speech into another ElevenLabs voice (Voice Changer)")
+    .option("--voice <id>", "target ElevenLabs voice id (default Brittney)")
+    .option(
+      "--duration <seconds>",
+      "length of the source audio in seconds (required, max 300)",
+    )
+    .option("--remove-noise", "remove background noise from the input")
+    .option("--project <id>", "link to a project's AI Studio session")
+    .option("--session <id>", "AI Studio session id")
+    .option("--download <path>", "download the audio file")
+    .action(async function (this: Command, source: string) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      if (!opts.duration) {
+        throw new Error(
+          "--duration <seconds> is required (length of the source audio)",
+        );
+      }
+      const [audioUrl] = await resolveRefs(ctx, [source]);
+      capture("cli_generate", { kind: "voice_changer" });
+      const result: any = await ctx.client.callTool(
+        "change_voice",
+        compact({
+          audio_url: audioUrl,
+          voice_id: opts.voice,
+          duration_seconds: Number(opts.duration),
+          remove_background_noise: opts.removeNoise ? true : undefined,
+          project_id: opts.project,
+          session_id: opts.session,
+        }),
+      );
+      const urls = extractOutputUrls(result);
+      let downloaded: DownloadedFile[] | undefined;
+      if (opts.download && urls.length > 0) {
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "voice-changed",
+        });
+      }
+      const media = buildMediaDescriptors(urls, "audio");
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
+    });
+
+  generate
+    .command("dub <media>")
+    .description("Dub a video/audio file into another language (ElevenLabs Dubbing)")
+    .option("--to <iso>", "target language ISO 639-1 code, e.g. es or te (required)")
+    .option("--from <iso>", "source language ISO 639-1 code (auto-detected if omitted)")
+    .option("--type <audio|video>", "source media type override")
+    .option(
+      "--duration <seconds>",
+      "length of the source media in seconds (required, max 300)",
+    )
+    .option("--speakers <n>", "number of speakers (auto-detected if omitted)")
+    .option("--project <id>", "link to a project's AI Studio session")
+    .option("--session <id>", "AI Studio session id")
+    .option("--download <path>", "download the dubbed file")
+    .action(async function (this: Command, source: string) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      if (!opts.to) throw new Error("--to <iso> (target language) is required");
+      if (!opts.duration) {
+        throw new Error(
+          "--duration <seconds> is required (length of the source media)",
+        );
+      }
+      const mediaType = inferDubMediaType(source, opts.type);
+      const [mediaUrl] = await resolveRefs(ctx, [source]);
+      capture("cli_generate", { kind: "dub" });
+      const result: any = await ctx.client.callTool(
+        "dub_media",
+        compact({
+          video_url: mediaType === "video" ? mediaUrl : undefined,
+          audio_url: mediaType === "audio" ? mediaUrl : undefined,
+          target_lang: opts.to,
+          source_lang: opts.from,
+          num_speakers: opts.speakers ? Number(opts.speakers) : undefined,
+          duration_seconds: Number(opts.duration),
+          project_id: opts.project,
+          session_id: opts.session,
+        }),
+      );
+      const urls = extractOutputUrls(result);
+      let downloaded: DownloadedFile[] | undefined;
+      if (opts.download && urls.length > 0) {
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "dubbed",
+        });
+      }
+      const media = buildMediaDescriptors(urls, mediaType);
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
     });
 
   const upscale = program.command("upscale").description("Upscale images and videos (Topaz)");
