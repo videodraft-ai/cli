@@ -190,4 +190,150 @@ export function registerAuthCommands(program: Command): void {
         ]);
       });
     });
+
+  // ── ElevenLabs BYOK key management ───────────────────────────────────────
+  // Connect your own ElevenLabs key so voiceover/dialogue/SFX/voice-changer/
+  // dubbing run on YOUR account (your cloned voices, no VideoDraft credits).
+  // Talks to the /api/elevenlabs-key REST route with your CLI token — there is
+  // intentionally no MCP tool that writes the secret.
+  const el = program
+    .command("elevenlabs")
+    .description("Manage your ElevenLabs API key (BYOK) — use your cloned voices");
+
+  el.command("status")
+    .description("Show whether your ElevenLabs key is connected and active")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const st: any = await ctx.client.restRequest("GET", "/api/elevenlabs-key");
+      emit(ctx.out, st, (o) => {
+        kv(o, [
+          ["Connected", st?.hasKey ? `yes (••••${st.hint ?? ""})` : "no"],
+          ["Active", st?.enabled ? "yes" : "no"],
+          ["Server", ctx.baseUrl],
+        ]);
+        if (!st?.hasKey) {
+          note(
+            o,
+            fmt.dim(o, "Connect one: videodraft elevenlabs set --key <xi-...>"),
+          );
+        }
+      });
+    });
+
+  el.command("set")
+    .description("Connect (or replace) your ElevenLabs API key and activate it")
+    .option("--key <key>", "your ElevenLabs API key (xi-...)")
+    .option("--no-enable", "store the key without turning it on")
+    .action(async function (this: Command) {
+      const opts = this.opts<{ key?: string; enable?: boolean }>();
+      const ctx = buildContext(this);
+      let key = opts.key?.trim();
+      if (!key && !process.stdin.isTTY) key = (await readStdin()).trim();
+      if (!key) {
+        throw new CliError(
+          "Provide your key with --key <xi-...> (or pipe it via stdin).",
+          EXIT.USAGE,
+        );
+      }
+      const spin = spinner(ctx.out, "Validating key with ElevenLabs…");
+      try {
+        const res: any = await ctx.client.restRequest(
+          "POST",
+          "/api/elevenlabs-key",
+          { key, enabled: opts.enable !== false },
+        );
+        spin.stop();
+        capture("cli_elevenlabs_set");
+        emit(ctx.out, res, (o) =>
+          note(
+            o,
+            fmt.green(
+              o,
+              `ElevenLabs key saved (••••${res.hint ?? ""})${
+                res.enabled
+                  ? " and active — your cloned voices are ready."
+                  : " — run `videodraft elevenlabs enable` to turn it on."
+              }`,
+            ),
+          ),
+        );
+      } catch (e) {
+        spin.stop();
+        throw e;
+      }
+    });
+
+  el.command("enable")
+    .description("Turn your ElevenLabs key on")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const res: any = await ctx.client.restRequest(
+        "PATCH",
+        "/api/elevenlabs-key",
+        { enabled: true },
+      );
+      emit(ctx.out, res, (o) =>
+        note(o, fmt.green(o, "ElevenLabs key is now active.")),
+      );
+    });
+
+  el.command("disable")
+    .description("Turn your ElevenLabs key off (use VideoDraft credits again)")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const res: any = await ctx.client.restRequest(
+        "PATCH",
+        "/api/elevenlabs-key",
+        { enabled: false },
+      );
+      emit(ctx.out, res, (o) =>
+        note(
+          o,
+          "ElevenLabs key disabled. ElevenLabs generations use the VideoDraft path.",
+        ),
+      );
+    });
+
+  el.command("remove")
+    .description("Delete your stored ElevenLabs API key")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const res: any = await ctx.client.restRequest(
+        "DELETE",
+        "/api/elevenlabs-key",
+      );
+      capture("cli_elevenlabs_remove");
+      emit(ctx.out, res ?? { ok: true }, (o) =>
+        note(o, "ElevenLabs key removed."),
+      );
+    });
+
+  el.command("voices")
+    .description("List your ElevenLabs cloned/professional voices")
+    .action(async function (this: Command) {
+      const ctx = buildContext(this);
+      const res: any = await ctx.client.callTool("list_cloned_voices");
+      emit(ctx.out, res, (o) => {
+        if (!res?.byok_active) {
+          note(
+            o,
+            fmt.dim(
+              o,
+              res?.hint ??
+                "Connect your ElevenLabs key first: videodraft elevenlabs set --key <xi-...>",
+            ),
+          );
+          return;
+        }
+        const voices = res?.voices ?? [];
+        if (!voices.length) {
+          note(o, "No cloned voices in your ElevenLabs account yet.");
+          return;
+        }
+        kv(
+          o,
+          voices.map((v: any) => [v.name, v.id]),
+        );
+      });
+    });
 }

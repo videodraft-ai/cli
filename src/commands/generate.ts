@@ -250,7 +250,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--start-image <url|file>", "start frame (image-to-video)")
     .option("--end-image <url|file>", "end frame (supported models only)")
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
-    .option("--ref-video <url|file>", "reference video (repeatable; Seedance 2, Wan 2.7; local files uploaded)", collect, [])
+    .option("--ref-video <url|file>", "reference video (repeatable; Gemini Omni Flash, Seedance 2, Kling O3, Wan 2.7; local files uploaded)", collect, [])
     .option("--ref-audio <url|file>", "reference audio (repeatable; Seedance 2; local files uploaded)", collect, [])
     .option("--segment <prompt:seconds>", "multi-prompt segment (repeatable; Kling 3.0 / 3.0 Turbo / O3)", collect, [])
     .option("--negative <text>", "negative prompt (Kling/Wan/Luma)")

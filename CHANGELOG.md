@@ -3,6 +3,26 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.3.1]
+
+### Fixed
+
+- Synced the public CLI repo with the latest monorepo CLI source and npm line.
+- Updated the schema-drift tool snapshot for the live MCP catalog, including
+  `get_tool_catalog` and `list_cloned_voices`.
+- Updated packaged CLI/agent help for Gemini Omni Flash, Nano Banana 2 Lite,
+  Kling O3, and Wan 2.7 reference-video support.
+
+## [0.3.0]
+
+### Added
+
+- Added `videodraft elevenlabs` commands for ElevenLabs BYOK status, set,
+  enable, disable, remove, and cloned/professional voice listing.
+- Added authenticated REST request support in the CLI client for non-MCP
+  account routes such as `/api/elevenlabs-key`.
+- Added bundled agent guidance for Nano Banana 2 Lite and Gemini Omni Flash.
+
 ## [0.2.1]
 
 ### Added

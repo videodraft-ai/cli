@@ -12,8 +12,8 @@ videodraft models styles --json    # visual style presets
 
 ## Defaults (safe starting points)
 
-- **Image**: `nano-banana-2` (the platform default, 1K). Use `--num 1..4` for variations of one prompt in a single call — never loop for variations.
-- **Video**: `google-veo3.1` at fast quality (6s / 720p) — the platform default.
+- **Image**: `nano-banana-2` (the platform default, 1K, up to 14 reference images). Use `--num 1..4` for variations of one prompt in a single call — never loop for variations. `nano-banana-2-lite` is the fastest/cheapest Google direct image model (1K only, up to 14 reference images).
+- **Video**: `google-veo3.1` at fast quality (6s / 720p) — the platform default. `gemini-omni-flash` is Google's any-to-any multimodal video model (text/image/video → video, auto or 3-10s, 720p, audio always on).
 - **Voiceover**: ElevenLabs Brittney (default voice).
 - **Music**: `lyria-3-clip-preview` (30s, cheap); `lyria-3-pro-preview` for 180s/quality; `elevenlabs-music` for music that can include vocals/lyrics.
 - **ElevenLabs audio**: `generate sound-effect`, `generate dialogue`, `generate voice-changer`, and `generate dub` are synchronous audio/media calls. Voice changer and dubbing require the source media duration in seconds for billing and currently accept source media up to 300s.
@@ -24,7 +24,7 @@ videodraft models styles --json    # visual style presets
 - Most video models support only 16:9 / 9:16 / 1:1. A 3:4 request hard-fails on most.
 - `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4); everything else ignores it. You do not need a seed for variation — `--num` already varies.
 - `--rendering-speed` applies to Ideogram (V3: `Default`/`Turbo`/`Quality`; V4: `Turbo`/`Balanced`/`Quality`) and affects image cost — pass it to `videodraft costs ... --rendering-speed <tier>` for an accurate estimate. Always trust `videodraft models image --json` over this list; new models and tiers appear there the moment the platform ships them, with no CLI update.
-- Reference inputs: `--ref <img>` (images), `--ref-video <v>` (Seedance 2, Wan 2.7), `--ref-audio <a>` (Seedance 2). The CLI uploads local files for all of these, so you can pass a path or a URL. `--segment "<prompt>:<seconds>"` (repeatable) drives multi-prompt models (Kling 3.0 / 3.0 Turbo / O3); total 3-15s. `generate image --video-ref` is the nano-banana-2 video reference.
+- Reference inputs: `--ref <img>` (images), `--ref-video <v>` (Gemini Omni Flash, Seedance 2, Kling O3, Wan 2.7), `--ref-audio <a>` (Seedance 2). The CLI uploads local files for all of these, so you can pass a path or a URL. `--segment "<prompt>:<seconds>"` (repeatable) drives multi-prompt models (Kling 3.0 / 3.0 Turbo / O3); total 3-15s. `generate image --video-ref` is the nano-banana-2 video reference.
 - The top-level prompt is OPTIONAL for `generate video` with multi-prompt models and for Kling 3.0 Turbo (`--model kling-v3-turbo`) image-to-video — a `--segment`-only or `--start-image`-only call is valid. Every other model still needs a prompt; the server enforces per-model rules.
 - AI Production: `videodraft produce <project> --mode full_video` generates one Seedance 2 video per scene; poll with `videodraft generations`, then `videodraft finalize <project>` swaps them into the timeline before `export`.
 

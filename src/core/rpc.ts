@@ -107,6 +107,52 @@ export class VideoDraftClient {
   }
 
   /**
+   * Make an authenticated REST request to a non-MCP API route (e.g.
+   * /api/elevenlabs-key, which manages the user's BYOK ElevenLabs key and has no
+   * MCP tool by design). Uses the same bearer token + 401 refresh as rpc().
+   * Returns the parsed JSON body; throws on non-2xx with the server's error.
+   */
+  async restRequest<T = any>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const doFetch = (token: string) =>
+      this.fetchImpl(`${this.baseUrl}${path}`, {
+        method,
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+          "user-agent": this.userAgent,
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(this.requestTimeoutMs),
+      });
+
+    const token = await this.tokenProvider.getAccessToken();
+    let response = await doFetch(token);
+    if (response.status === 401 && this.tokenProvider.onUnauthorized) {
+      const fresh = await this.tokenProvider.onUnauthorized();
+      if (fresh) response = await doFetch(fresh);
+    }
+    if (response.status === 401) {
+      throw new AuthError("Token is invalid, expired, or revoked.");
+    }
+    let parsed: any = null;
+    try {
+      parsed = await response.json();
+    } catch {
+      // empty / non-JSON body
+    }
+    if (!response.ok) {
+      const detail =
+        parsed?.error?.message ?? parsed?.error ?? `HTTP ${response.status}`;
+      throw new RpcError(response.status, detail);
+    }
+    return parsed as T;
+  }
+
+  /**
    * Batch several JSON-RPC requests into ONE HTTP round trip (the server
    * implements JSON-RPC 2.0 batching). With N concurrent jobs this turns N
    * polling requests per tick into 1 — the difference between 50 waiting CLIs
