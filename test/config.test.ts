@@ -146,6 +146,74 @@ describe("resolveAuth precedence", () => {
     expect(await auth.tokenProvider.getAccessToken()).toBe("vd_mcp_stored");
   });
 
+  it("retries with a rotated PAT profile token after a 401", async () => {
+    writeConfig(
+      {
+        version: 1,
+        active_profile: "default",
+        profiles: {
+          default: { base_url: "https://stored.test", auth_kind: "pat", access_token: "vd_mcp_old" },
+        },
+      },
+      env,
+    );
+    const auth = resolveAuth({ env });
+    expect(await auth.tokenProvider.getAccessToken()).toBe("vd_mcp_old");
+
+    updateConfig((config) => {
+      config.profiles.default = {
+        base_url: "https://stored.test",
+        auth_kind: "pat",
+        access_token: "vd_mcp_new",
+      };
+    }, env);
+
+    expect(await auth.tokenProvider.onUnauthorized?.()).toBe("vd_mcp_new");
+  });
+
+  it("retries repeated stale PAT 401s with the same rotated profile token", async () => {
+    writeConfig(
+      {
+        version: 1,
+        active_profile: "default",
+        profiles: {
+          default: { base_url: "https://stored.test", auth_kind: "pat", access_token: "vd_mcp_old" },
+        },
+      },
+      env,
+    );
+    const auth = resolveAuth({ env });
+    expect(await auth.tokenProvider.getAccessToken()).toBe("vd_mcp_old");
+
+    updateConfig((config) => {
+      config.profiles.default = {
+        base_url: "https://stored.test",
+        auth_kind: "pat",
+        access_token: "vd_mcp_new",
+      };
+    }, env);
+
+    expect(await auth.tokenProvider.onUnauthorized?.("vd_mcp_old")).toBe("vd_mcp_new");
+    expect(await auth.tokenProvider.onUnauthorized?.("vd_mcp_old")).toBe("vd_mcp_new");
+    expect(await auth.tokenProvider.onUnauthorized?.("vd_mcp_new")).toBeNull();
+  });
+
+  it("does not retry an unchanged PAT profile token after a 401", async () => {
+    writeConfig(
+      {
+        version: 1,
+        active_profile: "default",
+        profiles: {
+          default: { base_url: "https://stored.test", auth_kind: "pat", access_token: "vd_mcp_stored" },
+        },
+      },
+      env,
+    );
+    const auth = resolveAuth({ env });
+    expect(await auth.tokenProvider.getAccessToken()).toBe("vd_mcp_stored");
+    expect(await auth.tokenProvider.onUnauthorized?.()).toBeNull();
+  });
+
   it("env base URL overrides the profile's", () => {
     writeConfig(
       {

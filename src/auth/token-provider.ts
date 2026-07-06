@@ -104,6 +104,8 @@ export function profileTokenProvider(
   profileName: string,
   env: NodeJS.ProcessEnv = process.env,
 ): TokenProvider {
+  let lastAccessToken: string | null = null;
+
   return {
     async getAccessToken() {
       const { profile } = getProfile(profileName, env);
@@ -111,19 +113,31 @@ export function profileTokenProvider(
       if (profile.auth_kind === "oauth" && isExpiring(profile)) {
         const fresh = await refreshUnderLock(profileName, env);
         if (!fresh) throw new AuthError("Your session expired and could not be refreshed.");
+        lastAccessToken = fresh;
         return fresh;
       }
+      lastAccessToken = profile.access_token;
       return profile.access_token;
     },
-    async onUnauthorized() {
+    async onUnauthorized(failedToken?: string) {
       const { profile } = getProfile(profileName, env);
-      if (profile?.auth_kind !== "oauth") return null;
+      if (!profile?.access_token) return null;
+      if (profile.auth_kind !== "oauth") {
+        const staleToken = failedToken ?? lastAccessToken;
+        if (profile.access_token !== staleToken) {
+          lastAccessToken = profile.access_token;
+          return profile.access_token;
+        }
+        return null;
+      }
       // Force-expire then refresh under lock.
       updateConfig((config) => {
         const p = config.profiles[profileName];
-        if (p) p.expires_at = new Date(0).toISOString();
+        if (p?.auth_kind === "oauth") p.expires_at = new Date(0).toISOString();
       }, env);
-      return refreshUnderLock(profileName, env);
+      const fresh = await refreshUnderLock(profileName, env);
+      if (fresh) lastAccessToken = fresh;
+      return fresh;
     },
   };
 }

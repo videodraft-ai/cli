@@ -3,6 +3,13 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.3.2]
+
+### Fixed
+
+- Retry CLI requests with a newly-rotated profile PAT after a stale-token 401,
+  so desktop-managed MCP key rotation can recover without restarting the CLI.
+
 ## [0.3.1]
 
 ### Fixed

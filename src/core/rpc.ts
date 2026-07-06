@@ -16,7 +16,7 @@ export interface TokenProvider {
    * Called once after a 401. Return a fresh token to retry with, or null to
    * give up (the 401 then surfaces as AuthError).
    */
-  onUnauthorized?(): Promise<string | null>;
+  onUnauthorized?(failedToken?: string): Promise<string | null>;
 }
 
 export interface VideoDraftClientOptions {
@@ -59,7 +59,7 @@ export class VideoDraftClient {
     let response = await this.post(method, params, token);
 
     if (response.status === 401 && this.tokenProvider.onUnauthorized) {
-      const fresh = await this.tokenProvider.onUnauthorized();
+      const fresh = await this.tokenProvider.onUnauthorized(token);
       if (fresh) response = await this.post(method, params, fresh);
     }
     if (response.status === 401) {
@@ -132,7 +132,7 @@ export class VideoDraftClient {
     const token = await this.tokenProvider.getAccessToken();
     let response = await doFetch(token);
     if (response.status === 401 && this.tokenProvider.onUnauthorized) {
-      const fresh = await this.tokenProvider.onUnauthorized();
+      const fresh = await this.tokenProvider.onUnauthorized(token);
       if (fresh) response = await doFetch(fresh);
     }
     if (response.status === 401) {
@@ -184,7 +184,7 @@ export class VideoDraftClient {
 
     let response = await post(token);
     if (response.status === 401 && this.tokenProvider.onUnauthorized) {
-      const fresh = await this.tokenProvider.onUnauthorized();
+      const fresh = await this.tokenProvider.onUnauthorized(token);
       if (fresh) response = await post(fresh);
     }
     if (response.status === 401) throw new AuthError("Token is invalid, expired, or revoked.");
