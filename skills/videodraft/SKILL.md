@@ -1,8 +1,6 @@
 ---
 name: videodraft
 description: Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, or dubbing — including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.
-argument-hint: "[what to make, e.g. \"a 6s cinematic video of a red fox\"]"
-allowed-tools: Bash(videodraft *) Bash(npx -y videodraft@latest *)
 ---
 
 # VideoDraft

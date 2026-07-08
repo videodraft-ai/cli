@@ -27,7 +27,7 @@ export function registerAccountCommands(program: Command): void {
   program
     .command("costs [model]")
     .description(
-      "Show credit costs — pass a model id plus settings for an exact estimate",
+      "Show credit costs. Pass a model id, or an image display name, plus settings for an exact estimate",
     )
     .option("--type <type>", "image | video | audio")
     .option("--duration <seconds>", "video/audio duration in seconds")

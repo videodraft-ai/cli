@@ -24,13 +24,14 @@ videodraft models styles --json    # visual style presets
 - Most video models support only 16:9 / 9:16 / 1:1. A 3:4 request hard-fails on most.
 - `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4); everything else ignores it. You do not need a seed for variation — `--num` already varies.
 - `--rendering-speed` applies to Ideogram (V3: `Default`/`Turbo`/`Quality`; V4: `Turbo`/`Balanced`/`Quality`) and affects image cost — pass it to `videodraft costs ... --rendering-speed <tier>` for an accurate estimate. Always trust `videodraft models image --json` over this list; new models and tiers appear there the moment the platform ships them, with no CLI update.
+- `seedream-v5-pro` supports unified text-to-image and reference-image editing with up to 10 image references. Use `--resolution 1K` for 7 credits/image or `--resolution 2K` for 14 credits/image.
 - Reference inputs: `--ref <img>` (images), `--ref-video <v>` (Gemini Omni Flash, Seedance 2, Kling O3, Wan 2.7), `--ref-audio <a>` (Seedance 2). The CLI uploads local files for all of these, so you can pass a path or a URL. `--segment "<prompt>:<seconds>"` (repeatable) drives multi-prompt models (Kling 3.0 / 3.0 Turbo / O3); total 3-15s. `generate image --video-ref` is the nano-banana-2 video reference.
 - The top-level prompt is OPTIONAL for `generate video` with multi-prompt models and for Kling 3.0 Turbo (`--model kling-v3-turbo`) image-to-video — a `--segment`-only or `--start-image`-only call is valid. Every other model still needs a prompt; the server enforces per-model rules.
 - AI Production: `videodraft produce <project> --mode full_video` generates one Seedance 2 video per scene; poll with `videodraft generations`, then `videodraft finalize <project>` swaps them into the timeline before `export`.
 
 ## Cost model
 
-- Images: per image (× `--num`). Matrix-priced models (GPT-Image, Nano Banana Pro) vary by resolution/quality.
+- Images: per image (× `--num`). Matrix-priced models (GPT-Image, Nano Banana Pro, Seedream v5 Pro) vary by resolution/quality.
 - Video: usually credits/second × duration; rate depends on model + resolution + quality + native audio on/off.
 - Shot-image batches: one image per shot (+1 grid image per scene in `--grid` mode) — the largest single spend in the pipeline.
 - Avatar renders: ~10 credits/sec at 480p, ~20/sec at 720p.

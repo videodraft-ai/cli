@@ -168,7 +168,10 @@ export function registerGenerateCommands(program: Command): void {
   generate
     .command("image <prompt...>")
     .description("Generate an image (async; waits by default)")
-    .option("--model <id>", "image model id (default nano-banana-2)")
+    .option(
+      "--model <id|name>",
+      "image model id or display name (default nano-banana-2); run `videodraft models image`",
+    )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9"')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
     .option("--quality <tier>", "model-specific quality tier")

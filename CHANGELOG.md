@@ -3,6 +3,23 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.3.6]
+
+### Fixed
+
+- Removed unsupported `argument-hint` and `allowed-tools` frontmatter from the
+  packaged VideoDraft skill so stricter Codex skill loaders can discover it.
+
+## [0.3.5]
+
+### Changed
+
+- Image model arguments now accept exposed display names as well as canonical
+  model ids across generation, shot-image generation, visual assets, storyboard
+  creation, and cost estimates.
+- Cost estimates now treat Lyria music as a first-class audio model, including
+  Fal BYOK zero-credit estimates when applicable.
+
 ## [0.3.2]
 
 ### Fixed

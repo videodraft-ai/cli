@@ -96,7 +96,10 @@ export function registerPipelineCommands(program: Command): void {
     .command("shots <project_id>")
     .description("Batch-generate the storyboard shot images (spends credits per shot)")
     .option("--scene <n>", "0-based scene index (omit for all scenes)")
-    .option("--model <id>", "image model id")
+    .option(
+      "--model <id|name>",
+      "image model id or display name; run `videodraft models image`",
+    )
     .option("--ar <ratio>", "aspect ratio override")
     .option("--grid", "grid mode (stronger cross-shot consistency)")
     .option("--regenerate-all", "replace existing shot images too")
