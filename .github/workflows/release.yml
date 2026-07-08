@@ -33,7 +33,13 @@ jobs:
           VIDEODRAFT_POSTHOG_KEY: ${{ secrets.VIDEODRAFT_POSTHOG_KEY }}
         run: pnpm build
       - name: Publish to npm (trusted publishing + provenance)
-        run: npm publish --access public
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "videodraft@$VERSION" version >/dev/null 2>&1; then
+            echo "videodraft@$VERSION is already published; skipping npm publish."
+          else
+            npm publish --access public
+          fi
       - name: GitHub release
         uses: softprops/action-gh-release@v2
         with:
