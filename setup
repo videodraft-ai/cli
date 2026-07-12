@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# VideoDraft skill setup. Installs the agent skill for Claude Code, Codex,
+# Cursor, and other agents. Idempotent: safe to run repeatedly.
+#
+#   ./setup                 # auto-detect installed agents, symlink the skill
+#   ./setup --host codex    # force a specific agent (claude|codex|cursor)
+#   ./setup --skip-cli      # don't try to install the videodraft CLI
+#   ./setup --skip-auth     # don't check `videodraft whoami`
+#   ./setup --force         # replace an existing non-symlink install (e.g. a prior copy)
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")" && pwd)"
+if [ ! -d "$REPO/skills/videodraft" ]; then
+  echo "Cannot find skills/videodraft. Run this from the videodraft-ai/cli repo root." >&2
+  exit 1
+fi
+
+usage() { echo "Usage: ./setup [--host claude|codex|cursor] [--skip-cli] [--skip-auth] [--force]"; }
+
+HOST_OVERRIDE="" SKIP_CLI=0 SKIP_AUTH=0 FORCE=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host) shift; HOST_OVERRIDE="${1:?--host needs a value: claude|codex|cursor}"; shift ;;
+    --host=*) HOST_OVERRIDE="${1#--host=}"; shift ;;
+    --skip-cli) SKIP_CLI=1; shift ;;
+    --skip-auth) SKIP_AUTH=1; shift ;;
+    --force) FORCE=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown flag: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+# Validate --host up front, before any install/auth side effects.
+if [ -n "$HOST_OVERRIDE" ]; then
+  case "$HOST_OVERRIDE" in
+    claude|codex|cursor) ;;
+    *) echo "Unknown --host: $HOST_OVERRIDE (use claude|codex|cursor)" >&2; exit 2 ;;
+  esac
+fi
+
+# Target agents: explicit --host, else every installed agent (~/.<agent>).
+agents=()
+if [ -n "$HOST_OVERRIDE" ]; then
+  agents=("$HOST_OVERRIDE")
+else
+  [ -d "$HOME/.claude" ] && agents+=("claude")
+  [ -d "$HOME/.codex" ]  && agents+=("codex")
+  [ -d "$HOME/.cursor" ] && agents+=("cursor")
+fi
+if [ ${#agents[@]} -eq 0 ]; then
+  echo "No agents detected (~/.claude, ~/.codex, ~/.cursor). Re-run with --host <agent>." >&2
+  exit 1
+fi
+
+# Step 1 — CLI (the skill calls `videodraft` for execution).
+if [ "$SKIP_CLI" -eq 0 ]; then
+  if command -v videodraft >/dev/null 2>&1; then
+    echo "OK  videodraft CLI: $(videodraft --version 2>/dev/null || echo present)"
+  elif command -v npm >/dev/null 2>&1; then
+    echo "..  installing videodraft CLI (npm i -g videodraft)"
+    npm install -g videodraft
+    if ! command -v videodraft >/dev/null 2>&1; then
+      echo "!!  Installed the CLI, but 'videodraft' is not on PATH (npm's global bin dir is not in PATH)." >&2
+      echo "    Add npm's global bin directory to PATH and re-run, or pass --skip-cli." >&2
+      exit 1
+    fi
+  else
+    echo "!!  Cannot install the videodraft CLI: neither videodraft nor npm is on PATH." >&2
+    echo "    Install Node/npm (or the CLI: https://videodraft.ai/cli) and re-run," >&2
+    echo "    or pass --skip-cli if you will drive VideoDraft through the MCP connector instead." >&2
+    exit 1
+  fi
+fi
+
+# Step 2 — auth.
+if [ "$SKIP_AUTH" -eq 0 ] && command -v videodraft >/dev/null 2>&1; then
+  if videodraft whoami >/dev/null 2>&1; then
+    echo "OK  authenticated"
+  else
+    echo "!!  not authenticated: run 'videodraft login' (then re-run ./setup, or pass --skip-auth)" >&2
+    exit 1
+  fi
+fi
+
+# Step 3 — symlink the skill into each agent's skills dir (idempotent).
+src="$REPO/skills/videodraft"
+skipped=0
+for agent in "${agents[@]}"; do
+  dir="$HOME/.$agent/skills"
+  mkdir -p "$dir"
+  dst="$dir/videodraft"
+  if [ -L "$dst" ]; then
+    if [ "$(readlink "$dst")" = "$src" ]; then echo "OK  $agent: already linked"; continue; fi
+    rm "$dst"; ln -s "$src" "$dst"; echo "OK  $agent: relinked"
+  elif [ -e "$dst" ]; then
+    if [ "$FORCE" -eq 1 ]; then
+      rm -rf "$dst"; ln -s "$src" "$dst"; echo "OK  $agent: replaced existing install -> $dst"
+    else
+      echo "!!  $agent: $dst already exists and is not our symlink (e.g. a prior copy install); NOT updated." >&2
+      echo "    Re-run with --force to replace it with the current skill." >&2
+      skipped=1
+    fi
+  else
+    ln -s "$src" "$dst"; echo "OK  $agent: linked -> $dst"
+  fi
+done
+
+if [ "$skipped" -eq 1 ]; then
+  echo >&2
+  echo "Setup finished, but one or more agents kept an existing install and were NOT updated (see above)." >&2
+  echo "Re-run with --force to replace them with the current skill." >&2
+  exit 1
+fi
+
+echo
+echo "Done. Ask your agent: \"Generate me a video.\""
