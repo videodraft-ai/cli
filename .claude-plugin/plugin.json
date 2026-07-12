@@ -1,0 +1,29 @@
+{
+  "name": "videodraft",
+  "version": "0.3.7",
+  "description": "Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar and product/ad videos with VideoDraft.",
+  "author": {
+    "name": "VideoDraft",
+    "url": "https://videodraft.ai"
+  },
+  "homepage": "https://videodraft.ai/cli",
+  "repository": "https://github.com/videodraft-ai/cli",
+  "license": "MIT",
+  "keywords": [
+    "videodraft",
+    "ai",
+    "video",
+    "video-generation",
+    "image-generation",
+    "voiceover",
+    "tts",
+    "music",
+    "sound-effects",
+    "storyboard",
+    "avatar",
+    "product-video",
+    "cli",
+    "agent",
+    "mcp"
+  ]
+}

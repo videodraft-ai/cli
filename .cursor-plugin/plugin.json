@@ -1,0 +1,24 @@
+{
+  "name": "videodraft",
+  "version": "0.3.7",
+  "description": "AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
+  "author": {
+    "name": "VideoDraft",
+    "email": "contact@videodraft.ai"
+  },
+  "homepage": "https://videodraft.ai/cli",
+  "repository": "https://github.com/videodraft-ai/cli",
+  "license": "MIT",
+  "keywords": [
+    "videodraft",
+    "ai",
+    "video",
+    "video-generation",
+    "image-generation",
+    "voiceover",
+    "music",
+    "storyboard",
+    "avatar"
+  ],
+  "skills": "./skills/"
+}
