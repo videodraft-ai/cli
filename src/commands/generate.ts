@@ -12,7 +12,12 @@
 
 import fs from "node:fs";
 import type { Command } from "commander";
-import { buildContext, collect, compact, type CommandContext } from "../cli/context.js";
+import {
+  buildContext,
+  collect,
+  compact,
+  type CommandContext,
+} from "../cli/context.js";
 import { emit, fmt, note, spinner } from "../cli/output.js";
 import { pollGeneration, extractOutputUrls } from "../core/poll.js";
 import { buildMediaDescriptors } from "../core/media.js";
@@ -41,7 +46,10 @@ function inferDubMediaType(
  * local files to the CDN first. Unlike the raw MCP tool — which rejects local
  * video/audio paths — the CLI uploads them, so `--ref-video clip.mp4` works.
  */
-async function resolveRefs(ctx: CommandContext, refs: string[]): Promise<string[]> {
+export async function resolveRefs(
+  ctx: CommandContext,
+  refs: string[],
+): Promise<string[]> {
   const resolved: string[] = [];
   for (const ref of refs) {
     if (URI_SCHEME.test(ref)) {
@@ -59,19 +67,92 @@ async function resolveRefs(ctx: CommandContext, refs: string[]): Promise<string[
 }
 
 /** Parse repeatable `--segment "prompt text:seconds"` into multi_prompt entries. */
-export function parseSegments(values: string[]): Array<{ prompt: string; duration: number }> {
+export function parseSegments(
+  values: string[],
+): Array<{ prompt: string; duration: number }> {
   return values.map((v) => {
     const i = v.lastIndexOf(":");
     if (i <= 0 || i === v.length - 1) {
-      throw new CliError(`--segment expects "prompt:seconds", got: ${v}`, EXIT.USAGE);
+      throw new CliError(
+        `--segment expects "prompt:seconds", got: ${v}`,
+        EXIT.USAGE,
+      );
     }
     const prompt = v.slice(0, i).trim();
     const duration = Number(v.slice(i + 1));
     if (!prompt || !Number.isFinite(duration) || duration <= 0) {
-      throw new CliError(`--segment "${v}" must be "<prompt>:<positive seconds>".`, EXIT.USAGE);
+      throw new CliError(
+        `--segment "${v}" must be "<prompt>:<positive seconds>".`,
+        EXIT.USAGE,
+      );
     }
     return { prompt, duration };
   });
+}
+
+function optionalPositiveNumber(
+  value: unknown,
+  label: string,
+  integer = false,
+): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (
+    !Number.isFinite(parsed) ||
+    parsed <= 0 ||
+    (integer && !Number.isInteger(parsed))
+  ) {
+    throw new CliError(
+      `${label} must be a positive${integer ? " whole" : ""} number.`,
+      EXIT.USAGE,
+    );
+  }
+  return parsed;
+}
+
+function optionalSeed(value: unknown): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new CliError(
+      "--seed must be a non-negative safe integer.",
+      EXIT.USAGE,
+    );
+  }
+  return parsed;
+}
+
+function estimateVideoModel(
+  opts: Record<string, any>,
+  duration: number | undefined,
+): string {
+  if (opts.model) return opts.model;
+  const referenceImageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
+  const referenceVideoCount = Array.isArray(opts.refVideo)
+    ? opts.refVideo.length
+    : 0;
+  const referenceAudioCount = Array.isArray(opts.refAudio)
+    ? opts.refAudio.length
+    : 0;
+  const seedanceTask =
+    (duration !== undefined && duration > 10) ||
+    referenceVideoCount > 1 ||
+    referenceAudioCount > 0 ||
+    (referenceVideoCount > 0 && referenceImageCount > 0) ||
+    opts.quality === "mini" ||
+    opts.quality === "standard";
+  if (seedanceTask) return "seedance-2";
+
+  const veoTask =
+    Boolean(opts.endImage) ||
+    opts.audio === false ||
+    opts.quality === "fast" ||
+    opts.quality === "quality" ||
+    (typeof opts.resolution === "string" && opts.resolution !== "720p");
+  if (veoTask) {
+    return referenceVideoCount > 0 ? "seedance-2" : "google-veo3.1";
+  }
+  return "gemini-omni-flash";
 }
 
 async function printEstimate(
@@ -103,14 +184,14 @@ async function printEstimate(
   emit(ctx.out, { estimate, note: "No credits were spent (--estimate)." });
 }
 
-interface SubmitWaitOptions {
+export interface SubmitWaitOptions {
   wait: boolean;
   download?: string;
   label: string;
 }
 
 /** Shared submit → poll → download tail for async generations. */
-async function handleAsyncJob(
+export async function handleAsyncJob(
   ctx: CommandContext,
   submitted: any,
   options: SubmitWaitOptions,
@@ -130,13 +211,20 @@ async function handleAsyncJob(
       intervalMs: ctx.intervalMs,
       timeoutMs: ctx.timeoutMs,
       adaptive: ctx.adaptive,
-      onTick: (status) => spin.update(`${options.label} — ${status} (job ${jobId})`),
+      onTick: (status) =>
+        spin.update(`${options.label}: ${status} (job ${jobId})`),
     });
     spin.stop();
 
     if (result.status === "failed") {
       emit(ctx.out, { job_id: jobId, ...result.payload }, (o) => {
-        note(o, fmt.red(o, `Job ${jobId} failed: ${result.payload?.error ?? "unknown error"}`));
+        note(
+          o,
+          fmt.red(
+            o,
+            `Job ${jobId} failed: ${result.payload?.error ?? "unknown error"}`,
+          ),
+        );
       });
       process.exitCode = 1;
       return;
@@ -144,16 +232,28 @@ async function handleAsyncJob(
 
     let downloaded: DownloadedFile[] | undefined;
     if (options.download && result.outputUrls.length > 0) {
-      downloaded = await downloadOutputs(result.outputUrls, options.download, { job_id: jobId });
+      downloaded = await downloadOutputs(result.outputUrls, options.download, {
+        job_id: jobId,
+      });
     }
-    const media = buildMediaDescriptors(result.outputUrls, result.payload?.type);
+    const media = buildMediaDescriptors(
+      result.outputUrls,
+      result.payload?.type,
+    );
     emit(
       ctx.out,
-      { job_id: jobId, status: result.status, outputs: result.outputUrls, downloaded_files: downloaded, output_media: media },
+      {
+        job_id: jobId,
+        status: result.status,
+        outputs: result.outputUrls,
+        downloaded_files: downloaded,
+        output_media: media,
+      },
       (o) => {
         note(o, fmt.green(o, `Completed — job ${jobId}`));
         for (const url of result.outputUrls) process.stdout.write(`${url}\n`);
-        for (const file of downloaded ?? []) note(o, fmt.dim(o, `saved ${file.path}`));
+        for (const file of downloaded ?? [])
+          note(o, fmt.dim(o, `saved ${file.path}`));
       },
     );
   } catch (err) {
@@ -163,7 +263,9 @@ async function handleAsyncJob(
 }
 
 export function registerGenerateCommands(program: Command): void {
-  const generate = program.command("generate").description("Generate images, video and audio");
+  const generate = program
+    .command("generate")
+    .description("Generate images, video and audio");
 
   generate
     .command("image <prompt...>")
@@ -175,17 +277,37 @@ export function registerGenerateCommands(program: Command): void {
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9"')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
     .option("--quality <tier>", "model-specific quality tier")
-    .option("--rendering-speed <tier>", 'Ideogram speed/cost tier, e.g. V4 "Turbo"/"Balanced"/"Quality"')
+    .option(
+      "--rendering-speed <tier>",
+      'Ideogram speed/cost tier, e.g. V4 "Turbo"/"Balanced"/"Quality"',
+    )
     .option("--num <n>", "variations of this prompt in one call (1-4)")
-    .option("--seed <n>", "seed (supported models only, e.g. Flux, Ideogram V4)")
-    .option("--ref <url|file>", "reference image (repeatable; local files are uploaded)", collect, [])
-    .option("--video-ref <url|file>", "video reference — nano-banana-2 only (http(s)/gs:///YouTube, or local file)")
+    .option(
+      "--seed <n>",
+      "seed (supported models only, e.g. Flux, Ideogram V4)",
+    )
+    .option(
+      "--ref <url|file>",
+      "reference image (repeatable; local files are uploaded)",
+      collect,
+      [],
+    )
+    .option(
+      "--video-ref <url|file>",
+      "video reference, nano-banana-2 only (http(s)/gs:///YouTube, or local file)",
+    )
     .option("--style <id>", "style preset id")
     .option("--project <id>", "attach to a project")
     .option("--session <id>", "AI Studio session id")
-    .option("--scene <n>", "0-based scene index (with --project: writes onto that shot)")
+    .option(
+      "--scene <n>",
+      "0-based scene index (with --project: writes onto that shot)",
+    )
     .option("--shot <n>", "0-based shot index")
-    .option("--download <path>", "download outputs (template: {job_id} {index} {ext})")
+    .option(
+      "--download <path>",
+      "download outputs (template: {job_id} {index} {ext})",
+    )
     .option("--no-wait", "submit and return the job id immediately")
     .option("--estimate", "print the cost estimate and exit (spends nothing)")
     .action(async function (this: Command, promptWords: string[]) {
@@ -195,7 +317,9 @@ export function registerGenerateCommands(program: Command): void {
 
       if (opts.estimate) {
         await printEstimate(ctx, {
-          model: opts.model,
+          // Cost lookup needs a concrete model. Keep runtime generation
+          // model-less so the server can still make its task-aware choice.
+          model: opts.model ?? "nano-banana-2",
           type: "image",
           resolution: opts.resolution,
           quality: opts.quality,
@@ -207,9 +331,15 @@ export function registerGenerateCommands(program: Command): void {
 
       const [refs, videoRef] = await Promise.all([
         resolveRefs(ctx, opts.ref ?? []),
-        opts.videoRef ? resolveRefs(ctx, [opts.videoRef]).then((r) => r[0]) : undefined,
+        opts.videoRef
+          ? resolveRefs(ctx, [opts.videoRef]).then((r) => r[0])
+          : undefined,
       ]);
-      capture("cli_generate", { kind: "image", model: opts.model ?? "default", wait: opts.wait !== false });
+      capture("cli_generate", {
+        kind: "image",
+        model: opts.model ?? "default",
+        wait: opts.wait !== false,
+      });
       const submitted = await ctx.client.callTool(
         "generate_image",
         compact({
@@ -226,7 +356,8 @@ export function registerGenerateCommands(program: Command): void {
           style: opts.style,
           project_id: opts.project,
           session_id: opts.session,
-          scene_index: opts.scene !== undefined ? Number(opts.scene) : undefined,
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
           shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
         }),
       );
@@ -239,8 +370,13 @@ export function registerGenerateCommands(program: Command): void {
 
   generate
     .command("video [prompt...]")
-    .description("Generate a video clip (async; per-second pricing — see --estimate)")
-    .option("--model <id>", "video model id (default google-veo3.1 fast)")
+    .description(
+      "Generate a video clip (async; per-second pricing, see --estimate)",
+    )
+    .option(
+      "--model <id>",
+      "video model id (task-aware when omitted; usually Gemini Omni Flash, Seedance 2 for longer/mixed-reference work)",
+    )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9", "9:16"')
     .option("--duration <seconds>", "clip duration in seconds")
     .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "4k"')
@@ -253,16 +389,35 @@ export function registerGenerateCommands(program: Command): void {
     .option("--start-image <url|file>", "start frame (image-to-video)")
     .option("--end-image <url|file>", "end frame (supported models only)")
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
-    .option("--ref-video <url|file>", "reference video (repeatable; Gemini Omni Flash, Seedance 2, Kling O3, Wan 2.7; local files uploaded)", collect, [])
-    .option("--ref-audio <url|file>", "reference audio (repeatable; Seedance 2; local files uploaded)", collect, [])
-    .option("--segment <prompt:seconds>", "multi-prompt segment (repeatable; Kling 3.0 / 3.0 Turbo / O3)", collect, [])
+    .option(
+      "--ref-video <url|file>",
+      "reference video (repeatable; Gemini Omni Flash, Seedance 2, Wan 2.7, Kling/Wan Ref-Edit reference mode; local files uploaded)",
+      collect,
+      [],
+    )
+    .option(
+      "--ref-audio <url|file>",
+      "reference audio (repeatable; Seedance 2; local files uploaded)",
+      collect,
+      [],
+    )
+    .option(
+      "--segment <prompt:seconds>",
+      "multi-prompt segment (repeatable; Kling 3.0 / 3.0 Turbo / O3)",
+      collect,
+      [],
+    )
     .option("--negative <text>", "negative prompt (Kling/Wan/Luma)")
+    .option("--camera-fixed", "Seedance 1.5 Pro: lock camera motion")
     .option("--seed <n>", "seed")
     .option("--project <id>", "attach to a project")
     .option("--session <id>", "AI Studio session id")
     .option("--scene <n>", "0-based scene index")
     .option("--shot <n>", "0-based shot index")
-    .option("--download <path>", "download outputs (template: {job_id} {index} {ext})")
+    .option(
+      "--download <path>",
+      "download outputs (template: {job_id} {index} {ext})",
+    )
     .option("--no-wait", "submit and return the job id immediately")
     .option("--estimate", "print the cost estimate and exit (spends nothing)")
     .action(async function (this: Command, promptWords: string[] = []) {
@@ -271,13 +426,22 @@ export function registerGenerateCommands(program: Command): void {
       // prompt is OPTIONAL: Kling 3.0 / 3.0 Turbo / O3 allow multi-prompt-only
       // calls, and Kling 3.0 Turbo allows image-to-video with no prompt.
       const prompt = promptWords.join(" ").trim();
-      const duration = opts.duration ? Number(opts.duration) : undefined;
+      const duration = optionalPositiveNumber(opts.duration, "--duration");
+      const seed = optionalSeed(opts.seed);
 
       if (opts.estimate) {
+        const estimateModel = estimateVideoModel(opts, duration);
+        const estimateDuration =
+          duration ??
+          (!opts.model && estimateModel === "google-veo3.1"
+            ? Array.isArray(opts.ref) && opts.ref.length > 0
+              ? 8
+              : 6
+            : undefined);
         await printEstimate(ctx, {
-          model: opts.model,
+          model: estimateModel,
           type: "video",
-          duration,
+          duration: estimateDuration,
           resolution: opts.resolution,
           quality: opts.quality,
           audio: opts.audio,
@@ -285,28 +449,133 @@ export function registerGenerateCommands(program: Command): void {
         return;
       }
 
-      const [refs, refVideos, refAudios, startImage, endImage] = await Promise.all([
-        resolveRefs(ctx, opts.ref ?? []),
-        resolveRefs(ctx, opts.refVideo ?? []),
-        resolveRefs(ctx, opts.refAudio ?? []),
-        opts.startImage ? resolveRefs(ctx, [opts.startImage]).then((r) => r[0]) : undefined,
-        opts.endImage ? resolveRefs(ctx, [opts.endImage]).then((r) => r[0]) : undefined,
-      ]);
+      const [refs, refVideos, refAudios, startImage, endImage] =
+        await Promise.all([
+          resolveRefs(ctx, opts.ref ?? []),
+          resolveRefs(ctx, opts.refVideo ?? []),
+          resolveRefs(ctx, opts.refAudio ?? []),
+          opts.startImage
+            ? resolveRefs(ctx, [opts.startImage]).then((r) => r[0])
+            : undefined,
+          opts.endImage
+            ? resolveRefs(ctx, [opts.endImage]).then((r) => r[0])
+            : undefined,
+        ]);
       const segments = parseSegments(opts.segment ?? []);
 
       // A video needs at least one driver. The server enforces per-model rules;
       // this just catches an entirely empty invocation early.
-      if (!prompt && segments.length === 0 && !startImage && refVideos.length === 0) {
+      if (
+        !prompt &&
+        segments.length === 0 &&
+        !startImage &&
+        refVideos.length === 0
+      ) {
         throw new CliError(
           "Provide a prompt, --segment (multi-prompt), or --start-image.",
           EXIT.USAGE,
         );
       }
 
-      capture("cli_generate", { kind: "video", model: opts.model ?? "default", wait: opts.wait !== false });
-      const submitted = await ctx.client.callTool(
-        "generate_video",
-        compact({
+      capture("cli_generate", {
+        kind: "video",
+        model: opts.model ?? "default",
+        wait: opts.wait !== false,
+      });
+      const videoEditModels = new Set([
+        "happy-horse-video-edit",
+        "grok-imagine-video-edit",
+      ]);
+      const motionControlModels = new Set([
+        "kling-v3-motion-control",
+        "kling-2.6-motion-control",
+      ]);
+      let toolName = "generate_video";
+      let toolArgs: Record<string, unknown>;
+      if (videoEditModels.has(opts.model)) {
+        if (refVideos.length !== 1) {
+          throw new CliError(
+            `${opts.model} requires exactly one --ref-video source. You can also use videodraft edit video.`,
+            EXIT.USAGE,
+          );
+        }
+        if (
+          startImage ||
+          endImage ||
+          refAudios.length > 0 ||
+          segments.length > 0 ||
+          opts.ar ||
+          opts.negative ||
+          opts.cameraFixed ||
+          opts.seed
+        ) {
+          throw new CliError(
+            `${opts.model} does not support --start-image, --end-image, --ref-audio, --segment, --ar, --negative, --camera-fixed, or --seed in video-edit mode. Use --ref for supported reference images.`,
+            EXIT.USAGE,
+          );
+        }
+        toolName = "edit_video";
+        toolArgs = {
+          model: opts.model,
+          prompt: prompt || undefined,
+          video_url: refVideos[0],
+          reference_images: refs.length > 0 ? refs : undefined,
+          resolution: opts.resolution,
+          quality: opts.quality,
+          duration_seconds: duration,
+          preserve_audio: opts.audio,
+          project_id: opts.project,
+          session_id: opts.session,
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
+          shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
+        };
+      } else if (motionControlModels.has(opts.model)) {
+        if (!startImage || refVideos.length !== 1) {
+          throw new CliError(
+            `${opts.model} requires --start-image plus exactly one --ref-video motion source. You can also use videodraft edit motion.`,
+            EXIT.USAGE,
+          );
+        }
+        if (
+          endImage ||
+          refs.length > 0 ||
+          refAudios.length > 0 ||
+          segments.length > 0 ||
+          opts.ar ||
+          opts.negative ||
+          opts.cameraFixed ||
+          opts.seed ||
+          opts.resolution
+        ) {
+          throw new CliError(
+            `${opts.model} does not support --end-image, --ref, --ref-audio, --segment, --ar, --negative, --camera-fixed, --seed, or --resolution in motion-control mode.`,
+            EXIT.USAGE,
+          );
+        }
+        if (duration !== undefined) {
+          throw new CliError(
+            `${opts.model} follows the motion video duration and orientation cap; use videodraft edit motion --estimate for a duration-based estimate.`,
+            EXIT.USAGE,
+          );
+        }
+        toolName = "generate_motion_control_video";
+        toolArgs = {
+          model: opts.model,
+          prompt: prompt || undefined,
+          image_url: startImage,
+          motion_video_url: refVideos[0],
+          quality: opts.quality,
+          keep_original_sound: opts.audio,
+          duration_seconds: duration,
+          project_id: opts.project,
+          session_id: opts.session,
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
+          shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
+        };
+      } else {
+        toolArgs = {
           prompt: prompt || undefined,
           model: opts.model,
           aspect_ratio: opts.ar,
@@ -321,13 +590,16 @@ export function registerGenerateCommands(program: Command): void {
           reference_audio: refAudios.length > 0 ? refAudios : undefined,
           multi_prompt: segments.length > 0 ? segments : undefined,
           negative_prompt: opts.negative,
-          seed: opts.seed ? Number(opts.seed) : undefined,
+          camera_fixed: opts.cameraFixed ? true : undefined,
+          seed,
           project_id: opts.project,
           session_id: opts.session,
-          scene_index: opts.scene !== undefined ? Number(opts.scene) : undefined,
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
           shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
-        }),
-      );
+        };
+      }
+      const submitted = await ctx.client.callTool(toolName, compact(toolArgs));
       await handleAsyncJob(ctx, submitted, {
         wait: opts.wait !== false,
         download: opts.download,
@@ -341,7 +613,10 @@ export function registerGenerateCommands(program: Command): void {
     .option("--voice <id>", "voice id (see `videodraft models voices`)")
     .option("--language <bcp47>", 'target language, default "en"')
     .option("--project <id>", "attach to a project")
-    .option("--scene <n>", "0-based scene index — wires the audio onto that scene")
+    .option(
+      "--scene <n>",
+      "0-based scene index; wires the audio onto that scene",
+    )
     .option("--session <id>", "AI Studio session id")
     .option("--download <path>", "download the audio file")
     .action(async function (this: Command, textWords: string[]) {
@@ -356,32 +631,63 @@ export function registerGenerateCommands(program: Command): void {
           target_language: opts.language,
           project_id: opts.project,
           session_id: opts.session,
-          scene_index: opts.scene !== undefined ? Number(opts.scene) : undefined,
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
         }),
       );
       const urls = extractOutputUrls(result);
       let downloaded: DownloadedFile[] | undefined;
       if (opts.download && urls.length > 0) {
-        downloaded = await downloadOutputs(urls, opts.download, { name: "voiceover" });
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "voiceover",
+        });
       }
       const media = buildMediaDescriptors(urls, "audio");
-      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
-        for (const url of urls) process.stdout.write(`${url}\n`);
-        for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
-      });
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
     });
 
   generate
     .command("music <prompt...>")
     .description("Generate background music")
-    .option("--model <id>", "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music")
-    .option("--length <seconds>", "for --model elevenlabs-music: length 10–120s (default 30)")
-    .option("--instrumental", "for --model elevenlabs-music: force instrumental (no vocals)")
-    .option("--ref <url|file>", "reference image to inspire the music (Lyria only, repeatable)", collect, [])
-    .option("--project <id>", "link the generation to a project's AI Studio session")
-    .option("--attach <project_id>", "also set the track as that project's background music")
+    .option(
+      "--model <id>",
+      "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music",
+    )
+    .option(
+      "--length <seconds>",
+      "for --model elevenlabs-music: length 10–120s (default 30)",
+    )
+    .option(
+      "--instrumental",
+      "for --model elevenlabs-music: force instrumental (no vocals)",
+    )
+    .option(
+      "--ref <url|file>",
+      "reference image to inspire the music (Lyria only, repeatable)",
+      collect,
+      [],
+    )
+    .option(
+      "--project <id>",
+      "link the generation to a project's AI Studio session",
+    )
+    .option(
+      "--attach <project_id>",
+      "also set the track as that project's background music",
+    )
     .option("--volume <n>", "0-100 BGM volume when attaching (default 30)")
-    .option("--bgm-disabled", "when attaching, store the BGM as disabled (enabled:false)")
+    .option(
+      "--bgm-disabled",
+      "when attaching, store the BGM as disabled (enabled:false)",
+    )
     .option("--session <id>", "AI Studio session id")
     .option("--download <path>", "download the audio file")
     .action(async function (this: Command, promptWords: string[]) {
@@ -411,13 +717,20 @@ export function registerGenerateCommands(program: Command): void {
       const urls = extractOutputUrls(result);
       let downloaded: DownloadedFile[] | undefined;
       if (opts.download && urls.length > 0) {
-        downloaded = await downloadOutputs(urls, opts.download, { name: "music" });
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "music",
+        });
       }
       const media = buildMediaDescriptors(urls, "music");
-      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
-        for (const url of urls) process.stdout.write(`${url}\n`);
-        for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
-      });
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
     });
 
   generate
@@ -455,7 +768,8 @@ export function registerGenerateCommands(program: Command): void {
         { ...result, downloaded_files: downloaded, output_media: media },
         (o) => {
           for (const url of urls) process.stdout.write(`${url}\n`);
-          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
         },
       );
     });
@@ -484,9 +798,13 @@ export function registerGenerateCommands(program: Command): void {
         if (i < 0) {
           throw new Error(`--line must be "voiceId:text" (got "${raw}")`);
         }
-        return { voice_id: raw.slice(0, i).trim(), text: raw.slice(i + 1).trim() };
+        return {
+          voice_id: raw.slice(0, i).trim(),
+          text: raw.slice(i + 1).trim(),
+        };
       });
-      if (lines.length === 0) throw new Error("at least one --line is required");
+      if (lines.length === 0)
+        throw new Error("at least one --line is required");
       capture("cli_generate", { kind: "dialogue" });
       const result: any = await ctx.client.callTool(
         "generate_dialogue",
@@ -512,7 +830,8 @@ export function registerGenerateCommands(program: Command): void {
         { ...result, downloaded_files: downloaded, output_media: media },
         (o) => {
           for (const url of urls) process.stdout.write(`${url}\n`);
-          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
         },
       );
     });
@@ -563,16 +882,25 @@ export function registerGenerateCommands(program: Command): void {
         { ...result, downloaded_files: downloaded, output_media: media },
         (o) => {
           for (const url of urls) process.stdout.write(`${url}\n`);
-          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
         },
       );
     });
 
   generate
     .command("dub <media>")
-    .description("Dub a video/audio file into another language (ElevenLabs Dubbing)")
-    .option("--to <iso>", "target language ISO 639-1 code, e.g. es or te (required)")
-    .option("--from <iso>", "source language ISO 639-1 code (auto-detected if omitted)")
+    .description(
+      "Dub a video/audio file into another language (ElevenLabs Dubbing)",
+    )
+    .option(
+      "--to <iso>",
+      "target language ISO 639-1 code, e.g. es or te (required)",
+    )
+    .option(
+      "--from <iso>",
+      "source language ISO 639-1 code (auto-detected if omitted)",
+    )
     .option("--type <audio|video>", "source media type override")
     .option(
       "--duration <seconds>",
@@ -620,16 +948,21 @@ export function registerGenerateCommands(program: Command): void {
         { ...result, downloaded_files: downloaded, output_media: media },
         (o) => {
           for (const url of urls) process.stdout.write(`${url}\n`);
-          for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
         },
       );
     });
 
-  const upscale = program.command("upscale").description("Upscale images and videos (Topaz)");
+  const upscale = program
+    .command("upscale")
+    .description("Upscale images and videos (Topaz)");
 
   upscale
     .command("image <url|file>")
-    .description("Upscale an image (synchronous)")
+    .description(
+      "Enhance or upscale an existing image with Topaz (synchronous)",
+    )
     .option("--scale <factor>", '"1x" | "2x" | "4x" (default 2x)')
     .option("--session <id>", "AI Studio session id")
     .option("--download <path>", "download the result")
@@ -640,28 +973,47 @@ export function registerGenerateCommands(program: Command): void {
       capture("cli_upscale", { kind: "image" });
       const result: any = await ctx.client.callTool(
         "upscale_image",
-        compact({ image_url: url, scale: opts.scale, session_id: opts.session }),
+        compact({
+          image_url: url,
+          scale: opts.scale,
+          session_id: opts.session,
+        }),
       );
       const urls = extractOutputUrls(result);
       let downloaded: DownloadedFile[] | undefined;
       if (opts.download && urls.length > 0) {
-        downloaded = await downloadOutputs(urls, opts.download, { name: "upscaled" });
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "upscaled",
+        });
       }
       const media = buildMediaDescriptors(urls, "image");
-      emit(ctx.out, { ...result, downloaded_files: downloaded, output_media: media }, (o) => {
-        for (const u of urls) process.stdout.write(`${u}\n`);
-        for (const f of downloaded ?? []) note(o, fmt.dim(o, `saved ${f.path}`));
-      });
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const u of urls) process.stdout.write(`${u}\n`);
+          for (const f of downloaded ?? [])
+            note(o, fmt.dim(o, `saved ${f.path}`));
+        },
+      );
     });
 
   upscale
     .command("video <url|file>")
-    .description("Upscale a video (async; waits by default)")
+    .description(
+      "Enhance or upscale an existing video with Topaz (async; waits by default)",
+    )
     .option("--scale <factor>", 'e.g. "2x" (default)')
     .option("--session <id>", "AI Studio session id")
-    .option("--duration <seconds>", "source duration override (only if auto-probe fails, e.g. >100MB)")
+    .option(
+      "--duration <seconds>",
+      "source duration override (only if auto-probe fails, e.g. >100MB)",
+    )
     .option("--width <px>", "source width override (only if auto-probe fails)")
-    .option("--height <px>", "source height override (only if auto-probe fails)")
+    .option(
+      "--height <px>",
+      "source height override (only if auto-probe fails)",
+    )
     .option("--download <path>", "download the result")
     .option("--no-wait", "submit and return the job id immediately")
     .action(async function (this: Command, source: string) {
