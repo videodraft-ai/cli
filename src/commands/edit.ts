@@ -27,6 +27,15 @@ function positiveNumber(value: unknown, label: string): number | undefined {
   return parsed;
 }
 
+function nonNegativeInteger(value: unknown, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new UsageError(`${label} must be a non-negative integer.`);
+  }
+  return parsed;
+}
+
 function chooseEditModel(
   explicit: string | undefined,
   refCount: number,
@@ -66,6 +75,8 @@ export function registerEditCommands(program: Command): void {
     .option("--preserve-audio", "preserve original source audio when supported")
     .option("--project <id>", "group in a project's AI Studio session")
     .option("--session <id>", "AI Studio session id")
+    .option("--scene <n>", "0-based scene index")
+    .option("--shot <n>", "0-based shot index")
     .option("--download <path>", "download the finished video")
     .option("--no-wait", "submit and return the job id immediately")
     .option("--estimate", "print the cost estimate and exit")
@@ -78,6 +89,8 @@ export function registerEditCommands(program: Command): void {
       const opts = this.opts<any>();
       const model = chooseEditModel(opts.model, (opts.ref ?? []).length);
       const duration = positiveNumber(opts.duration, "--duration");
+      const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
+      const shotIndex = nonNegativeInteger(opts.shot, "--shot");
       const refCount = (opts.ref ?? []).length;
       const maxRefs =
         model === "happy-horse-video-edit"
@@ -149,6 +162,8 @@ export function registerEditCommands(program: Command): void {
           preserve_audio: opts.preserveAudio ? true : undefined,
           project_id: opts.project,
           session_id: opts.session,
+          scene_index: sceneIndex,
+          shot_index: shotIndex,
         }),
       );
       await handleAsyncJob(ctx, submitted, {
@@ -175,6 +190,8 @@ export function registerEditCommands(program: Command): void {
     .option("--duration <seconds>", "optional estimate hint")
     .option("--project <id>", "group in a project's AI Studio session")
     .option("--session <id>", "AI Studio session id")
+    .option("--scene <n>", "0-based scene index")
+    .option("--shot <n>", "0-based shot index")
     .option("--download <path>", "download the finished video")
     .option("--no-wait", "submit and return the job id immediately")
     .option("--estimate", "print the cost estimate and exit")
@@ -195,6 +212,8 @@ export function registerEditCommands(program: Command): void {
         );
       }
       const duration = positiveNumber(opts.duration, "--duration");
+      const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
+      const shotIndex = nonNegativeInteger(opts.shot, "--shot");
       if (opts.quality && !["standard", "pro"].includes(opts.quality)) {
         throw new UsageError('--quality must be "standard" or "pro".');
       }
@@ -245,6 +264,8 @@ export function registerEditCommands(program: Command): void {
           keep_original_sound: opts.originalSound !== false,
           project_id: opts.project,
           session_id: opts.session,
+          scene_index: sceneIndex,
+          shot_index: shotIndex,
         }),
       );
       await handleAsyncJob(ctx, submitted, {

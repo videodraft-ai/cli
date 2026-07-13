@@ -102,6 +102,33 @@ describe("specialized video edit commands", () => {
     });
   });
 
+  it("preserves project shot scope for specialized video edits", async () => {
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Change",
+      "the",
+      "weather",
+      "--project",
+      "project_123",
+      "--scene",
+      "2",
+      "--shot",
+      "1",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
+      model: "grok-imagine-video-edit",
+      prompt: "Change the weather",
+      video_url: "https://cdn.example.test/source.mp4",
+      project_id: "project_123",
+      scene_index: 2,
+      shot_index: 1,
+    });
+  });
+
   it("uses Kling V3 for motion control by default", async () => {
     await runEdit([
       "edit",
@@ -123,6 +150,40 @@ describe("specialized video edit commands", () => {
         image_url: "https://cdn.example.test/character.png",
         motion_video_url: "https://cdn.example.test/dance.mp4",
         keep_original_sound: true,
+      },
+    );
+  });
+
+  it("preserves project shot scope for specialized motion control", async () => {
+    await runEdit([
+      "edit",
+      "motion",
+      "https://cdn.example.test/character.png",
+      "Apply",
+      "the",
+      "dance",
+      "--motion-video",
+      "https://cdn.example.test/dance.mp4",
+      "--project",
+      "project_123",
+      "--scene",
+      "3",
+      "--shot",
+      "0",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "generate_motion_control_video",
+      {
+        model: "kling-v3-motion-control",
+        prompt: "Apply the dance",
+        image_url: "https://cdn.example.test/character.png",
+        motion_video_url: "https://cdn.example.test/dance.mp4",
+        keep_original_sound: true,
+        project_id: "project_123",
+        scene_index: 3,
+        shot_index: 0,
       },
     );
   });

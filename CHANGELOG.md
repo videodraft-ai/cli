@@ -3,6 +3,14 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.4.1]
+
+### Fixed
+
+- Added `--scene` and `--shot` to specialized video edit and motion commands,
+  validated them as non-negative indices, and forwarded the scope so project
+  outputs stay attached to the requested shot.
+
 ## [0.4.0]
 
 ### Added
