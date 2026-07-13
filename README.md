@@ -45,6 +45,9 @@ videodraft generate voice-changer ./speech.wav --voice elevenlabs-kPzsL2i3teMYv0
 videodraft generate dub ./clip.mp4 --to es --duration 30 --download dubbed.mp4
 videodraft upscale image ./photo.png --scale 4x --download ./photo-4x.png
 videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our launch' --json | jq -r .script)"
+videodraft edit video ./clip.mp4 "Add falling snow" --model grok-imagine-video-edit --download ./clip-snow.mp4
+videodraft edit motion ./character.png "Apply the reference dance" --motion-video ./dance.mp4 --download ./character-dance.mp4
+videodraft generate video "Match this performance" --model kling-o3-video-ref-edit --ref-video ./performance.mp4 --ref ./wardrobe.png --download ./guided.mp4
 ```
 
 Discover the full asset lane:
@@ -55,6 +58,7 @@ videodraft tools list --lane assets
 videodraft tools list --lane asset_io
 videodraft models image
 videodraft models video
+videodraft models video --category video_edit
 videodraft models audio
 ```
 
@@ -75,18 +79,18 @@ videodraft export <project> --download final.mp4
 
 ## Commands
 
-| Group | Commands |
-|---|---|
-| Auth | `login` `logout` `whoami` |
-| Account | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create` |
-| Projects | `projects list/get/delete/favorite/open` `checkpoint create/list/restore` |
-| Pipeline | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts` |
-| Generate | `generate image/video/voiceover/music/sound-effect/dialogue/voice-changer/dub` `upscale image/video` `avatar script/create/render/get/list` |
-| Jobs | `status <job>` `wait <job>` `generations` |
-| Media | `upload <file>` `media list` `describe <url\|file>` `download <url>` |
-| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'` |
-| Agents | `skills install [--agent claude\|codex\|cursor]` `skills path` |
-| Utility | `config get/set/path` `completion bash\|zsh` `docs` `--version` |
+| Group           | Commands                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth            | `login` `logout` `whoami`                                                                                                                                                      |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create`                                                                   |
+| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                      |
+| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                  |
+| Generate        | `generate image/video/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |
+| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                      |
+| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                           |
+| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                           |
+| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                 |
+| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                |
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
 
@@ -118,15 +122,15 @@ gh skill install videodraft-ai/cli videodraft --scope user   # GitHub CLI; name 
 
 ## Environment variables
 
-| Variable | Purpose |
-|---|---|
-| `VIDEODRAFT_API_KEY` | Bearer token (`vd_mcp_…`) — skips the login flow |
-| `VIDEODRAFT_BASE_URL` | Target server (default `https://app.videodraft.ai`) |
-| `VIDEODRAFT_CONFIG_DIR` | Config location (default `~/.config/videodraft`) |
-| `VIDEODRAFT_TELEMETRY=0` | Disable telemetry |
-| `DO_NOT_TRACK=1` | Disable telemetry (and the update check) |
-| `VIDEODRAFT_NO_UPDATE_CHECK=1` | Disable the update notice |
-| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | Proxy support |
+| Variable                                  | Purpose                                             |
+| ----------------------------------------- | --------------------------------------------------- |
+| `VIDEODRAFT_API_KEY`                      | Bearer token (`vd_mcp_…`) — skips the login flow    |
+| `VIDEODRAFT_BASE_URL`                     | Target server (default `https://app.videodraft.ai`) |
+| `VIDEODRAFT_CONFIG_DIR`                   | Config location (default `~/.config/videodraft`)    |
+| `VIDEODRAFT_TELEMETRY=0`                  | Disable telemetry                                   |
+| `DO_NOT_TRACK=1`                          | Disable telemetry (and the update check)            |
+| `VIDEODRAFT_NO_UPDATE_CHECK=1`            | Disable the update notice                           |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | Proxy support                                       |
 
 ## Telemetry
 

@@ -3,27 +3,27 @@
   "skills": [
     {
       "name": "videodraft",
-      "description": "Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, or dubbing — including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.",
+      "description": "Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, dubbing, or image/video enhancement and upscaling, including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.",
       "files": [
         {
           "path": "references/examples.md",
-          "sha256": "833120594712a0d07c30c31ab4e0f5974e0606900a2d045de819a0eeee71304c",
-          "bytes": 3590
+          "sha256": "91cc9aa5a49c34e9a73fdfd224eaf5ce46588c22bd72a951810ae73544efed25",
+          "bytes": 6254
         },
         {
           "path": "references/models.md",
-          "sha256": "02a9ac5973af8e77c9b3e88ef38d89f844f09ffb33cee53caa455e07913fe63e",
-          "bytes": 5348
+          "sha256": "a871eeec1dc1cc164718f1f52ea40cc90510c2f4c3b71fb57bd6a25981ad06a0",
+          "bytes": 17138
         },
         {
           "path": "references/pipeline.md",
-          "sha256": "bd2f89a96ad72035c794bb2e4d8000ae1c8278bcd7625e7db14477284d290726",
-          "bytes": 5392
+          "sha256": "054109a6ab556bcace1ff843b001afe9bc3a0aac389667e979ac7b77a7200a50",
+          "bytes": 10644
         },
         {
           "path": "SKILL.md",
-          "sha256": "df295acbd3e53ce1658acbfd030933a4d8d834456de2f0ed9257834e33617af7",
-          "bytes": 10648
+          "sha256": "8796e157a835f17edcd8c8345c2668042fdcd793781eace573a570825b6440c6",
+          "bytes": 15094
         }
       ]
     }

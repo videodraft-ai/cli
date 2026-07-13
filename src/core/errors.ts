@@ -32,6 +32,14 @@ export class CliError extends Error {
   }
 }
 
+/** Invalid user-supplied flags or arguments. */
+export class UsageError extends CliError {
+  constructor(message: string, hint?: string) {
+    super(message, EXIT.USAGE, hint);
+    this.name = "UsageError";
+  }
+}
+
 export class AuthError extends CliError {
   constructor(message = "Not authenticated.") {
     super(
@@ -56,7 +64,8 @@ export class RpcError extends CliError {
   }
 }
 
-const CREDIT_ERROR_RE = /insufficient credits|not enough credits|credit balance/i;
+const CREDIT_ERROR_RE =
+  /insufficient credits|not enough credits|credit balance/i;
 
 /** A tools/call result that came back isError:true. */
 export class ToolError extends CliError {

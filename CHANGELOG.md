@@ -3,6 +3,45 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.4.0]
+
+### Added
+
+- Added first-class `videodraft edit video` commands for Gemini Omni Flash,
+  Kling O3, Grok Imagine, Happy Horse, and Wan 2.7 reference editing, including
+  local source/reference uploads, project/scene/shot scope, JSON output, cost
+  estimates, and downloads.
+- Added specialized avatar and lip-sync commands for VEED Fabric and Sync Labs,
+  with audio/text modes, resolution and sync controls, and async job polling.
+- Exposed AI Studio's video-editing, avatar, lip-sync, motion-control, audio,
+  image/video upscaling, and exact generation model choices through CLI help
+  and the grouped tool catalog.
+
+### Changed
+
+- Model-free image and video generation now chooses a model from the requested
+  task and inputs. Explicit model selections still pass through unchanged.
+- Expanded generation flags for start/end frames, image/video/audio references,
+  scene and shot placement, native audio, quality tiers, multi-prompt video,
+  and model-specific duration and resolution controls.
+- Reworked the bundled VideoDraft skill and model references around concise,
+  task-aware defaults: Nano Banana and GPT Image 2 for images, Gemini Omni
+  Flash for most video work, Seedance 2 for multimodal references, Kling or
+  Seedance for longer native-audio clips, ElevenLabs for speech and effects,
+  and VEED Fabric for talking avatars.
+- Clarified that standalone asset requests use asset tools directly, while
+  projects are used when the requested outcome needs an editable story,
+  storyboard, production timeline, or final export.
+
+### Fixed
+
+- Preserved `--scene` and `--shot` scope across specialized edit and motion
+  commands so completed media remains attached to the requested project shot.
+- Aligned cost previews with runtime defaults, including Veo durations and
+  reference-aware estimates.
+- Restored documented exit code 2 for invalid CLI arguments and kept generated
+  skill manifests and the exact-content skill index in sync.
+
 ## [0.3.8]
 
 ### Changed

@@ -5,6 +5,7 @@
 import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { emit, kv, table } from "../cli/output.js";
+import { UsageError } from "../core/errors.js";
 
 export function registerAccountCommands(program: Command): void {
   program
@@ -84,16 +85,49 @@ export function registerAccountCommands(program: Command): void {
     .description(
       "List available models: image | video | audio | voices | styles (default: image + video + audio)",
     )
+    .option(
+      "--category <name>",
+      "video only: generation | video_edit | motion_control | avatar_lipsync | upscale",
+    )
     .action(async function (this: Command, kind?: string) {
       const ctx = buildContext(this);
+      const opts = this.opts<{ category?: string }>();
       const wanted = kind ?? "all";
+      const videoCategories = new Set([
+        "generation",
+        "video_edit",
+        "motion_control",
+        "avatar_lipsync",
+        "upscale",
+      ]);
+      if (opts.category && !videoCategories.has(opts.category)) {
+        throw new UsageError(
+          `Unknown video category "${opts.category}". Use generation, video_edit, motion_control, avatar_lipsync, or upscale.`,
+        );
+      }
+      if (opts.category && wanted !== "video" && wanted !== "all") {
+        throw new UsageError(
+          "--category is only valid for the video model catalog.",
+        );
+      }
       const result: Record<string, unknown> = {};
 
       if (wanted === "image" || wanted === "all") {
         result.image = await ctx.client.callTool("list_available_image_models");
       }
       if (wanted === "video" || wanted === "all") {
-        result.video = await ctx.client.callTool("list_available_video_models");
+        const video: any = await ctx.client.callTool(
+          "list_available_video_models",
+        );
+        result.video = opts.category
+          ? {
+              ...video,
+              models: (video?.models ?? []).filter(
+                (model: any) => model.category === opts.category,
+              ),
+              selected_category: opts.category,
+            }
+          : video;
       }
       if (wanted === "audio" || wanted === "all") {
         result.audio = await ctx.client.callTool("list_available_audio_models");
@@ -118,14 +152,21 @@ export function registerAccountCommands(program: Command): void {
             process.stdout.write(JSON.stringify(payload, null, 2) + "\n");
             continue;
           }
+          const rows: string[][] = models.map((m: any) => [
+            String(m.id ?? m.model_id ?? m.voice_id ?? ""),
+            String(m.name ?? "").slice(0, 40),
+            String(m.category ?? ""),
+            String(m.tool ?? ""),
+            String(m.credit_cost ?? m.cost ?? m.pricing?.summary ?? ""),
+          ]);
           table(
             o,
-            ["id", "name", "cost"],
-            models.map((m: any) => [
-              String(m.id ?? m.model_id ?? m.voice_id ?? ""),
-              String(m.name ?? "").slice(0, 40),
-              String(m.credit_cost ?? m.cost ?? m.pricing?.summary ?? ""),
-            ]),
+            section === "video"
+              ? ["id", "name", "category", "tool", "cost"]
+              : ["id", "name", "cost"],
+            section === "video"
+              ? rows
+              : rows.map((row) => [row[0] ?? "", row[1] ?? "", row[4] ?? ""]),
           );
         }
       });
@@ -153,7 +194,9 @@ export function registerAccountCommands(program: Command): void {
     });
 
   // AI Studio sessions — group standalone (project-less) generations.
-  const sessions = program.command("sessions").description("AI Studio sessions");
+  const sessions = program
+    .command("sessions")
+    .description("AI Studio sessions");
 
   sessions
     .command("list", { isDefault: true })
@@ -182,7 +225,9 @@ export function registerAccountCommands(program: Command): void {
 
   sessions
     .command("create <name>")
-    .description("Create an AI Studio session (reuse its id across standalone generations)")
+    .description(
+      "Create an AI Studio session (reuse its id across standalone generations)",
+    )
     .option("--project <id>", "attach the session to a project")
     .action(async function (this: Command, name: string) {
       const ctx = buildContext(this);

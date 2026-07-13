@@ -12,7 +12,11 @@ import { CliError, EXIT } from "./core/errors.js";
 import { VERSION } from "./version.js";
 import { fmt, makeOutput } from "./cli/output.js";
 import { buildCommandPath } from "./cli/command-path.js";
-import { capture, maybePrintFirstRunNotice, shutdown as telemetryShutdown } from "./cli/telemetry.js";
+import {
+  capture,
+  maybePrintFirstRunNotice,
+  shutdown as telemetryShutdown,
+} from "./cli/telemetry.js";
 import { maybeCheckForUpdate } from "./cli/update-check.js";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerAccountCommands } from "./commands/account.js";
@@ -25,12 +29,18 @@ import { registerToolCommands } from "./commands/tools.js";
 import { registerAvatarCommands } from "./commands/avatar.js";
 import { registerSkillCommands } from "./commands/skills.js";
 import { registerMiscCommands } from "./commands/misc.js";
+import { registerEditCommands } from "./commands/edit.js";
 
 // HTTPS_PROXY / HTTP_PROXY / NO_PROXY support for corporate networks. The
 // undici package ships EnvHttpProxyAgent; setting the global dispatcher makes
 // every fetch() in the process honor the proxy env vars.
 async function configureProxy(): Promise<void> {
-  if (!process.env.HTTPS_PROXY && !process.env.HTTP_PROXY && !process.env.https_proxy && !process.env.http_proxy) {
+  if (
+    !process.env.HTTPS_PROXY &&
+    !process.env.HTTP_PROXY &&
+    !process.env.https_proxy &&
+    !process.env.http_proxy
+  ) {
     return;
   }
   try {
@@ -53,11 +63,23 @@ function buildProgram(): Command {
     .version(VERSION, "-v, --version", "print the CLI version")
     .option("--json", "machine-readable JSON output")
     .option("--no-color", "disable colored output (NO_COLOR is also respected)")
-    .option("--base-url <url>", "VideoDraft server (default https://app.videodraft.ai; env VIDEODRAFT_BASE_URL)")
-    .option("--token <vd_mcp_token>", "bearer token for this invocation (env VIDEODRAFT_API_KEY)")
+    .option(
+      "--base-url <url>",
+      "VideoDraft server (default https://app.videodraft.ai; env VIDEODRAFT_BASE_URL)",
+    )
+    .option(
+      "--token <vd_mcp_token>",
+      "bearer token for this invocation (env VIDEODRAFT_API_KEY)",
+    )
     .option("--profile <name>", "config profile (default: default)")
-    .option("--wait-interval <duration>", "poll interval for --wait, e.g. 3s (default)")
-    .option("--wait-timeout <duration>", "max wait for --wait, e.g. 10m (default)")
+    .option(
+      "--wait-interval <duration>",
+      "poll interval for --wait, e.g. 3s (default)",
+    )
+    .option(
+      "--wait-timeout <duration>",
+      "max wait for --wait, e.g. 10m (default)",
+    )
     .showSuggestionAfterError(true)
     .exitOverride();
 
@@ -69,6 +91,7 @@ function buildProgram(): Command {
   registerJobCommands(program);
   registerMediaCommands(program);
   registerAvatarCommands(program);
+  registerEditCommands(program);
   registerToolCommands(program);
   registerSkillCommands(program);
   registerMiscCommands(program);
@@ -87,12 +110,18 @@ async function main(): Promise<void> {
   // like a token from a positional). Stays "help" if parsing fails pre-action.
   let commandPath = "help";
   program.hook("preAction", (_thisCommand, actionCommand) => {
-    commandPath = buildCommandPath(actionCommand as unknown as { name(): string; parent?: any });
+    commandPath = buildCommandPath(
+      actionCommand as unknown as { name(): string; parent?: any },
+    );
   });
 
   try {
     await program.parseAsync(process.argv);
-    capture("cli_command", { command: commandPath, ok: true, duration_ms: Date.now() - startedAt });
+    capture("cli_command", {
+      command: commandPath,
+      ok: true,
+      duration_ms: Date.now() - startedAt,
+    });
     await maybeCheckForUpdate();
   } catch (err: any) {
     if (err instanceof CommanderError) {
@@ -136,7 +165,9 @@ async function main(): Promise<void> {
       const out = makeOutput({ json: process.argv.includes("--json") });
       const message = err?.message ?? String(err);
       if (out.json) {
-        process.stdout.write(`${JSON.stringify({ error: message, exit_code: EXIT.ERROR }, null, 2)}\n`);
+        process.stdout.write(
+          `${JSON.stringify({ error: message, exit_code: EXIT.ERROR }, null, 2)}\n`,
+        );
       } else {
         process.stderr.write(`${fmt.red(out, "Error:")} ${message}\n`);
       }
