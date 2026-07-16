@@ -23,6 +23,7 @@
   "extract_visual_assets",
   "finalize_media_upload",
   "finalize_scene_videos",
+  "generate_audio",
   "generate_avatar_script",
   "generate_dialogue",
   "generate_image",

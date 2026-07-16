@@ -1,6 +1,6 @@
 {
   "name": "videodraft",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Official VideoDraft CLI — create AI videos, images and audio from your terminal. Agent-friendly: --json everywhere, stable exit codes, async job polling.",
   "license": "MIT",
   "type": "module",

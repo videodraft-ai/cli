@@ -75,6 +75,7 @@ Kling O3 and Wan 2.7 Ref/Edit are dual-mode cards. `videodraft edit video` uses 
 
 ### Audio
 
+- **Seed Audio 1.0**: use `videodraft generate audio` for open-ended speech, sound, music, or prompt-driven audio editing. It accepts up to three audio references or one image. Address audio references as `@Audio1`, `@Audio2`, and `@Audio3`. Preset and custom cloned voice IDs are supported. Output is up to 120 seconds. There is no requested-duration input. The CLI automatically retries transient responses with one idempotency key. To recover after the CLI process itself is interrupted, set `--idempotency-key <uuid>` on the original command and reuse it.
 - **Voiceover/TTS**: prefer ElevenLabs. Brittney is the platform default voice; under ElevenLabs BYOK, use a compatible voice from the user's account. Honor another supported voice/provider when the user explicitly selects it.
 - **Dialogue, voice changing, and dubbing**: ElevenLabs only.
 - **Sound effects**: ElevenLabs Sound Effects only.
@@ -132,6 +133,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - Sync Labs Lipsync 2: 5 credits per verified audio second.
 - Voiceover TTS: 10 credits per 1000 characters for standard voices, 30 per 1000 for cloned `custom-*` voices (min 1, pro-rated); applies to standalone voiceovers AND per-scene narration during `produce`. Silent tracks are free. Voice cloning itself is a flat 150 credits per clone.
 - Lyria music: flat per track, 10 credits (clip) / 15 credits (pro).
+- Seed Audio 1.0: 19 credits per actual output minute, prorated and rounded up to a whole credit. VideoDraft reserves the 120-second maximum of 38 credits and refunds the unused portion after generation. Fal BYOK is free.
 - ElevenLabs audio: sound effects are per second, dialogue is per character, music/voice-changer/dubbing are per started minute. Voice changer and dubbing reject source media above 300s in the current synchronous flow.
 - Upscales: priced by scale and source size.
 
@@ -141,6 +143,7 @@ Quote before spending:
 videodraft costs gemini-omni-flash --type video --duration 8 --resolution 720p --audio
 videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio
 videodraft costs elevenlabs-dubbing --type audio --duration 60
+videodraft costs seed-audio-1.0 --type audio --duration 60 # scenario only; model controls actual length
 videodraft costs elevenlabs-dialogue --type audio --chars 350
 videodraft costs voiceover --type audio --chars 800    # TTS: 10 cr / 1000 chars
 videodraft generate video "..." --model gemini-omni-flash --estimate # same quote, inline

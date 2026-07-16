@@ -37,6 +37,8 @@ Standalone images, clips and audio are complete deliverables. They do not need a
 ```bash
 videodraft generate image "isometric workspace, warm light" --num 4 --download "./out/{job_id}_{index}.{ext}"
 videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --estimate
+videodraft generate audio "Read this in a calm documentary voice" --voice vivi_mixed_en_zh_ja_es_id --download narration.mp3
+videodraft generate audio "Extend @Audio1 with soft rain" --ref-audio ./opening.wav --download extended.wav --format wav
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3
 videodraft generate music "minimal ambient, 60 BPM" --download bgm.mp3
 videodraft generate sound-effect "cinematic whoosh, sub hit" --duration 3 --download sfx.mp3
@@ -49,6 +51,17 @@ videodraft edit video ./clip.mp4 "Add falling snow" --model grok-imagine-video-e
 videodraft edit motion ./character.png "Apply the reference dance" --motion-video ./dance.mp4 --download ./character-dance.mp4
 videodraft generate video "Match this performance" --model kling-o3-video-ref-edit --ref-video ./performance.mp4 --ref ./wardrobe.png --download ./guided.mp4
 ```
+
+`generate audio` automatically retries transient and lost responses with one
+stable operation key. To recover after stopping or losing the CLI process, set
+your own UUID up front and reuse it if needed:
+
+```bash
+videodraft generate audio "..." --idempotency-key "$(uuidgen)"
+```
+
+The server then returns the existing result or in-progress operation without
+generating or charging twice.
 
 Discover the full asset lane:
 
@@ -79,18 +92,18 @@ videodraft export <project> --download final.mp4
 
 ## Commands
 
-| Group           | Commands                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Auth            | `login` `logout` `whoami`                                                                                                                                                      |
-| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create`                                                                   |
-| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                      |
-| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                  |
-| Generate        | `generate image/video/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |
-| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                      |
-| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                           |
-| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                           |
-| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                 |
-| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                |
+| Group           | Commands                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth            | `login` `logout` `whoami`                                                                                                                                                            |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create`                                                                         |
+| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                            |
+| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                        |
+| Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |
+| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                            |
+| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                 |
+| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                                 |
+| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                       |
+| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                      |
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
 

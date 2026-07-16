@@ -39,6 +39,7 @@ videodraft shots "$PROJECT" --grid --estimate          # show the user the cost;
 videodraft shots "$PROJECT" --grid
 videodraft produce "$PROJECT"
 videodraft generate music "minimal ambient, warm pads, 60 BPM" --attach "$PROJECT"
+videodraft generate audio "Extend @Audio1 into a 20-second transition" --ref-audio ./intro.wav --format wav --download ./transition.wav
 videodraft export "$PROJECT" --download solace-launch.mp4
 ```
 

@@ -3,6 +3,13 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [0.5.0]
+
+### Added
+
+- Added `videodraft generate audio` for ByteDance Seed Audio 1.0, including preset/custom voices, up to three local or remote audio references, image conditioning, output format and sample-rate controls, speed, volume, pitch, estimates, downloads, and AI Studio project/session grouping.
+- Added retry-safe audio idempotency across the CLI, MCP tool, in-app agent, AI Studio, credit reservation, provider execution, and generation persistence.
+
 ## [0.4.1]
 
 ### Fixed

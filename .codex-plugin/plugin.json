@@ -1,6 +1,6 @@
 {
   "name": "videodraft",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
   "author": {
     "name": "VideoDraft",
@@ -28,10 +28,7 @@
     "longDescription": "VideoDraft turns your agent into a video production studio. Generate standalone images, video clips, voiceovers, music, sound effects, dialogue, voice-changed and dubbed audio, or run the full idea to script to storyboard to timeline to exported MP4 pipeline. Uses the videodraft CLI for authenticated, cost-aware, async-batched generation and returns ready-to-use result URLs.",
     "developerName": "VideoDraft",
     "category": "Design",
-    "capabilities": [
-      "Read",
-      "Write"
-    ],
+    "capabilities": ["Read", "Write"],
     "websiteURL": "https://videodraft.ai",
     "defaultPrompt": [
       "Generate a cinematic 16:9 image of a red fox in snow",
