@@ -18,6 +18,7 @@ Use direct asset tools for standalone images, clips, audio, upscales, and descri
 | Motion clip for a shot                  | `videodraft generate video --project <id>`                                  | `generate_video`                           |
 | Attach a finished clip to the timeline  | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot`                     |
 | Background music                        | `videodraft generate music --attach <project>`                              | `generate_music` / `set_background_music`  |
+| General or reference-driven audio       | `videodraft generate audio "..."`                                          | `generate_audio`                           |
 | Sound effect                            | `videodraft generate sound-effect "..."`                                    | `generate_sound_effect`                    |
 | Dialogue audio                          | `videodraft generate dialogue --line "voice:text"`                          | `generate_dialogue`                        |
 | Voice changer                           | `videodraft generate voice-changer <audio>`                                 | `change_voice`                             |

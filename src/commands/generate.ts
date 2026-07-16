@@ -1,5 +1,5 @@
 /**
- * `videodraft generate image|video|voiceover|music|sound-effect|dialogue|voice-changer|dub`
+ * `videodraft generate image|video|audio|voiceover|music|sound-effect|dialogue|voice-changer|dub`
  * and `videodraft upscale`.
  *
  * Conventions:
@@ -11,6 +11,7 @@
  */
 
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
 import {
   buildContext,
@@ -23,12 +24,24 @@ import { pollGeneration, extractOutputUrls } from "../core/poll.js";
 import { buildMediaDescriptors } from "../core/media.js";
 import { downloadOutputs, type DownloadedFile } from "../core/download.js";
 import { uploadFile } from "../core/upload.js";
+import {
+  callAudioWithRetry,
+  isRetryableAudioError,
+} from "../core/audio-retry.js";
 import { capture } from "../cli/telemetry.js";
 import { CliError, EXIT } from "../core/errors.js";
 
 /** Any URI scheme (http(s), gs://, data:, …) passes through; a bare path is a local file. */
 const URI_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
 const VIDEO_SOURCE_RE = /\.(mp4|mov|webm|m4v|gif)(?:[?#].*)?$/i;
+const SEED_AUDIO_FORMATS = ["wav", "mp3", "pcm", "ogg_opus"] as const;
+const SEED_AUDIO_SAMPLE_RATES = [
+  8000, 16000, 24000, 32000, 44100, 48000,
+] as const;
+const SEED_AUDIO_PROMPT_MAX_CHARS = 2048;
+const SEED_AUDIO_MAX_REFERENCES = 3;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function inferDubMediaType(
   source: string,
@@ -110,6 +123,29 @@ function optionalPositiveNumber(
   return parsed;
 }
 
+function optionalRangedNumber(
+  value: unknown,
+  label: string,
+  min: number,
+  max: number,
+  integer = false,
+): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < min ||
+    parsed > max ||
+    (integer && !Number.isInteger(parsed))
+  ) {
+    throw new CliError(
+      `${label} must be ${integer ? "a whole number " : ""}from ${min} to ${max}.`,
+      EXIT.USAGE,
+    );
+  }
+  return parsed;
+}
+
 function optionalSeed(value: unknown): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
@@ -159,7 +195,7 @@ async function printEstimate(
   ctx: CommandContext,
   params: {
     model?: string;
-    type: "image" | "video";
+    type: "image" | "video" | "audio";
     duration?: number;
     resolution?: string;
     quality?: string;
@@ -605,6 +641,160 @@ export function registerGenerateCommands(program: Command): void {
         download: opts.download,
         label: "Generating video",
       });
+    });
+
+  generate
+    .command("audio <prompt...>")
+    .description(
+      "Generate or edit audio with ByteDance Seed Audio 1.0 (synchronous)",
+    )
+    .option("--voice <id>", "preset Seed Audio voice or custom cloned voice id")
+    .option(
+      "--ref-audio <url|file>",
+      "reference audio for @Audio1..@Audio3 (repeatable; local files uploaded)",
+      collect,
+      [],
+    )
+    .option(
+      "--image <url|file>",
+      "reference image (cannot be combined with --ref-audio)",
+    )
+    .option("--format <wav|mp3|pcm|ogg_opus>", "output format (default mp3)")
+    .option(
+      "--sample-rate <hz>",
+      "8000 | 16000 | 24000 | 32000 | 44100 | 48000 (default 24000)",
+    )
+    .option("--speed <0.5-2>", "playback speed multiplier (default 1)")
+    .option("--volume <0.5-2>", "volume multiplier (default 1)")
+    .option("--pitch <-12-12>", "pitch in whole semitones (default 0)")
+    .option("--project <id>", "link to a project's AI Studio session")
+    .option("--session <id>", "AI Studio session id")
+    .option(
+      "--idempotency-key <uuid>",
+      "set a stable UUID for recovery after a process interruption",
+    )
+    .option("--download <path>", "download the generated audio file")
+    .option(
+      "--estimate",
+      "show 19 credits/minute pricing and the 38-credit maximum reservation",
+    )
+    .action(async function (this: Command, promptWords: string[]) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      const prompt = promptWords.join(" ").trim();
+      if (!prompt) {
+        throw new CliError("A Seed Audio prompt is required.", EXIT.USAGE);
+      }
+      if (prompt.length > SEED_AUDIO_PROMPT_MAX_CHARS) {
+        throw new CliError(
+          `Seed Audio prompts must be ${SEED_AUDIO_PROMPT_MAX_CHARS} characters or fewer.`,
+          EXIT.USAGE,
+        );
+      }
+      const rawAudioRefs = (opts.refAudio ?? []) as string[];
+      if (rawAudioRefs.length > SEED_AUDIO_MAX_REFERENCES) {
+        throw new CliError(
+          `Seed Audio accepts at most ${SEED_AUDIO_MAX_REFERENCES} --ref-audio values.`,
+          EXIT.USAGE,
+        );
+      }
+      if (opts.image && rawAudioRefs.length > 0) {
+        throw new CliError(
+          "--image and --ref-audio cannot be used together.",
+          EXIT.USAGE,
+        );
+      }
+      const outputFormat = opts.format ?? "mp3";
+      if (!SEED_AUDIO_FORMATS.includes(outputFormat)) {
+        throw new CliError(
+          `--format must be one of: ${SEED_AUDIO_FORMATS.join(", ")}.`,
+          EXIT.USAGE,
+        );
+      }
+      const sampleRate = opts.sampleRate ? Number(opts.sampleRate) : 24000;
+      if (!SEED_AUDIO_SAMPLE_RATES.includes(sampleRate as any)) {
+        throw new CliError(
+          `--sample-rate must be one of: ${SEED_AUDIO_SAMPLE_RATES.join(", ")}.`,
+          EXIT.USAGE,
+        );
+      }
+      const speed = optionalRangedNumber(opts.speed, "--speed", 0.5, 2);
+      const volume = optionalRangedNumber(opts.volume, "--volume", 0.5, 2);
+      const pitch = optionalRangedNumber(opts.pitch, "--pitch", -12, 12, true);
+      const idempotencyKey = opts.idempotencyKey ?? randomUUID();
+      if (!UUID_RE.test(idempotencyKey)) {
+        throw new CliError(
+          "--idempotency-key must be a valid UUID.",
+          EXIT.USAGE,
+        );
+      }
+
+      if (opts.estimate) {
+        await printEstimate(ctx, {
+          model: "seed-audio-1.0",
+          type: "audio",
+        });
+        return;
+      }
+
+      const [audioUrls, imageUrl] = await Promise.all([
+        resolveRefs(ctx, rawAudioRefs),
+        opts.image
+          ? resolveRefs(ctx, [opts.image]).then((urls) => urls[0])
+          : undefined,
+      ]);
+      capture("cli_generate", { kind: "audio", model: "seed-audio-1.0" });
+      const toolArgs = compact({
+        prompt,
+        voice: opts.voice,
+        audio_urls: audioUrls.length > 0 ? audioUrls : undefined,
+        image_url: imageUrl,
+        output_format: outputFormat,
+        sample_rate: sampleRate,
+        speed,
+        volume,
+        pitch,
+        project_id: opts.project,
+        session_id: opts.session,
+        idempotency_key: idempotencyKey,
+      });
+      let result: any;
+      try {
+        result = await callAudioWithRetry(() =>
+          ctx.client.callTool("generate_audio", toolArgs),
+        );
+      } catch (error) {
+        const hint = isRetryableAudioError(error)
+          ? `Retry this exact request with --idempotency-key ${idempotencyKey}`
+          : undefined;
+        if (error instanceof CliError) {
+          if (hint) error.hint = hint;
+          throw error;
+        }
+        throw new CliError(
+          error instanceof Error ? error.message : "Audio generation failed",
+          EXIT.ERROR,
+          hint,
+        );
+      }
+      const urls = extractOutputUrls(result);
+      let downloaded: DownloadedFile[] | undefined;
+      if (opts.download && urls.length > 0) {
+        downloaded = await downloadOutputs(urls, opts.download, {
+          name: "seed-audio",
+        });
+      }
+      const media = buildMediaDescriptors(urls, "audio");
+      emit(
+        ctx.out,
+        { ...result, downloaded_files: downloaded, output_media: media },
+        (o) => {
+          for (const url of urls) process.stdout.write(`${url}\n`);
+          for (const file of downloaded ?? []) {
+            note(o, fmt.dim(o, `saved ${file.path}`));
+          }
+        },
+      );
     });
 
   generate

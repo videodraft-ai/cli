@@ -1,13 +1,13 @@
 ---
 name: videodraft
-description: Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, dubbing, or image/video enhancement and upscaling, including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.
+description: Create AI videos, images, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, prompt-driven or reference-driven audio, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, dubbing, or image/video enhancement and upscaling, including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.
 ---
 
 # VideoDraft
 
 VideoDraft is an AI video creation platform where asset generation is the priority lane:
 
-- **Asset generation**: standalone images, video clips, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
+- **Asset generation**: standalone images, video clips, Seed Audio, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
 - **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
 - **Project production**: idea → script → storyboard (scenes + shot images) → project data → production timeline → exported MP4. Use it for a multi-scene video, story, ad, explainer, storyboard, editable timeline, or final export, even when the user does not say "project." A script-only request also creates a script-stage project but stops at the script.
 
@@ -59,6 +59,7 @@ If the user names a model, use it when compatible. If it cannot handle the reque
 
 **Audio and utilities:**
 
+- Use Seed Audio 1.0 for open-ended text-to-audio, speech/music/sound synthesis, voice conditioning, or prompt-driven editing with up to three audio references or one image. Use `videodraft generate audio`. Reference clips are `@Audio1`, `@Audio2`, and `@Audio3` in array order. There is no duration input. Output is up to two minutes and settles at 19 credits per actual minute, with up to 38 credits reserved during generation. The CLI automatically retries transient responses with one operation key. To recover after the CLI process itself is interrupted, set `--idempotency-key <uuid>` on the original command and reuse it.
 - Prefer ElevenLabs for voiceover, dialogue, voice changing, dubbing, and sound effects. Honor an explicitly selected supported TTS voice/provider. Use Lyria for instrumental music and ElevenLabs Music for vocals, lyrics, or exact timing.
 - Talking head/presenter: choose by source. Use managed `avatar create` then `avatar render` when the user wants a reusable avatar record and bundled speech. Use `avatar fabric` for a one-off portrait plus text or existing audio. Use `avatar lipsync` when both the source video and replacement audio already exist.
 - Enhancement: use Topaz image/video upscaling only when the content is already correct. Use image 1x for cleanup, 2x by default, 4x when justified; use video 2x by default. Edit or regenerate creative errors.
@@ -79,7 +80,7 @@ Do not call `videodraft credits` before routine generations. Paid endpoints vali
 
 For expensive work, estimate with `--estimate` or `videodraft costs`, state the selected model/settings/cost, and get a go-ahead. This matters most for shot-image batches, long or high-resolution video, AI Production, and paid audio batches. Honor the user's confirmation preference for the session.
 
-`videodraft models image|video` lists the live image and video catalogs with supported inputs. Video entries are grouped as `generation`, `video_edit`, `motion_control`, `avatar_lipsync`, and `upscale`, and each reports the exact tool. Use `videodraft models video --category video_edit` to narrow the list. `videodraft models audio` lists Google Lyria and ElevenLabs audio/media tools, while `videodraft models voices` lists TTS voices. Consult them instead of guessing capabilities.
+`videodraft models image|video` lists the live image and video catalogs with supported inputs. Video entries are grouped as `generation`, `video_edit`, `motion_control`, `avatar_lipsync`, and `upscale`, and each reports the exact tool. Use `videodraft models video --category video_edit` to narrow the list. `videodraft models audio` lists Seed Audio, Google Lyria, and ElevenLabs audio/media tools, while `videodraft models voices` lists TTS voices. Consult them instead of guessing capabilities.
 
 ## Async jobs
 
@@ -130,7 +131,7 @@ videodraft produce <project_id>                 # voiceovers + captions + produc
 videodraft export <project_id> --download final.mp4
 ```
 
-Optional between produce and export: per-shot motion clips (`videodraft generate video ... --project <id>` then place it with `videodraft attach <project> --scene N --shot M --media <url|file> --type video --duration <s>`), music (`videodraft generate music "..." --attach <project_id>`), and standalone audio assets (`generate sound-effect`, `generate dialogue`, `generate voice-changer`, `generate dub`). Details, per-step tools and editing rules: [references/pipeline.md](references/pipeline.md).
+Optional between produce and export: per-shot motion clips (`videodraft generate video ... --project <id>` then place it with `videodraft attach <project> --scene N --shot M --media <url|file> --type video --duration <s>`), music (`videodraft generate music "..." --attach <project_id>`), and standalone audio assets (`generate audio`, `generate sound-effect`, `generate dialogue`, `generate voice-changer`, `generate dub`). Details, per-step tools and editing rules: [references/pipeline.md](references/pipeline.md).
 
 Avatar/talking-head videos use dedicated commands. For a reusable managed avatar, obtain or generate a clear portrait → `videodraft avatar script` when needed → `videodraft avatar create` → `videodraft avatar render --resolution 720p`. For a one-off portrait, use `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`. For an existing video plus replacement audio, use `videodraft avatar lipsync <video> --audio <file>`. Managed script/creation is bundled/free; direct Fabric, Sync, the managed Fabric render, and optional portrait generation/upscaling are paid. Confirm expensive steps first.
 

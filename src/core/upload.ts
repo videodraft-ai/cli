@@ -23,6 +23,8 @@ const MIME_BY_EXT: Record<string, string> = {
   m4v: "video/x-m4v",
   mp3: "audio/mpeg",
   wav: "audio/wav",
+  pcm: "audio/L16",
+  opus: "audio/opus",
   m4a: "audio/mp4",
   aac: "audio/aac",
   ogg: "audio/ogg",
@@ -65,7 +67,9 @@ export async function uploadFile(
   const uploadUrl: string | undefined = created?.upload_url;
   const filePath: string | undefined = created?.file_path;
   if (!uploadUrl || !filePath) {
-    throw new CliError("create_media_upload did not return upload_url/file_path.");
+    throw new CliError(
+      "create_media_upload did not return upload_url/file_path.",
+    );
   }
 
   // Stream the file to GCS rather than buffering it — a few-hundred-MB video
@@ -75,13 +79,17 @@ export async function uploadFile(
   const putRes = await fetchImpl(uploadUrl, {
     method: "PUT",
     headers: { "content-type": contentType, "content-length": String(size) },
-    body: Readable.toWeb(fs.createReadStream(resolved)) as unknown as ReadableStream,
+    body: Readable.toWeb(
+      fs.createReadStream(resolved),
+    ) as unknown as ReadableStream,
     // Node/undici requires duplex:"half" when the body is a stream.
     duplex: "half",
     signal: AbortSignal.timeout(600_000),
   } as RequestInit & { duplex: "half" });
   if (!putRes.ok) {
-    throw new CliError(`Upload PUT failed (HTTP ${putRes.status}). The presigned URL may have expired — retry.`);
+    throw new CliError(
+      `Upload PUT failed (HTTP ${putRes.status}). The presigned URL may have expired — retry.`,
+    );
   }
 
   const finalized: any = await client.callTool("finalize_media_upload", {

@@ -17,16 +17,46 @@ export interface MediaDescriptor {
   url: string;
 }
 
-const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "heif", "avif", "svg"]);
+const IMAGE_EXTS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "gif",
+  "bmp",
+  "heic",
+  "heif",
+  "avif",
+  "svg",
+]);
 const VIDEO_EXTS = new Set(["mp4", "webm", "mov", "m4v"]);
-const AUDIO_EXTS = new Set(["mp3", "wav", "m4a", "ogg", "flac", "aac"]);
+const AUDIO_EXTS = new Set([
+  "mp3",
+  "wav",
+  "pcm",
+  "opus",
+  "m4a",
+  "ogg",
+  "flac",
+  "aac",
+]);
 
 /** Kind from (1) the server's `type`, then (2) the CDN path category, then (3) the extension. */
-function kindOf(url: string, typeHint?: string): MediaDescriptor["kind"] | null {
+function kindOf(
+  url: string,
+  typeHint?: string,
+): MediaDescriptor["kind"] | null {
   const t = (typeHint ?? "").toLowerCase();
   if (t.includes("image")) return "image";
   if (t.includes("video")) return "video";
-  if (t.includes("audio") || t.includes("music") || t.includes("sound") || t.includes("voice") || t.includes("speech") || t.includes("tts")) {
+  if (
+    t.includes("audio") ||
+    t.includes("music") ||
+    t.includes("sound") ||
+    t.includes("voice") ||
+    t.includes("speech") ||
+    t.includes("tts")
+  ) {
     return "audio";
   }
   const path = url.split(/[?#]/)[0]?.toLowerCase() ?? "";
@@ -43,12 +73,16 @@ function kindOf(url: string, typeHint?: string): MediaDescriptor["kind"] | null 
 }
 
 /** Build deduped descriptors from output URLs. URLs whose kind can't be resolved are dropped. */
-export function buildMediaDescriptors(urls: string[] | undefined, typeHint?: string): MediaDescriptor[] {
+export function buildMediaDescriptors(
+  urls: string[] | undefined,
+  typeHint?: string,
+): MediaDescriptor[] {
   if (!Array.isArray(urls)) return [];
   const seen = new Set<string>();
   const out: MediaDescriptor[] = [];
   for (const url of urls) {
-    if (typeof url !== "string" || !/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    if (typeof url !== "string" || !/^https?:\/\//i.test(url) || seen.has(url))
+      continue;
     const kind = kindOf(url, typeHint);
     if (!kind) continue;
     seen.add(url);

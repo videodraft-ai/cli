@@ -177,4 +177,119 @@ describe("generate --estimate model selection", () => {
       generate_audio: false,
     });
   });
+
+  it("estimates Seed Audio through its dedicated audio model", async () => {
+    await runGenerate(["generate", "audio", "calm narration", "--estimate"]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seed-audio-1.0",
+      type: "audio",
+    });
+  });
+
+  it("maps Seed Audio references and generation options exactly", async () => {
+    mocks.callTool.mockResolvedValueOnce({
+      audioUrl: "https://cdn.example.test/out.wav",
+    });
+
+    await runGenerate([
+      "generate",
+      "audio",
+      "Continue",
+      "@Audio1",
+      "under",
+      "the",
+      "dialogue",
+      "--ref-audio",
+      "https://cdn.example.test/one.wav",
+      "--ref-audio",
+      "https://cdn.example.test/two.mp3",
+      "--voice",
+      "voice_custom_1",
+      "--format",
+      "ogg_opus",
+      "--sample-rate",
+      "48000",
+      "--speed",
+      "0.8",
+      "--volume",
+      "1.2",
+      "--pitch",
+      "-3",
+      "--project",
+      "project_1",
+      "--session",
+      "session_1",
+      "--idempotency-key",
+      "123e4567-e89b-12d3-a456-426614174000",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledOnce();
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_audio", {
+      prompt: "Continue @Audio1 under the dialogue",
+      voice: "voice_custom_1",
+      audio_urls: [
+        "https://cdn.example.test/one.wav",
+        "https://cdn.example.test/two.mp3",
+      ],
+      output_format: "ogg_opus",
+      sample_rate: 48000,
+      speed: 0.8,
+      volume: 1.2,
+      pitch: -3,
+      project_id: "project_1",
+      session_id: "session_1",
+      idempotency_key: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  });
+
+  it("rejects an invalid Seed Audio idempotency key before calling MCP", async () => {
+    await expect(
+      runGenerate([
+        "generate",
+        "audio",
+        "calm narration",
+        "--idempotency-key",
+        "not-a-uuid",
+      ]),
+    ).rejects.toThrow("--idempotency-key must be a valid UUID");
+
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("rejects Seed Audio image and audio references together before calling MCP", async () => {
+    await expect(
+      runGenerate([
+        "generate",
+        "audio",
+        "Use the references",
+        "--ref-audio",
+        "https://cdn.example.test/one.wav",
+        "--image",
+        "https://cdn.example.test/frame.png",
+      ]),
+    ).rejects.toThrow("--image and --ref-audio cannot be used together");
+
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("rejects more than three Seed Audio references before calling MCP", async () => {
+    await expect(
+      runGenerate([
+        "generate",
+        "audio",
+        "Blend the references",
+        "--ref-audio",
+        "https://cdn.example.test/one.wav",
+        "--ref-audio",
+        "https://cdn.example.test/two.wav",
+        "--ref-audio",
+        "https://cdn.example.test/three.wav",
+        "--ref-audio",
+        "https://cdn.example.test/four.wav",
+      ]),
+    ).rejects.toThrow("Seed Audio accepts at most 3 --ref-audio values");
+
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
 });
