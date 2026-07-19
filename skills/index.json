@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "name": "videodraft",
+      "description": "Create AI videos, images, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales and product/ad videos with VideoDraft. Use when the user mentions VideoDraft, or asks to generate/make a video, video ad, explainer, storyboard, talking-head/avatar video, AI image, prompt-driven or reference-driven audio, voiceover/TTS, background music, sound effects, dialogue audio, voice changing, dubbing, or image/video enhancement and upscaling, including batch/programmatic video generation in scripts or CI. Works via the `videodraft` CLI (preferred in terminals) or the VideoDraft MCP connector.",
+      "files": [
+        {
+          "path": "references/examples.md",
+          "sha256": "5d1bfb72d125db97a0e018643b83a1be6dae60d1ad622ff99ede01d4d916f6a7",
+          "bytes": 6390
+        },
+        {
+          "path": "references/models.md",
+          "sha256": "2c2fe6a0f5235f6cf6aa7e73181bc37e57a7f6acb48bffc8807eba543ac9068a",
+          "bytes": 18025
+        },
+        {
+          "path": "references/pipeline.md",
+          "sha256": "f584a668497a7e8fb619c42c3450268f9b365dd11c72d5bc2655002fa0151536",
+          "bytes": 10810
+        },
+        {
+          "path": "SKILL.md",
+          "sha256": "cc80f773350858bc4ef430ebd8cd4e6e55c1a98101c759edea39da443118ab43",
+          "bytes": 16074
+        }
+      ]
+    }
+  ]
+}
