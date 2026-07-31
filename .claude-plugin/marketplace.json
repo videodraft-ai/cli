@@ -1,0 +1,16 @@
+{
+  "name": "videodraft",
+  "description": "The official VideoDraft plugin marketplace: AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline.",
+  "owner": {
+    "name": "VideoDraft",
+    "url": "https://videodraft.ai"
+  },
+  "plugins": [
+    {
+      "name": "videodraft",
+      "source": "./",
+      "description": "AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
+      "version": "0.7.1"
+    }
+  ]
+}
