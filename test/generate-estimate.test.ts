@@ -178,6 +178,55 @@ describe("generate --estimate model selection", () => {
     });
   });
 
+  it("includes MiniMax H3 reference inputs in an exact estimate", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "preserve the references",
+      "--estimate",
+      "--model",
+      "minimax-h3",
+      "--duration",
+      "10",
+      "--ref",
+      "one.png",
+      "--ref",
+      "two.png",
+      "--ref-video",
+      "movement.mp4",
+      "--ref-video-seconds",
+      "4",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "minimax-h3",
+      type: "video",
+      duration_seconds: 10,
+      reference_image_count: 2,
+      reference_video_duration_seconds: 4,
+    });
+  });
+
+  it("counts a Grok 1.5 first frame without leaking reference fields", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "animate this frame",
+      "--estimate",
+      "--model",
+      "grok-imagine-video-1.5",
+      "--start-image",
+      "frame.png",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "grok-imagine-video-1.5",
+      type: "video",
+      duration_seconds: 6,
+      reference_image_count: 1,
+    });
+  });
+
   it("estimates Seed Audio through its dedicated audio model", async () => {
     await runGenerate(["generate", "audio", "calm narration", "--estimate"]);
 

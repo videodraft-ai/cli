@@ -59,6 +59,8 @@ If the user names a model, use it when compatible. If it cannot handle the reque
 **Videos:**
 
 - `gemini-omni-flash`: general default up to 10s, first frame/image references, or editing one source video without extra media references. Fixed 720p with audio.
+- `grok-imagine-video-1.5`: 1-15s text, first-frame, or 1-7 reference-image generation with native audio. Text/first-frame modes support 480p, 720p, and 1080p; reference mode supports 480p/720p. Cite references as `<IMAGE_0>` through `<IMAGE_6>`. It has no last frame, seed, negative prompt, quality tier, reference video, or reference audio.
+- `minimax-h3`: fixed 2K, native stereo audio, and 5-15s text, first/last-frame, or mixed-reference generation. Reference mode accepts up to 9 images, 3 videos, and 3 audio clips, with at most 12 files total. Cite them as `Image 1`, `Video 1`, and `Audio 1` in array order.
 - `seedance-2`: 11-15s, video/audio/mixed references, wider ratios, selectable audio, or first/last frames. Use `mini` for cost, `fast` for speed, `standard` for quality or 1080p/4K.
 - `kling-v3-turbo`: fast polished 3-15s with first frame, multi-prompt, and audio. `kling-o3`: image references, first/last frames, multi-prompt, audio control, or 4K. `kling-3.0`: similar without reference-image mode.
 - Existing-video edits use `videodraft edit video`, not generic generation. Choose from the `video_edit` catalog category: Grok for simple prompt edits, Wan 2.7 for one style reference or source-matching duration, Happy Horse for up to 5 references, and Kling O3 for controlled reference-image edits.
@@ -88,6 +90,10 @@ Pure text-to-image or text-to-video is fine for a generic one-off asset. When a 
 Do not call `videodraft credits` before routine generations. Paid endpoints validate and deduct atomically; if the balance is insufficient, the request is rejected before the provider job starts (CLI exit code 4). Check the balance only when the user asks, gives a credit budget, or a large workflow needs budget planning.
 
 For expensive work, estimate with `--estimate` or `videodraft costs`, state the selected model/settings/cost, and get a go-ahead. This matters most for shot-image batches, long or high-resolution video, AI Production, and paid audio batches. Honor the user's confirmation preference for the session.
+
+MiniMax H3 costs 26 credits per output second. In reference mode the first 5 images are included, each additional image costs 8 credits, and reference video costs 26 credits per verified input second. Audio references are included. For a pre-upload estimate, pass `--ref-video-seconds <total>`; the server measures the actual uploaded video duration before charging.
+
+Grok Imagine Video 1.5 costs 8 credits per output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native audio is always generated.
 
 `videodraft models image|video` lists the live image and video catalogs with supported inputs. Video entries are grouped as `generation`, `video_edit`, `motion_control`, `avatar_lipsync`, and `upscale`, and each reports the exact tool. Use `videodraft models video --category video_edit` to narrow the list. `videodraft models audio` lists Seed Audio, Google Lyria, and ElevenLabs audio/media tools, while `videodraft models voices` lists TTS voices. Consult them instead of guessing capabilities.
 
