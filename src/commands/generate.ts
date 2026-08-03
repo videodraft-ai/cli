@@ -202,6 +202,8 @@ async function printEstimate(
     renderingSpeed?: string;
     audio?: boolean;
     num?: number;
+    referenceImageCount?: number;
+    referenceVideoDurationSeconds?: number;
   },
 ): Promise<void> {
   const estimate = await ctx.client.callTool(
@@ -214,6 +216,8 @@ async function printEstimate(
       quality: params.quality,
       rendering_speed: params.renderingSpeed,
       generate_audio: params.audio,
+      reference_image_count: params.referenceImageCount,
+      reference_video_duration_seconds: params.referenceVideoDurationSeconds,
       num_images: params.num,
     }),
   );
@@ -411,11 +415,11 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--model <id>",
-      "video model id (task-aware when omitted; usually Gemini Omni Flash, Seedance 2 for longer/mixed-reference work)",
+      "video model id (task-aware when omitted; Grok 1.5 supports text, first frame, or 1-7 image refs)",
     )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9", "9:16"')
     .option("--duration <seconds>", "clip duration in seconds")
-    .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "4k"')
+    .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "2K", "4k"')
     .option(
       "--quality <tier>",
       'e.g. "mini", "fast", "standard", "quality", "pro"',
@@ -427,15 +431,19 @@ export function registerGenerateCommands(program: Command): void {
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
       "--ref-video <url|file>",
-      "reference video (repeatable; Gemini Omni Flash, Seedance 2, Wan 2.7, Kling/Wan Ref-Edit reference mode; local files uploaded)",
+      "reference video (repeatable; MiniMax H3, Gemini Omni Flash, Seedance 2, Wan 2.7, Kling/Wan Ref-Edit; local files uploaded)",
       collect,
       [],
     )
     .option(
       "--ref-audio <url|file>",
-      "reference audio (repeatable; Seedance 2; local files uploaded)",
+      "reference audio (repeatable; MiniMax H3 or Seedance 2; local files uploaded)",
       collect,
       [],
+    )
+    .option(
+      "--ref-video-seconds <seconds>",
+      "combined reference-video duration for an exact MiniMax H3 --estimate",
     )
     .option(
       "--segment <prompt:seconds>",
@@ -463,17 +471,137 @@ export function registerGenerateCommands(program: Command): void {
       // calls, and Kling 3.0 Turbo allows image-to-video with no prompt.
       const prompt = promptWords.join(" ").trim();
       const duration = optionalPositiveNumber(opts.duration, "--duration");
+      const refVideoSeconds = optionalRangedNumber(
+        opts.refVideoSeconds,
+        "--ref-video-seconds",
+        0,
+        15,
+      );
       const seed = optionalSeed(opts.seed);
+
+      if (opts.model === "grok-imagine-video-1.5") {
+        const referenceImageCount = Array.isArray(opts.ref)
+          ? opts.ref.length
+          : 0;
+        if (!prompt) {
+          throw new CliError(
+            "grok-imagine-video-1.5 requires a prompt.",
+            EXIT.USAGE,
+          );
+        }
+        if (prompt.length > 4096) {
+          throw new CliError(
+            "grok-imagine-video-1.5 prompts must be 4096 characters or fewer.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) || duration < 1 || duration > 15)
+        ) {
+          throw new CliError(
+            "grok-imagine-video-1.5 --duration must be a whole second from 1 to 15.",
+            EXIT.USAGE,
+          );
+        }
+        if (referenceImageCount > 7) {
+          throw new CliError(
+            "grok-imagine-video-1.5 accepts at most 7 --ref images.",
+            EXIT.USAGE,
+          );
+        }
+        if (referenceImageCount > 0 && opts.startImage) {
+          throw new CliError(
+            "grok-imagine-video-1.5 cannot combine --ref images with --start-image.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.endImage ||
+          (opts.refVideo?.length ?? 0) > 0 ||
+          (opts.refAudio?.length ?? 0) > 0 ||
+          (opts.segment?.length ?? 0) > 0 ||
+          opts.negative ||
+          opts.cameraFixed ||
+          opts.seed !== undefined ||
+          opts.quality
+        ) {
+          throw new CliError(
+            "grok-imagine-video-1.5 does not support --end-image, --ref-video, --ref-audio, --segment, --negative, --camera-fixed, --seed, or --quality.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.audio === false) {
+          throw new CliError(
+            "grok-imagine-video-1.5 always generates native audio; remove --no-audio.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.startImage && opts.ar) {
+          throw new CliError(
+            "grok-imagine-video-1.5 first-frame mode derives aspect ratio from --start-image; remove --ar.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.ar &&
+          !["16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16"].includes(
+            opts.ar,
+          )
+        ) {
+          throw new CliError(
+            "grok-imagine-video-1.5 --ar must be 16:9, 4:3, 3:2, 1:1, 2:3, 3:4, or 9:16.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.resolution &&
+          !["480p", "720p", "1080p"].includes(opts.resolution)
+        ) {
+          throw new CliError(
+            "grok-imagine-video-1.5 --resolution must be 480p, 720p, or 1080p.",
+            EXIT.USAGE,
+          );
+        }
+        if (referenceImageCount > 0 && opts.resolution === "1080p") {
+          throw new CliError(
+            "grok-imagine-video-1.5 reference mode supports only 480p or 720p.",
+            EXIT.USAGE,
+          );
+        }
+      }
 
       if (opts.estimate) {
         const estimateModel = estimateVideoModel(opts, duration);
+        const estimateReferenceImageCount =
+          estimateModel === "minimax-h3"
+            ? Array.isArray(opts.ref)
+              ? opts.ref.length
+              : 0
+            : estimateModel === "grok-imagine-video-1.5"
+              ? Array.isArray(opts.ref) && opts.ref.length > 0
+                ? opts.ref.length
+                : opts.startImage
+                  ? 1
+                  : 0
+              : undefined;
+        const estimateReferenceVideoDuration =
+          estimateModel === "minimax-h3"
+            ? Array.isArray(opts.refVideo) && opts.refVideo.length > 0
+              ? refVideoSeconds
+              : 0
+            : undefined;
         const estimateDuration =
           duration ??
-          (!opts.model && estimateModel === "google-veo3.1"
+          (estimateModel === "grok-imagine-video-1.5"
             ? Array.isArray(opts.ref) && opts.ref.length > 0
               ? 8
               : 6
-            : undefined);
+            : !opts.model && estimateModel === "google-veo3.1"
+              ? Array.isArray(opts.ref) && opts.ref.length > 0
+                ? 8
+                : 6
+              : undefined);
         await printEstimate(ctx, {
           model: estimateModel,
           type: "video",
@@ -481,6 +609,8 @@ export function registerGenerateCommands(program: Command): void {
           resolution: opts.resolution,
           quality: opts.quality,
           audio: opts.audio,
+          referenceImageCount: estimateReferenceImageCount,
+          referenceVideoDurationSeconds: estimateReferenceVideoDuration,
         });
         return;
       }

@@ -48,6 +48,14 @@ export function registerAccountCommands(program: Command): void {
     )
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
+    .option(
+      "--ref-images <n>",
+      "input/reference image count for MiniMax H3 or Grok 1.5",
+    )
+    .option(
+      "--ref-video-seconds <seconds>",
+      "MiniMax H3 combined reference-video duration",
+    )
     .option("--num <n>", "image batch size")
     .action(async function (this: Command, model?: string) {
       const ctx = buildContext(this);
@@ -61,6 +69,8 @@ export function registerAccountCommands(program: Command): void {
         length?: string;
         chars?: string;
         num?: string;
+        refImages?: string;
+        refVideoSeconds?: string;
       }>();
       const result: any = await ctx.client.callTool(
         "get_model_costs",
@@ -74,6 +84,12 @@ export function registerAccountCommands(program: Command): void {
           quality: opts.quality,
           rendering_speed: opts.renderingSpeed,
           generate_audio: opts.audio,
+          reference_image_count: opts.refImages
+            ? Number(opts.refImages)
+            : undefined,
+          reference_video_duration_seconds: opts.refVideoSeconds
+            ? Number(opts.refVideoSeconds)
+            : undefined,
           num_images: opts.num ? Number(opts.num) : undefined,
         }),
       );

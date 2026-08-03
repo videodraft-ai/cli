@@ -3,6 +3,22 @@
 All notable changes to the `videodraft` CLI. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [Unreleased]
+
+## [0.8.0]
+
+### Added
+
+- Added Grok Imagine Video 1.5 text, first-frame, and 1-7 reference-image
+  generation with 1-15 second durations, native audio, 480p/720p/1080p
+  text/first-frame output, 480p/720p reference output, and image-aware cost
+  estimates.
+- Added MiniMax H3 to video generation and model-cost estimates, including
+  text, first/last-frame, and mixed-reference inputs. H3 estimates account for
+  output duration, reference-image count, and combined reference-video duration.
+- Added `--ref-video-seconds` to `generate video --estimate` and
+  `videodraft costs` for exact H3 reference-video estimates before upload.
+
 ## [0.7.1]
 
 ### Changed

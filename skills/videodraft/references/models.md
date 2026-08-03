@@ -31,6 +31,8 @@ Use `--num 1..4` for variations of one prompt in a single call. Never loop separ
 | Need                                                                                                       | Choose              | Important limits                                                                                    |
 | ---------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
 | Most text, first-frame, image-reference, or source-video-edit requests up to 10s                           | `gemini-omni-flash` | 720p, 3-10s or auto, audio always on, up to 10 total image inputs, one source video                 |
+| Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame       |
+| Fixed 2K with native stereo audio, first/last frames, or mixed image/video/audio references                | `minimax-h3`        | 5-15s; up to 9 image, 3 video, 3 audio refs, 12 files total; reference video/audio each total <=15s |
 | Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`        | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only |
 | Fast polished 3-15s video with first frame, multi-prompt, and native audio                                 | `kling-v3-turbo`    | Audio always on; Pro default; no end frame or reference-media mode                                  |
 | Cinematic 3-15s with image references, first+last frame, multi-prompt, audio control, or 4K                | `kling-o3`          | Up to 7 image refs; Standard/Pro/4K; audio toggle                                                   |
@@ -39,11 +41,16 @@ Use `--num 1..4` for variations of one prompt in a single call. Never loop separ
 
 Routing rules:
 
-- Around 11-15 seconds with native audio: use Kling or Seedance, not Gemini.
+- Fixed 2K with native stereo audio: use MiniMax H3.
+- Grok 1.5 reference mode accepts 1-7 images only. Address them in array order as `<IMAGE_0>` through `<IMAGE_6>`. Do not combine reference images with `--start-image`, `--end-image`, `--ref-video`, or `--ref-audio`.
+- Grok 1.5 first-frame mode accepts one `--start-image`, derives the output aspect ratio from that image, and does not support `--end-image`. Text and first-frame modes support 480p, 720p, or 1080p. Reference mode supports 480p or 720p.
+- Grok 1.5 always generates native audio. Do not pass `--no-audio`, `--seed`, `--negative`, or `--quality`.
+- Around 11-15 seconds with native audio: use MiniMax H3, Kling, or Seedance, not Gemini.
 - One existing source video that should be edited, with an output up to 10 seconds and no additional media references to preserve: use Gemini Omni Flash.
-- Video or audio supplied as creative reference: use Seedance 2.0.
-- A video plus any image/audio references that must all be preserved: use Seedance 2.0. Do not promise that Gemini will preserve mixed source media; its Fal BYOK edit mode accepts only the source video and prompt.
-- First and last frame control: use Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
+- Video or audio supplied as creative reference: use MiniMax H3 for fixed 2K/native audio, or Seedance 2.0 when resolution/quality tier or audio-toggle control matters.
+- A video plus any image/audio references that must all be preserved: use MiniMax H3 or Seedance 2.0. Do not promise that Gemini will preserve mixed source media; its Fal BYOK edit mode accepts only the source video and prompt.
+- First and last frame control: use MiniMax H3, Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
+- MiniMax H3 reference mode and first-plus-last-frame mode are separate. Audio cannot be the only reference. Address references as `Image 1`, `Video 1`, and `Audio 1` in array order.
 - Seedance reference mode and first-plus-last-frame mode are separate. Do not promise reference video/audio plus a last frame in one generation.
 - Multi-prompt sequencing: use Kling 3.0 Turbo, Kling O3, or Kling 3.0.
 - Seedance quality: `mini` for the lowest cost, `fast` for speed, `standard` for maximum quality and for 1080p/4K.
@@ -119,7 +126,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4); everything else ignores it. You do not need a seed for variation — `--num` already varies.
 - `--rendering-speed` applies to Ideogram (V3: `Default`/`Turbo`/`Quality`; V4: `Turbo`/`Balanced`/`Quality`) and affects image cost — pass it to `videodraft costs ... --rendering-speed <tier>` for an accurate estimate. Always trust `videodraft models image --json` over this list; new models and tiers appear there the moment the platform ships them, with no CLI update.
 - `seedream-v5-pro` supports unified text-to-image and reference-image editing with up to 10 image references. Use `--resolution 1K` for 7 credits/image or `--resolution 2K` for 14 credits/image.
-- Reference inputs: `--ref <img>` (images), `--ref-video <v>` (Gemini Omni Flash, Seedance 2, Wan 2.7), `--ref-audio <a>` (Seedance 2). The CLI uploads local files for all of these, so you can pass a path or a URL. `--segment "<prompt>:<seconds>"` (repeatable) drives multi-prompt models (Kling 3.0 / 3.0 Turbo / O3); total 3-15s. `generate image --video-ref` is the nano-banana-2 video reference.
+- Reference inputs: `--ref <img>` (images, including up to 7 for Grok 1.5), `--ref-video <v>` (Gemini Omni Flash, MiniMax H3, Seedance 2, Wan 2.7), `--ref-audio <a>` (MiniMax H3, Seedance 2). The CLI uploads local files for all of these, so you can pass a path or a URL. For an exact MiniMax H3 pre-upload estimate, add `--ref-video-seconds <combined-seconds>`; the server measures actual duration before charging a real job. `--segment "<prompt>:<seconds>"` (repeatable) drives multi-prompt models (Kling 3.0 / 3.0 Turbo / O3); total 3-15s. `generate image --video-ref` is the nano-banana-2 video reference.
 - The top-level prompt is OPTIONAL for `generate video` with multi-prompt models and for Kling 3.0 Turbo (`--model kling-v3-turbo`) image-to-video — a `--segment`-only or `--start-image`-only call is valid. Every other model still needs a prompt; the server enforces per-model rules.
 - Hosted AI Production fallback: `videodraft produce <project> --mode full_video` generates one Seedance 2 video per scene; poll with `videodraft generations`, then `videodraft finalize <project>` swaps them into the hosted timeline before `export`. In VideoDraft ADE, do not choose this path while `videodraft_editor` is available unless the user explicitly requests hosted production. Generate or download the scene assets, import them, and assemble/export with the native editor instead. If the user explicitly requests another compatible video model for a hosted production, do not use this fixed Seedance path; generate the project shots manually with the requested model and attach them to the hosted timeline.
 
@@ -127,6 +134,8 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 
 - Images: per image (× `--num`). Matrix-priced models (GPT-Image, Nano Banana Pro, Seedream v5 Pro) vary by resolution/quality.
 - Video: usually credits/second × duration; rate depends on model + resolution + quality + native audio on/off.
+- MiniMax H3: 26 credits/output second. The first 5 reference images are included, then 8 credits for each additional image. Reference video adds 26 credits/input second; reference audio is included.
+- Grok Imagine Video 1.5: 8 credits/output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native generated audio is part of every output.
 - Shot-image batches: one image per shot (+1 grid image per scene in `--grid` mode) — the largest single spend in the pipeline.
 - VEED Fabric avatar renders: ~10 credits/sec at 480p, ~20/sec at 720p. Avatar creation and its speech are bundled/free; only optional portrait generation/upscaling adds cost before the render.
 - Direct VEED Fabric: text or normal audio is 8 credits/sec at 480p and 15/sec at 720p; fast audio is 10/sec at 480p and 20/sec at 720p.
@@ -141,6 +150,8 @@ Quote before spending:
 
 ```bash
 videodraft costs gemini-omni-flash --type video --duration 8 --resolution 720p --audio
+videodraft costs minimax-h3 --type video --duration 10 --ref-images 7 --ref-video-seconds 5
+videodraft costs grok-imagine-video-1.5 --type video --duration 8 --resolution 720p --ref-images 4
 videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio
 videodraft costs elevenlabs-dubbing --type audio --duration 60
 videodraft costs seed-audio-1.0 --type audio --duration 60 # scenario only; model controls actual length
