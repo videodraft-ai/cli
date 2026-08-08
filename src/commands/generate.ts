@@ -202,6 +202,15 @@ function estimateVideoModel(
   const referenceAudioCount = Array.isArray(opts.refAudio)
     ? opts.refAudio.length
     : 0;
+  // Anything past Seedance 2.0's ceilings (15s, 9 image / 3 video / 3 audio
+  // refs) needs 2.5, which reaches 30s and 30/10/10 references.
+  const seedance25Task =
+    (duration !== undefined && duration > 15) ||
+    referenceImageCount > 9 ||
+    referenceVideoCount > 3 ||
+    referenceAudioCount > 3;
+  if (seedance25Task) return "seedance-2.5";
+
   const seedanceTask =
     (duration !== undefined && duration > 10) ||
     referenceVideoCount > 1 ||
@@ -463,13 +472,13 @@ export function registerGenerateCommands(program: Command): void {
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
       "--ref-video <url|file>",
-      "reference video (repeatable; MiniMax H3, Gemini Omni Flash, Seedance 2, Wan 2.7, Kling/Wan Ref-Edit; local files uploaded)",
+      "reference video (repeatable; MiniMax H3, Gemini Omni Flash, Seedance 2 and 2.5, Wan 2.7, Kling/Wan Ref-Edit; local files uploaded)",
       collect,
       [],
     )
     .option(
       "--ref-audio <url|file>",
-      "reference audio (repeatable; MiniMax H3 or Seedance 2; local files uploaded)",
+      "reference audio (repeatable; MiniMax H3, Seedance 2, or Seedance 2.5; local files uploaded)",
       collect,
       [],
     )

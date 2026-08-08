@@ -5,6 +5,28 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.10.0]
+
+### Added
+
+- Added ByteDance Seedance 2.5 (`--model seedance-2.5`) to video generation,
+  model selection, and cost estimates: 4-30 second clips at 480p (23 cr/s) or
+  720p (48 cr/s) with native audio, from a prompt, a first frame, first + last
+  frames, or up to 50 references (30 image, 10 video, 10 audio). Seedance 2.0
+  is unchanged; 2.5 has a single quality tier and no 1080p/4K.
+- Automatic model selection now picks `seedance-2.5` when the requested clip
+  runs past 15 seconds or carries more references than Seedance 2.0 accepts
+  (more than 9 image, 3 video, or 3 audio). Clips of exactly 15 seconds or
+  fewer keep routing to Seedance 2.0.
+
+### Changed
+
+- The bundled `videodraft` skill now covers Seedance 2.5 model selection, its
+  4-30s range, and its expanded reference budget. Agents only pick up skill
+  changes through a published release, so this is the release that ships it.
+- `--ref-video` / `--ref-audio` help text now names Seedance 2.5 alongside the
+  other reference-capable models.
+
 ## [0.9.0]
 
 ### Added

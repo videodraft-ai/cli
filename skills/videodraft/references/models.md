@@ -28,17 +28,18 @@ Use `--num 1..4` for variations of one prompt in a single call. Never loop separ
 
 ### Videos
 
-| Need                                                                                                       | Choose              | Important limits                                                                                    |
-| ---------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| Most text, first-frame, image-reference, or source-video-edit requests up to 10s                           | `gemini-omni-flash` | 720p, 3-10s or auto, audio always on, up to 10 total image inputs, one source video                 |
-| Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame       |
-| Fixed 2K with native stereo audio, first/last frames, or mixed image/video/audio references                | `minimax-h3`        | 5-15s; up to 9 image, 3 video, 3 audio refs, 12 files total; reference video/audio each total <=15s |
-| Images pinned to specific moments (keyframes), 16-20s clips, or a cheap draft pass before committing       | `flux-3`            | 5-20s (auto for text/first-frame only); 720p/1080p; up to 10 keyframes; `--quality draft` is 720p-only at ~1/3 the cost |
-| Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`        | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only |
-| Fast polished 3-15s video with first frame, multi-prompt, and native audio                                 | `kling-v3-turbo`    | Audio always on; Pro default; no end frame or reference-media mode                                  |
-| Cinematic 3-15s with image references, first+last frame, multi-prompt, audio control, or 4K                | `kling-o3`          | Up to 7 image refs; Standard/Pro/4K; audio toggle                                                   |
-| Kling 3-15s with first+last frame, multi-prompt, optional audio, or 4K, without reference-image mode       | `kling-3.0`         | Standard/Pro/4K; audio toggle                                                                       |
-| User explicitly requests Veo, or the selected workflow specifically needs Veo                              | `google-veo3.1`     | Good fallback, but not the preferred general model                                                  |
+| Need                                                                                                       | Choose                   | Important limits                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Most text, first-frame, image-reference, or source-video-edit requests up to 10s                           | `gemini-omni-flash`      | 720p, 3-10s or auto, audio always on, up to 10 total image inputs, one source video                                     |
+| Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame                               |
+| Fixed 2K with native stereo audio, first/last frames, or mixed image/video/audio references                | `minimax-h3`             | 5-15s; up to 9 image, 3 video, 3 audio refs, 12 files total; reference video/audio each total <=15s                     |
+| Images pinned to specific moments (keyframes), 16-20s clips, or a cheap draft pass before committing       | `flux-3`                 | 5-20s (auto for text/first-frame only); 720p/1080p; up to 10 keyframes; `--quality draft` is 720p-only at ~1/3 the cost |
+| Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`             | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only                     |
+| Single takes past 15s, or more references than Seedance 2.0 allows                                         | `seedance-2.5`           | 4-30s or auto; up to 30 image, 10 video, and 10 audio refs (50 files total); one quality tier; 480p/720p only           |
+| Fast polished 3-15s video with first frame, multi-prompt, and native audio                                 | `kling-v3-turbo`         | Audio always on; Pro default; no end frame or reference-media mode                                                      |
+| Cinematic 3-15s with image references, first+last frame, multi-prompt, audio control, or 4K                | `kling-o3`               | Up to 7 image refs; Standard/Pro/4K; audio toggle                                                                       |
+| Kling 3-15s with first+last frame, multi-prompt, optional audio, or 4K, without reference-image mode       | `kling-3.0`              | Standard/Pro/4K; audio toggle                                                                                           |
+| User explicitly requests Veo, or the selected workflow specifically needs Veo                              | `google-veo3.1`          | Good fallback, but not the preferred general model                                                                      |
 
 Routing rules:
 
@@ -54,7 +55,8 @@ Routing rules:
 - MiniMax H3 reference mode and first-plus-last-frame mode are separate. Audio cannot be the only reference. Address references as `Image 1`, `Video 1`, and `Audio 1` in array order.
 - Seedance reference mode and first-plus-last-frame mode are separate. Do not promise reference video/audio plus a last frame in one generation.
 - Multi-prompt sequencing: use Kling 3.0 Turbo, Kling O3, or Kling 3.0.
-- Seedance quality: `mini` for the lowest cost, `fast` for speed, `standard` for maximum quality and for 1080p/4K.
+- Seedance quality: `mini` for the lowest cost, `fast` for speed, `standard` for maximum quality and for 1080p/4K. Seedance 2.5 has a single tier and ignores `--quality`.
+- Longer than 15 seconds, or more than 9 image / 3 video / 3 audio references: use Seedance 2.5. It reaches 30s and 30/10/10 references (50 files total), but has no 1080p or 4K.
 
 ### Video edit and motion-control categories
 

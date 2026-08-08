@@ -67,6 +67,18 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** upload/pass both references and choose `seedance2` explicitly.
 - **Must NOT:** drop either reference or choose Gemini/Kling without support for the supplied audio reference.
 
+## 10a. A 25-second single take selects Seedance 2.5
+
+- **Query:** "Make one continuous 25-second product demo with sound."
+- **Must:** choose `seedance-2.5` explicitly — it is the only model that generates a single take longer than 20 seconds — and note it renders at 720p.
+- **Must NOT:** choose `seedance2`, Kling, or Veo (all capped at 15s), or silently split the request into multiple clips without saying so.
+
+## 10b. More references than Seedance 2.0 allows selects Seedance 2.5
+
+- **Query:** "Here are 12 product photos and 5 clips — keep every one of them consistent in a 10-second spot."
+- **Must:** choose `seedance-2.5` (up to 30 image, 10 video, and 10 audio references) and pass all supplied references.
+- **Must NOT:** choose `seedance2` or `minimax-h3` and silently drop references past their 9-image / 3-video caps.
+
 ## 11. Source-video editing selects Gemini
 
 - **Query:** "Edit this existing video into a rainy night version, about 8 seconds."
