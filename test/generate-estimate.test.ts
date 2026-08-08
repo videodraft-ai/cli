@@ -142,6 +142,99 @@ describe("generate --estimate model selection", () => {
     });
   });
 
+  it("uses Seedance 2.5 when the clip runs past Seedance 2.0's 15s ceiling", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "one continuous 25-second demo",
+      "--estimate",
+      "--duration",
+      "25",
+      "--audio",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seedance-2.5",
+      type: "video",
+      duration_seconds: 25,
+      generate_audio: true,
+    });
+  });
+
+  it("stays on Seedance 2 at exactly 15 seconds", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "a 15 second shot",
+      "--estimate",
+      "--duration",
+      "15",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seedance-2",
+      type: "video",
+      duration_seconds: 15,
+    });
+  });
+
+  it("uses Seedance 2.5 when more image references than 2.0 accepts are supplied", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "keep every product shot consistent",
+      "--estimate",
+      ...Array.from({ length: 10 }, (_, i) => [
+        "--ref",
+        `product${i}.png`,
+      ]).flat(),
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seedance-2.5",
+      type: "video",
+    });
+  });
+
+  it("uses Seedance 2.5 when more reference videos than 2.0 accepts are supplied", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "blend these clips",
+      "--estimate",
+      ...Array.from({ length: 4 }, (_, i) => [
+        "--ref-video",
+        `clip${i}.mp4`,
+      ]).flat(),
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seedance-2.5",
+      type: "video",
+    });
+  });
+
+  it("uses an explicit seedance-2.5 model for the estimate", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "a 30 second take",
+      "--estimate",
+      "--model",
+      "seedance-2.5",
+      "--duration",
+      "30",
+      "--audio",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "seedance-2.5",
+      type: "video",
+      duration_seconds: 30,
+      generate_audio: true,
+    });
+  });
+
   it("uses the runtime 6-second default for a task-routed Veo estimate", async () => {
     await runGenerate([
       "generate",
