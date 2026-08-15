@@ -1,0 +1,46 @@
+{
+  "name": "videodraft",
+  "version": "0.11.0",
+  "description": "AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
+  "author": {
+    "name": "VideoDraft",
+    "email": "contact@videodraft.ai",
+    "url": "https://videodraft.ai"
+  },
+  "homepage": "https://videodraft.ai/cli",
+  "repository": "https://github.com/videodraft-ai/cli",
+  "license": "MIT",
+  "keywords": [
+    "videodraft",
+    "ai",
+    "video",
+    "video-generation",
+    "image-generation",
+    "voiceover",
+    "music",
+    "storyboard",
+    "avatar"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "VideoDraft",
+    "shortDescription": "Generate AI videos, images, voiceovers, music and full storyboards",
+    "longDescription": "VideoDraft turns your agent into a video production studio. Generate standalone images, video clips, voiceovers, music, sound effects, dialogue, voice-changed and dubbed audio, or run the full idea to script to storyboard to timeline to exported MP4 pipeline. Uses the videodraft CLI for authenticated, cost-aware, async-batched generation and returns ready-to-use result URLs.",
+    "developerName": "VideoDraft",
+    "category": "Design",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://videodraft.ai",
+    "defaultPrompt": [
+      "Generate a cinematic 16:9 image of a red fox in snow",
+      "Make a 6-second video of a slow dolly over a misty lake",
+      "Write a voiceover for this script and save the mp3",
+      "Turn this idea into a 30-second vertical ad"
+    ],
+    "brandColor": "#7f3f98",
+    "composerIcon": "./assets/logomark-white.svg",
+    "logo": "./assets/wordmark-white.svg"
+  }
+}
