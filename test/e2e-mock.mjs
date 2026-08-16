@@ -527,7 +527,7 @@ await run(["wait", "job_a", "job_b", "--download", "out.png"], {
 });
 ok("multi-job wait rejects an overwriting --download template (exit 2)");
 
-// New flag wiring: Seedance 2 reference videos/audio + Kling multi-prompt segments.
+// Seedance 2 reference videos and audio reach the generic generation tool.
 const vid = JSON.parse(
   await run([
     "generate",
@@ -539,21 +539,14 @@ const vid = JSON.parse(
     `${baseUrl}/file.png`,
     "--ref-audio",
     `${baseUrl}/file.wav`,
-    "--segment",
-    "open on the logo:2",
-    "--segment",
-    "pan to the product:3",
     "--no-wait",
     "--json",
   ]),
 );
 assert.deepEqual(vid.received.reference_videos, [`${baseUrl}/file.png`]);
 assert.deepEqual(vid.received.reference_audio, [`${baseUrl}/file.wav`]);
-assert.deepEqual(vid.received.multi_prompt, [
-  { prompt: "open on the logo", duration: 2 },
-  { prompt: "pan to the product", duration: 3 },
-]);
-ok("generate video: --ref-video / --ref-audio / --segment reach the tool");
+assert.equal("multi_prompt" in vid.received, false);
+ok("generate video: --ref-video / --ref-audio reach the tool");
 
 // Kling 3.0 Turbo: prompt is optional for multi-prompt-only calls.
 const turbo = JSON.parse(

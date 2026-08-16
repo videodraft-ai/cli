@@ -30,7 +30,7 @@ Use direct asset tools for standalone images, clips, audio, upscales, and descri
 | Direct portrait + text/audio            | `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`      | `generate_veed_fabric_video`               |
 | Existing video + replacement audio      | `videodraft avatar lipsync <video> --audio <file>`                          | `generate_sync_lipsync_video`              |
 | Existing-video AI edit                  | `videodraft edit video <video> "<change>" --model <video-edit-model>`       | `edit_video`                               |
-| Motion transfer                         | `videodraft edit motion <image> "<direction>" --motion-video <video>`       | `generate_motion_control_video`            |
+| Motion transfer                         | `videodraft edit motion <image> [direction] --motion-video <video>`         | `generate_motion_control_video`            |
 | Image enhancement/upscale               | `videodraft upscale image <image>`                                          | `upscale_image`                            |
 | Video enhancement/upscale               | `videodraft upscale video <video>`                                          | `upscale_video`                            |
 | Final MP4                               | `videodraft export <project>`                                               | `export_video` + `check_export_status`     |

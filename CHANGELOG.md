@@ -5,6 +5,32 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.12.0]
+
+### Added
+
+- Added `videodraft kling-voices list/create/delete` for creating and managing
+  Kling video-control voices. Local MP3, WAV, MP4, and MOV samples upload
+  automatically; creation supports a no-write cost estimate and requires an
+  explicit consent confirmation.
+- Added repeatable structured `--element` inputs for Kling 3.0 and Kling O3.
+  Elements may use a frontal image with 1-3 references or one reference video,
+  and either source form can keep its own `voice_id`. Nested local media uploads
+  automatically before generation.
+- Added repeatable `--voice-id` inputs for Kling 2.6 Pro, including validation
+  for the matching `<<<voice_1>>>` and `<<<voice_2>>>` prompt markers.
+- Added optional image-backed elements to Kling V3 motion control.
+
+### Changed
+
+- Kling generation estimates now use the dedicated known voice-control rates
+  for Kling 2.6 Pro and Kling 3.0 Standard/Pro.
+- Model inference and validation now reject unsupported Kling Turbo elements,
+  mixed image/video element sources, invalid reference counts, missing audio,
+  and malformed or unreferenced voice IDs before submission.
+- The bundled VideoDraft skill now documents Kling voice creation, elements,
+  voice binding, prompt markers, local upload behavior, and current pricing.
+
 ## [0.11.0]
 
 ### Added

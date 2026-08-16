@@ -49,6 +49,10 @@ export function registerAccountCommands(program: Command): void {
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
     .option(
+      "--voice-control",
+      "Kling element voice_id pricing (V3 Standard/Pro only; O3/4K are unavailable)",
+    )
+    .option(
       "--ref-images <n>",
       "input/reference image count for MiniMax H3 or Grok 1.5",
     )
@@ -66,6 +70,7 @@ export function registerAccountCommands(program: Command): void {
         quality?: string;
         renderingSpeed?: string;
         audio?: boolean;
+        voiceControl?: boolean;
         length?: string;
         chars?: string;
         num?: string;
@@ -84,6 +89,7 @@ export function registerAccountCommands(program: Command): void {
           quality: opts.quality,
           rendering_speed: opts.renderingSpeed,
           generate_audio: opts.audio,
+          voice_control: opts.voiceControl,
           reference_image_count: opts.refImages
             ? Number(opts.refImages)
             : undefined,

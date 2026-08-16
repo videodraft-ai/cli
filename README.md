@@ -50,6 +50,10 @@ videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our
 videodraft edit video ./clip.mp4 "Add falling snow" --model grok-imagine-video-edit --download ./clip-snow.mp4
 videodraft edit motion ./character.png "Apply the reference dance" --motion-video ./dance.mp4 --download ./character-dance.mp4
 videodraft generate video "Match this performance" --model kling-o3-video-ref-edit --ref-video ./performance.mp4 --ref ./wardrobe.png --download ./guided.mp4
+videodraft kling-voices create ./speaker.wav --name "Narrator" --confirm-consent
+videodraft kling-voices create ./speaker.wav --name "Narrator" --estimate
+videodraft generate video "@Element1 says welcome" --model kling-3.0 --start-image ./scene.png --audio --element '{"video_url":"./speaker.mp4","voice_id":"VOICE_ID"}'
+videodraft generate video "<<<voice_1>>> Welcome" --model kling-2.6-pro --start-image ./host.png --audio --voice-id VOICE_ID
 ```
 
 `generate audio` automatically retries transient and lost responses with one
@@ -95,7 +99,7 @@ videodraft export <project> --download final.mp4
 | Group           | Commands                                                                                                                                                                             |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Auth            | `login` `logout` `whoami`                                                                                                                                                            |
-| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create`                                                                         |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create` `kling-voices list/create/delete`                                       |
 | Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                            |
 | Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                        |
 | Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |
@@ -106,6 +110,12 @@ videodraft export <project> --download final.mp4
 | Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                      |
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
+
+Kling voice creation costs 1 VideoDraft credit on the platform Fal account and
+0 credits with Fal BYOK. `--estimate` checks the active account without creating
+a voice. Samples must be MP3, WAV, MP4, or MOV, 5-30 seconds, and no larger
+than 50 MB. Voice IDs are opaque strings scoped to the Fal account that created
+them; keep a `voice_id` inside its image-backed or video-backed element so the binding is preserved.
 
 ## For agents and scripts
 

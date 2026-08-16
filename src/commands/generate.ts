@@ -135,6 +135,134 @@ export function parseKeyframes(
   });
 }
 
+export interface KlingElementArg {
+  frontal_image_url?: string;
+  reference_image_urls?: string[];
+  video_url?: string;
+  voice_id?: string;
+}
+
+/**
+ * Parse repeatable Kling element JSON. `@path.json` is supported for scripts;
+ * each value/file may contain one object or an array of objects.
+ */
+export function parseKlingElements(values: string[]): KlingElementArg[] {
+  const parsed: KlingElementArg[] = [];
+  for (const value of values) {
+    let raw = value;
+    if (value.startsWith("@")) {
+      const path = value.slice(1);
+      if (!path || !fs.existsSync(path)) {
+        throw new CliError(
+          `--element file does not exist: ${path || value}`,
+          EXIT.USAGE,
+        );
+      }
+      raw = fs.readFileSync(path, "utf8");
+    }
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(raw);
+    } catch (error) {
+      throw new CliError(
+        `--element must be valid JSON or @path.json: ${error instanceof Error ? error.message : String(error)}`,
+        EXIT.USAGE,
+      );
+    }
+    const entries = Array.isArray(decoded) ? decoded : [decoded];
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new CliError(
+          `--element entry ${index + 1} must be a JSON object.`,
+          EXIT.USAGE,
+        );
+      }
+      const item = entry as Record<string, unknown>;
+      const frontal = item.frontal_image_url ?? item.frontalImageUrl;
+      const refs = item.reference_image_urls ?? item.referenceImageUrls;
+      const video = item.video_url ?? item.videoUrl;
+      const voice = item.voice_id ?? item.voiceId;
+      if (
+        frontal !== undefined &&
+        (typeof frontal !== "string" || !frontal.trim())
+      ) {
+        throw new CliError(
+          "--element frontal_image_url must be a non-empty string.",
+          EXIT.USAGE,
+        );
+      }
+      if (
+        refs !== undefined &&
+        (!Array.isArray(refs) ||
+          refs.some((ref) => typeof ref !== "string" || !ref.trim()))
+      ) {
+        throw new CliError(
+          "--element reference_image_urls must be an array of non-empty strings.",
+          EXIT.USAGE,
+        );
+      }
+      if (video !== undefined && (typeof video !== "string" || !video.trim())) {
+        throw new CliError(
+          "--element video_url must be a non-empty string.",
+          EXIT.USAGE,
+        );
+      }
+      if (
+        voice !== undefined &&
+        (typeof voice !== "string" ||
+          !voice.trim() ||
+          voice.trim().length > 512)
+      ) {
+        throw new CliError(
+          "--element voice_id must be a non-empty string no longer than 512 characters. Do not coerce numeric-looking IDs to numbers.",
+          EXIT.USAGE,
+        );
+      }
+      parsed.push({
+        ...(frontal ? { frontal_image_url: frontal.trim() } : {}),
+        ...(refs
+          ? {
+              reference_image_urls: (refs as string[]).map((ref) => ref.trim()),
+            }
+          : {}),
+        ...(video ? { video_url: video.trim() } : {}),
+        ...(voice ? { voice_id: voice.trim() } : {}),
+      });
+    }
+  }
+  return parsed;
+}
+
+export async function resolveKlingElements(
+  ctx: CommandContext,
+  elements: KlingElementArg[],
+): Promise<KlingElementArg[]> {
+  return Promise.all(
+    elements.map(async (element) => ({
+      ...(element.frontal_image_url
+        ? {
+            frontal_image_url: (
+              await resolveRefs(ctx, [element.frontal_image_url])
+            )[0],
+          }
+        : {}),
+      ...(element.reference_image_urls
+        ? {
+            reference_image_urls: await resolveRefs(
+              ctx,
+              element.reference_image_urls,
+            ),
+          }
+        : {}),
+      ...(element.video_url
+        ? { video_url: (await resolveRefs(ctx, [element.video_url]))[0] }
+        : {}),
+      ...(element.voice_id ? { voice_id: element.voice_id } : {}),
+    })),
+  );
+}
+
 function optionalPositiveNumber(
   value: unknown,
   label: string,
@@ -245,6 +373,7 @@ async function printEstimate(
     num?: number;
     referenceImageCount?: number;
     referenceVideoDurationSeconds?: number;
+    voiceControl?: boolean;
   },
 ): Promise<void> {
   const estimate = await ctx.client.callTool(
@@ -259,6 +388,7 @@ async function printEstimate(
       generate_audio: params.audio,
       reference_image_count: params.referenceImageCount,
       reference_video_duration_seconds: params.referenceVideoDurationSeconds,
+      voice_control: params.voiceControl ? true : undefined,
       num_images: params.num,
     }),
   );
@@ -483,6 +613,18 @@ export function registerGenerateCommands(program: Command): void {
       [],
     )
     .option(
+      "--element <json|@file>",
+      'Kling structured element, e.g. \'{"video_url":"actor.mp4","voice_id":"123..."}\' (repeatable; object or array JSON)',
+      collect,
+      [],
+    )
+    .option(
+      "--voice-id <id>",
+      "Kling 2.6 Pro custom voice ID (repeatable, max 2; cite as <<<voice_1>>> / <<<voice_2>>>)",
+      collect,
+      [],
+    )
+    .option(
       "--ref-video-seconds <seconds>",
       "combined reference-video duration for an exact MiniMax H3 --estimate",
     )
@@ -525,6 +667,235 @@ export function registerGenerateCommands(program: Command): void {
         15,
       );
       const seed = optionalSeed(opts.seed);
+      const rawElements = parseKlingElements(opts.element ?? []);
+      const voiceIds = (opts.voiceId ?? []) as string[];
+      const segments = parseSegments(opts.segment ?? []);
+      if (segments.length > 0 && prompt) {
+        throw new CliError(
+          "A main prompt cannot be combined with --segment. Use one or more --segment values by themselves.",
+          EXIT.USAGE,
+        );
+      }
+      if (segments.length > 0 && duration !== undefined) {
+        throw new CliError(
+          "--duration cannot be combined with --segment because segment durations determine the clip length.",
+          EXIT.USAGE,
+        );
+      }
+      if (
+        segments.length > 6 ||
+        segments.some(
+          (segment) =>
+            !Number.isInteger(segment.duration) ||
+            segment.duration < 1 ||
+            segment.duration > 15,
+        )
+      ) {
+        throw new CliError(
+          "--segment supports 1-6 entries with whole-second durations from 1 to 15.",
+          EXIT.USAGE,
+        );
+      }
+      const segmentDuration = segments.reduce(
+        (sum, segment) => sum + segment.duration,
+        0,
+      );
+      if (
+        segments.length > 0 &&
+        (segmentDuration < 3 || segmentDuration > 15)
+      ) {
+        throw new CliError(
+          "The total --segment duration must be between 3 and 15 seconds.",
+          EXIT.USAGE,
+        );
+      }
+      if (rawElements.length > 0 && voiceIds.length > 0) {
+        throw new CliError(
+          "Do not combine --element with top-level --voice-id. Kling V3/O3 bind voice_id inside the matching element; Kling 2.6 uses --voice-id.",
+          EXIT.USAGE,
+        );
+      }
+      if (!opts.model && voiceIds.length > 0) {
+        opts.model = "kling-2.6-pro";
+      } else if (!opts.model && rawElements.length > 0) {
+        opts.model = opts.startImage ? "kling-3.0" : "kling-o3";
+      } else if (!opts.model && segments.length > 0) {
+        opts.model = "kling-3.0";
+      }
+      if (
+        segments.length > 0 &&
+        !["kling-3.0", "kling-v3-turbo", "kling-o3"].includes(opts.model)
+      ) {
+        throw new CliError(
+          "--segment is supported only by kling-3.0, kling-v3-turbo, and kling-o3.",
+          EXIT.USAGE,
+        );
+      }
+
+      if (rawElements.length > 0) {
+        if (opts.model === "kling-v3-turbo") {
+          throw new CliError(
+            "Kling 3.0 Turbo does not support --element. Use --model kling-3.0 with --start-image, or kling-o3.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.model !== "kling-3.0" &&
+          opts.model !== "kling-o3" &&
+          opts.model !== "kling-v3-motion-control"
+        ) {
+          throw new CliError(
+            "--element is supported by kling-3.0, kling-o3, and kling-v3-motion-control only.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.model === "kling-3.0" && !opts.startImage) {
+          throw new CliError(
+            "kling-3.0 --element requires --start-image (elements are image-to-video only).",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          rawElements.some((element) => element.voice_id) &&
+          opts.audio === false
+        ) {
+          throw new CliError(
+            "A Kling element voice_id requires audio. Remove --no-audio.",
+            EXIT.USAGE,
+          );
+        }
+        rawElements.forEach((element, index) => {
+          const referenceImageCount = element.reference_image_urls?.length ?? 0;
+          const hasImage =
+            Boolean(element.frontal_image_url) || referenceImageCount > 0;
+          const hasVideo = Boolean(element.video_url);
+          if (hasImage === hasVideo) {
+            throw new CliError(
+              `--element ${index + 1} must contain image fields or video_url, but not both.`,
+              EXIT.USAGE,
+            );
+          }
+          if (
+            !hasVideo &&
+            (!element.frontal_image_url || referenceImageCount === 0)
+          ) {
+            throw new CliError(
+              `--element ${index + 1} image mode requires frontal_image_url and 1-3 reference_image_urls.`,
+              EXIT.USAGE,
+            );
+          }
+          if (
+            referenceImageCount > 3 ||
+            element.reference_image_urls?.some((url) => !url)
+          ) {
+            throw new CliError(
+              `--element ${index + 1} reference_image_urls must contain at most 3 non-empty values.`,
+              EXIT.USAGE,
+            );
+          }
+          if (hasVideo && (element.reference_image_urls?.length ?? 0) > 0) {
+            throw new CliError(
+              `--element ${index + 1} cannot combine video_url with reference_image_urls.`,
+              EXIT.USAGE,
+            );
+          }
+        });
+        if (
+          (opts.model === "kling-3.0" || opts.model === "kling-o3") &&
+          rawElements.filter((element) => element.video_url).length > 1
+        ) {
+          throw new CliError(
+            `${opts.model} accepts at most one video-backed --element.`,
+            EXIT.USAGE,
+          );
+        }
+        if (opts.model === "kling-o3" && (opts.refVideo?.length ?? 0) > 0) {
+          throw new CliError(
+            "kling-o3 --element cannot be combined with the legacy --ref-video edit mode. Put the element video in --element video_url instead.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.model === "kling-o3") {
+          const combinedReferenceCount =
+            (opts.ref?.length ?? 0) + rawElements.length;
+          const hasVideoElement = rawElements.some(
+            (element) => !!element.video_url,
+          );
+          if (combinedReferenceCount > 7) {
+            throw new CliError(
+              "kling-o3 accepts at most 7 combined --ref images and image-backed --element entries.",
+              EXIT.USAGE,
+            );
+          }
+          if (hasVideoElement && combinedReferenceCount > 4) {
+            throw new CliError(
+              "kling-o3 accepts at most 4 combined --ref images and --element entries when a video-backed element is used.",
+              EXIT.USAGE,
+            );
+          }
+        }
+        if (opts.model === "kling-v3-motion-control") {
+          const element = rawElements[0];
+          const hasElementImages =
+            Boolean(element?.frontal_image_url) &&
+            (element?.reference_image_urls?.length ?? 0) > 0;
+          if (
+            rawElements.length !== 1 ||
+            !hasElementImages ||
+            element?.video_url ||
+            element?.voice_id
+          ) {
+            throw new CliError(
+              "kling-v3-motion-control accepts one image-only --element. Provide frontal_image_url and 1-3 reference_image_urls. Use videodraft edit motion for the clearest workflow.",
+              EXIT.USAGE,
+            );
+          }
+        }
+      }
+      if (voiceIds.length > 0) {
+        if (opts.model !== "kling-2.6-pro") {
+          throw new CliError(
+            "--voice-id is supported only by --model kling-2.6-pro. Kling V3/O3 use voice_id inside --element JSON.",
+            EXIT.USAGE,
+          );
+        }
+        if (!opts.startImage) {
+          throw new CliError(
+            "kling-2.6-pro --voice-id requires --start-image.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          voiceIds.length > 2 ||
+          voiceIds.some((id) => !id.trim() || id.trim().length > 512)
+        ) {
+          throw new CliError(
+            "--voice-id accepts 1 or 2 non-empty string IDs, each no longer than 512 characters.",
+            EXIT.USAGE,
+          );
+        }
+        if (new Set(voiceIds.map((id) => id.trim())).size !== voiceIds.length) {
+          throw new CliError(
+            "--voice-id cannot repeat the same Kling voice ID.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.audio === false) {
+          throw new CliError(
+            "Kling 2.6 --voice-id requires audio. Remove --no-audio.",
+            EXIT.USAGE,
+          );
+        }
+        voiceIds.forEach((voiceId, index) => {
+          const marker = `<<<voice_${index + 1}>>>`;
+          if (!prompt.includes(marker)) {
+            throw new CliError(
+              `--voice-id ${index + 1} must be cited in the prompt as ${marker}.`,
+              EXIT.USAGE,
+            );
+          }
+        });
+      }
 
       if (opts.model === "grok-imagine-video-1.5") {
         const referenceImageCount = Array.isArray(opts.ref)
@@ -637,7 +1008,7 @@ export function registerGenerateCommands(program: Command): void {
               : 0
             : undefined;
         const estimateDuration =
-          duration ??
+          (segments.length > 0 ? segmentDuration : duration) ??
           (estimateModel === "grok-imagine-video-1.5"
             ? Array.isArray(opts.ref) && opts.ref.length > 0
               ? 8
@@ -656,11 +1027,14 @@ export function registerGenerateCommands(program: Command): void {
           audio: opts.audio,
           referenceImageCount: estimateReferenceImageCount,
           referenceVideoDurationSeconds: estimateReferenceVideoDuration,
+          voiceControl:
+            voiceIds.length > 0 ||
+            rawElements.some((element) => element.voice_id),
         });
         return;
       }
 
-      const [refs, refVideos, refAudios, startImage, endImage] =
+      const [refs, refVideos, refAudios, startImage, endImage, elements] =
         await Promise.all([
           resolveRefs(ctx, opts.ref ?? []),
           resolveRefs(ctx, opts.refVideo ?? []),
@@ -671,8 +1045,8 @@ export function registerGenerateCommands(program: Command): void {
           opts.endImage
             ? resolveRefs(ctx, [opts.endImage]).then((r) => r[0])
             : undefined,
+          resolveKlingElements(ctx, rawElements),
         ]);
-      const segments = parseSegments(opts.segment ?? []);
       // Keyframe images may be local paths, so upload them the same way refs
       // are handled, then re-attach each one's position by index.
       const parsedKeyframes = parseKeyframes(opts.keyframe ?? []);
@@ -734,10 +1108,12 @@ export function registerGenerateCommands(program: Command): void {
           opts.ar ||
           opts.negative ||
           opts.cameraFixed ||
-          opts.seed
+          opts.seed ||
+          elements.length > 0 ||
+          voiceIds.length > 0
         ) {
           throw new CliError(
-            `${opts.model} does not support --start-image, --end-image, --ref-audio, --segment, --ar, --negative, --camera-fixed, or --seed in video-edit mode. Use --ref for supported reference images.`,
+            `${opts.model} does not support --start-image, --end-image, --ref-audio, --element, --voice-id, --segment, --ar, --negative, --camera-fixed, or --seed in video-edit mode. Use --ref for supported reference images.`,
             EXIT.USAGE,
           );
         }
@@ -773,10 +1149,11 @@ export function registerGenerateCommands(program: Command): void {
           opts.negative ||
           opts.cameraFixed ||
           opts.seed ||
-          opts.resolution
+          opts.resolution ||
+          voiceIds.length > 0
         ) {
           throw new CliError(
-            `${opts.model} does not support --end-image, --ref, --ref-audio, --segment, --ar, --negative, --camera-fixed, --seed, or --resolution in motion-control mode.`,
+            `${opts.model} does not support --end-image, --ref, --ref-audio, --voice-id, --segment, --ar, --negative, --camera-fixed, --seed, or --resolution in motion-control mode.`,
             EXIT.USAGE,
           );
         }
@@ -787,6 +1164,7 @@ export function registerGenerateCommands(program: Command): void {
           );
         }
         toolName = "generate_motion_control_video";
+        const resolvedElement = elements[0];
         toolArgs = {
           model: opts.model,
           prompt: prompt || undefined,
@@ -794,12 +1172,20 @@ export function registerGenerateCommands(program: Command): void {
           motion_video_url: refVideos[0],
           quality: opts.quality,
           keep_original_sound: opts.audio,
+          character_orientation: elements.length > 0 ? "video" : undefined,
           duration_seconds: duration,
           project_id: opts.project,
           session_id: opts.session,
           scene_index:
             opts.scene !== undefined ? Number(opts.scene) : undefined,
           shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
+          element:
+            elements.length === 1 && resolvedElement
+              ? {
+                  frontal_image_url: resolvedElement.frontal_image_url,
+                  reference_image_urls: resolvedElement.reference_image_urls,
+                }
+              : undefined,
         };
       } else {
         toolArgs = {
@@ -815,6 +1201,11 @@ export function registerGenerateCommands(program: Command): void {
           reference_images: refs.length > 0 ? refs : undefined,
           reference_videos: refVideos.length > 0 ? refVideos : undefined,
           reference_audio: refAudios.length > 0 ? refAudios : undefined,
+          elements: elements.length > 0 ? elements : undefined,
+          voice_ids:
+            voiceIds.length > 0
+              ? voiceIds.map((voiceId) => voiceId.trim())
+              : undefined,
           multi_prompt: segments.length > 0 ? segments : undefined,
           keyframes: keyframes.length > 0 ? keyframes : undefined,
           negative_prompt: opts.negative,
