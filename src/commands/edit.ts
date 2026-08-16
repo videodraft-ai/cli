@@ -5,7 +5,12 @@ import { buildContext, compact } from "../cli/context.js";
 import { capture } from "../cli/telemetry.js";
 import { emit } from "../cli/output.js";
 import { UsageError } from "../core/errors.js";
-import { handleAsyncJob, resolveRefs } from "./generate.js";
+import {
+  handleAsyncJob,
+  parseKlingElements,
+  resolveKlingElements,
+  resolveRefs,
+} from "./generate.js";
 
 const VIDEO_EDIT_MODELS = new Set([
   "happy-horse-video-edit",
@@ -174,7 +179,7 @@ export function registerEditCommands(program: Command): void {
     });
 
   edit
-    .command("motion <image_url_or_file> <prompt...>")
+    .command("motion <image_url_or_file> [prompt...]")
     .description("Transfer motion from a reference video onto a subject image")
     .requiredOption("--motion-video <url|file>", "motion reference video")
     .option(
@@ -187,6 +192,10 @@ export function registerEditCommands(program: Command): void {
       "video (30s cap) or image (10s cap); defaults to the model setting",
     )
     .option("--no-original-sound", "remove sound from the motion reference")
+    .option(
+      "--element <json|@file>",
+      'Kling V3 facial identity element, e.g. \'{"frontal_image_url":"face.png","reference_image_urls":["profile.png"]}\'',
+    )
     .option("--duration <seconds>", "optional estimate hint")
     .option("--project <id>", "group in a project's AI Studio session")
     .option("--session <id>", "AI Studio session id")
@@ -198,7 +207,7 @@ export function registerEditCommands(program: Command): void {
     .action(async function (
       this: Command,
       imageSource: string,
-      promptWords: string[],
+      promptWords: string[] = [],
     ) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
@@ -219,6 +228,34 @@ export function registerEditCommands(program: Command): void {
       }
       if (opts.orientation && !["image", "video"].includes(opts.orientation)) {
         throw new UsageError('--orientation must be "image" or "video".');
+      }
+      const rawElements = parseKlingElements(
+        opts.element ? [opts.element] : [],
+      );
+      if (rawElements.length > 0) {
+        const element = rawElements[0];
+        if (model !== "kling-v3-motion-control") {
+          throw new UsageError(
+            "--element is supported only by kling-v3-motion-control.",
+          );
+        }
+        if (
+          rawElements.length !== 1 ||
+          !element ||
+          !element.frontal_image_url ||
+          (element.reference_image_urls?.length ?? 0) === 0 ||
+          element.video_url ||
+          element.voice_id
+        ) {
+          throw new UsageError(
+            "Motion control accepts one image-only --element with frontal_image_url and 1-3 reference_image_urls.",
+          );
+        }
+        if (opts.orientation === "image") {
+          throw new UsageError(
+            '--element requires --orientation video. Omit --orientation to select "video" automatically.',
+          );
+        }
       }
       if (opts.estimate) {
         const estimate = await ctx.client.callTool(
@@ -243,10 +280,12 @@ export function registerEditCommands(program: Command): void {
         );
       }
 
-      const [[imageUrl], [motionVideoUrl]] = await Promise.all([
+      const [[imageUrl], [motionVideoUrl], elements] = await Promise.all([
         resolveRefs(ctx, [imageSource]),
         resolveRefs(ctx, [opts.motionVideo]),
+        resolveKlingElements(ctx, rawElements),
       ]);
+      const resolvedElement = elements[0];
       capture("cli_edit", {
         kind: "motion_control",
         model,
@@ -260,8 +299,15 @@ export function registerEditCommands(program: Command): void {
           image_url: imageUrl,
           motion_video_url: motionVideoUrl,
           quality: opts.quality,
-          character_orientation: opts.orientation,
+          character_orientation:
+            elements.length > 0 ? "video" : opts.orientation,
           keep_original_sound: opts.originalSound !== false,
+          element: resolvedElement
+            ? {
+                frontal_image_url: resolvedElement.frontal_image_url,
+                reference_image_urls: resolvedElement.reference_image_urls,
+              }
+            : undefined,
           project_id: opts.project,
           session_id: opts.session,
           scene_index: sceneIndex,
