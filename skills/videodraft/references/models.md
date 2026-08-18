@@ -53,7 +53,7 @@ Routing rules:
 - Grok 1.5 always generates native audio. Do not pass `--no-audio`, `--seed`, `--negative`, or `--quality`.
 - Around 11-15 seconds with native audio: use MiniMax H3, Kling, or Seedance, not Gemini.
 - One existing source video that should be edited: use `videodraft edit video`, which auto-selects Gemini Omni Flash for a source up to 10s. Do not route a source edit through `generate video --ref-video`.
-- Video or audio supplied as creative reference: use MiniMax H3 for fixed 2K/native audio, or Seedance 2.0 when resolution/quality tier or audio-toggle control matters.
+- Video or audio supplied as creative reference: use MiniMax H3 for 480p/768p/2K/4K with native audio, or Seedance 2.0 when quality-tier or audio-toggle control matters.
 - A video plus any image/audio references that must all be preserved: use MiniMax H3 or Seedance 2.0. Do not promise that Gemini will preserve mixed source media; its Fal BYOK edit mode accepts only the source video and prompt.
 - First and last frame control: use MiniMax H3, Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
 - MiniMax H3 reference mode and first-plus-last-frame mode are separate. Audio cannot be the only reference. Address references as `Image 1`, `Video 1`, and `Audio 1` in array order.
@@ -63,7 +63,7 @@ Routing rules:
 - Kling 2.6 Pro image-to-video accepts one or two repeatable `--voice-id` values. Cite them as `<<<voice_1>>>` and `<<<voice_2>>>` in the prompt. Voice control costs 17 cr/s. Use `videodraft kling-voices list|create|delete` to manage the separate Kling video-control voice library. Creating a voice requires a clean 5-30 second, up-to-50MB single-speaker `.mp3`, `.wav`, `.mp4`, or `.mov` sample plus `--confirm-consent`. Creation costs 1 VideoDraft credit on the platform Fal account and 0 credits with Fal BYOK; use the create command's `--estimate` flag to check without creating.
 - Kling V3 voice control costs 16 cr/s for Standard and 20 cr/s for Pro.
 - Seedance quality: `mini` for the lowest cost, `fast` for speed, `standard` for maximum quality and for 1080p/4K. Seedance 2.5 has a single tier and ignores `--quality`.
-- Longer than 15 seconds, or more than 9 image / 3 video / 3 audio references: use Seedance 2.5. It reaches 30s and 30/10/10 references (50 files total), but has no 1080p or 4K.
+- Longer than 15 seconds, or more than 9 image / 3 video / 3 audio references: use Seedance 2.5. It reaches 30s and 30/10/10 references (50 files total) at 480p/720p/1080p, but has no 4K.
 
 ### Video edit and motion-control categories
 
