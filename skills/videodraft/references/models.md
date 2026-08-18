@@ -14,6 +14,8 @@ videodraft models styles --json    # visual style presets
 
 Honor an explicitly named model when it supports the request. Otherwise choose from the task's inputs, duration, audio, quality, speed, and cost. Pass the chosen model explicitly instead of relying on a blind platform fallback.
 
+The catalogs carry the preference order themselves: every `videodraft models image|video|audio --json` response has a top-level `recommended` array (best first) plus `recommended` / `recommended_for` on each entry. Trust that over this page. Preferred today: images `nano-banana-2`, `nano-banana-pro`, `gpt-image-2`; videos `gemini-omni-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0`, `kling-v3-turbo`, `kling-o3`; video edits `gemini-omni-flash`; talking heads `veed-fabric`; motion transfer `kling-v3-motion-control`; audio ElevenLabs for voice work and Lyria for instrumental music.
+
 ### Images
 
 | Need                                                                                   | Choose               | Why                                                               |
@@ -23,32 +25,34 @@ Honor an explicitly named model when it supports the request. Otherwise choose f
 | Fast, inexpensive drafts and iteration                                                 | `nano-banana-2-lite` | Fastest/cheapest Nano Banana option; 1K only, up to 14 references |
 | Posters, title cards, signs, logos, or any image with important readable text          | `gpt-image-2`        | Strong text rendering; up to 16 image inputs and 1K/2K/4K output  |
 | Complex multi-image composition, precise editing, or a strong alternate interpretation | `gpt-image-2`        | Strong non-Nano alternative with multi-image input                |
+| Cheapest usable image, or an xAI look                                                  | `grok-imagine`       | 2 cr flat (3 with a reference); 1 reference image                 |
+| xAI at 2K or with a quality tier, up to 3 edit references                              | `grok-imagine-2.0`   | 1K 4 (low) / 6 (medium), 2K 6 / 8, +1 cr per reference image      |
 
 Use `--num 1..4` for variations of one prompt in a single call. Never loop separate paid calls for variations that fit in one request.
 
 ### Videos
 
-| Need                                                                                                       | Choose                   | Important limits                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Most text, first-frame, image-reference, or source-video-edit requests up to 10s                           | `gemini-omni-flash`      | 720p, 3-10s or auto, audio always on, up to 10 total image inputs, one source video                                     |
-| Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame                               |
-| Fixed 2K with native stereo audio, first/last frames, or mixed image/video/audio references                | `minimax-h3`             | 5-15s; up to 9 image, 3 video, 3 audio refs, 12 files total; reference video/audio each total <=15s                     |
-| Images pinned to specific moments (keyframes), 16-20s clips, or a cheap draft pass before committing       | `flux-3`                 | 5-20s (auto for text/first-frame only); 720p/1080p; up to 10 keyframes; `--quality draft` is 720p-only at ~1/3 the cost |
-| Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`             | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only                     |
-| Single takes past 15s, or more references than Seedance 2.0 allows                                         | `seedance-2.5`           | 4-30s or auto; up to 30 image, 10 video, and 10 audio refs (50 files total); one quality tier; 480p/720p only           |
-| Fast polished 3-15s video with first frame, multi-prompt, and native audio                                 | `kling-v3-turbo`         | Audio always on; Pro default; no end frame, reference-media mode, or elements                                           |
-| Cinematic 3-15s with reference images, image/video elements, first+last frame, audio, or 4K                | `kling-o3`               | 7 combined image refs/elements, reduced to 4 with a video element; Standard/Pro/4K                                      |
-| Kling 3-15s image-to-video with first+last frame, image/video elements, multi-prompt, audio, or 4K         | `kling-3.0`              | Elements require a start image; image or video elements can bind voice_id; Standard/Pro/4K                              |
-| User explicitly requests Veo, or the selected workflow specifically needs Veo                              | `google-veo3.1`          | Good fallback, but not the preferred general model                                                                      |
+| Need                                                                                                       | Choose                   | Important limits                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Most text, first-frame, image-reference, or source-video-edit requests up to 10s                           | `gemini-omni-flash`      | 720p, 3-10s or auto, audio always on, up to 10 total image inputs, one source video                                                                                             |
+| Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame                                                                                       |
+| 480p/768p/2K/4K with native stereo audio, first/last frames, or mixed image/video/audio references         | `minimax-h3`             | 5-15s; 5/6/13/16 cr/s by resolution; up to 9 image, 3 video, 3 audio refs, 12 files total; first 5 reference images free then 8 cr each; reference video/audio each total <=15s |
+| Images pinned to specific moments (keyframes), 16-20s clips, or a cheap draft pass before committing       | `flux-3`                 | 5-20s (auto for text/first-frame only); 720p/1080p; up to 10 keyframes; `--quality draft` is 720p-only at ~1/3 the cost                                                         |
+| Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`             | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only                                                                             |
+| Single takes past 15s, or more references than Seedance 2.0 allows                                         | `seedance-2.5`           | 4-30s or auto; up to 30 image, 10 video, and 10 audio refs (50 files total); one quality tier; 480p/720p/1080p                                                                  |
+| Fast polished 3-15s video with first frame, multi-prompt, and native audio                                 | `kling-v3-turbo`         | Audio always on; Pro default; no end frame, reference-media mode, or elements                                                                                                   |
+| Cinematic 3-15s with reference images, image/video elements, first+last frame, audio, or 4K                | `kling-o3`               | 7 combined image refs/elements, reduced to 4 with a video element; Standard/Pro/4K                                                                                              |
+| Kling 3-15s image-to-video with first+last frame, image/video elements, multi-prompt, audio, or 4K         | `kling-3.0`              | Elements require a start image; image or video elements can bind voice_id; Standard/Pro/4K                                                                                      |
+| User explicitly requests Veo, or the selected workflow specifically needs Veo                              | `google-veo3.1`          | Good fallback, but not the preferred general model                                                                                                                              |
 
 Routing rules:
 
-- Fixed 2K with native stereo audio: use MiniMax H3.
+- 480p/768p/2K/4K with native stereo audio: use MiniMax H3 (5/6/13/16 cr/s).
 - Grok 1.5 reference mode accepts 1-7 images only. Address them in array order as `<IMAGE_0>` through `<IMAGE_6>`. Do not combine reference images with `--start-image`, `--end-image`, `--ref-video`, or `--ref-audio`.
 - Grok 1.5 first-frame mode accepts one `--start-image`, derives the output aspect ratio from that image, and does not support `--end-image`. Text and first-frame modes support 480p, 720p, or 1080p. Reference mode supports 480p or 720p.
 - Grok 1.5 always generates native audio. Do not pass `--no-audio`, `--seed`, `--negative`, or `--quality`.
 - Around 11-15 seconds with native audio: use MiniMax H3, Kling, or Seedance, not Gemini.
-- One existing source video that should be edited, with an output up to 10 seconds and no additional media references to preserve: use Gemini Omni Flash.
+- One existing source video that should be edited: use `videodraft edit video`, which auto-selects Gemini Omni Flash for a source up to 10s. Do not route a source edit through `generate video --ref-video`.
 - Video or audio supplied as creative reference: use MiniMax H3 for fixed 2K/native audio, or Seedance 2.0 when resolution/quality tier or audio-toggle control matters.
 - A video plus any image/audio references that must all be preserved: use MiniMax H3 or Seedance 2.0. Do not promise that Gemini will preserve mixed source media; its Fal BYOK edit mode accepts only the source video and prompt.
 - First and last frame control: use MiniMax H3, Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
@@ -67,13 +71,20 @@ Use `videodraft models video --category video_edit` for existing-video transform
 
 | Need                                  | Command/model                                                         | Important limits                                                                                                        |
 | ------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Simple prompt edit of one video       | `videodraft edit video <video> "..." --model grok-imagine-video-edit` | No image refs; source truncated to 8s; auto/480p/720p                                                                   |
-| Edit with one style/reference image   | `--model wan-2.7-ref-edit --ref <image>`                              | One image ref; 2-10s or match source                                                                                    |
-| Edit with several image references    | `--model happy-horse-video-edit --ref ...`                            | Up to 5 refs; 720p/1080p; source capped at 15s                                                                          |
-| Controlled Kling edit                 | `--model kling-o3-video-ref-edit --ref ...`                           | Up to 4 refs; Standard/Pro; source clamped to 3-10s                                                                     |
+| Most edits of a source up to 10s (DEFAULT) | `videodraft edit video <video> "..."` (auto-selects `gemini-omni-flash`) | Source <=10s or it REFUSES; up to 10 image refs; 720p; audio always regenerated (no `--preserve-audio`)             |
+| Cheapest simple prompt edit           | `videodraft edit video <video> "..." --model grok-imagine-video-edit` | No image refs; source silently truncated to 8s; auto/480p/720p                                                          |
+| Edit with one style/reference image, or keep source audio | `--model wan-2.7-ref-edit --ref <image>`             | One image ref; 2-10s or match source; source silently truncated to 10s                                                  |
+| Edit with several image references    | `--model happy-horse-video-edit --ref ...`                            | Up to 5 refs; 720p/1080p; source silently truncated to 15s; highest rate (28-56 cr/s)                                    |
+| Controlled Kling edit                 | `--model kling-o3-video-ref-edit --ref ...`                           | Up to 4 refs; Standard/Pro; source silently clamped to 3-10s                                                            |
 | Transfer reference motion to an image | `videodraft edit motion <image> [direction] --motion-video <video>`   | Prompt/direction is optional; Kling V3 default; optional one image-only `--element`; element requires video orientation |
 
 If the user explicitly names one of these models, preserve it. The CLI uploads local source videos and reference images automatically. Editing returns an async job and waits by default.
+
+**Omit `--model` and the SERVER chooses**, because only it can measure the source. It picks `gemini-omni-flash` for any source up to 10s. When that is not safe (source longer than 10s, unmeasurable duration, `--preserve-audio`, more than 10 refs, or Fal BYOK with refs) it spends nothing and returns a priced menu: per model, the seconds it would edit, the seconds it would drop, and the credit cost. The CLI prints that table and exits 2. Show it to the user, then re-run with `--model`.
+
+**Truncation is the trap here.** Only Gemini refuses a source it cannot fully consume. Every other edit model accepts a 30s clip and returns an edit of its first 8-15 seconds with no error. `videodraft edit video` now warns when this will happen and the tool response carries `source.truncated` / `source.dropped_seconds`; relay it to the user rather than letting them discover it in the output.
+
+To edit a longer source without losing its tail, cut it into <=10s pieces with `videodraft_editor`, edit each with Gemini, then reassemble and export there. VideoDraft has no server-side split/concat, so this needs the native editor.
 
 Kling O3 and Wan 2.7 Ref/Edit are dual-mode cards. `videodraft edit video` uses edit mode. `videodraft generate video --model kling-o3-video-ref-edit` requires exactly one `--ref-video` and generates a new reference-guided clip. `--model wan-2.7-ref-edit` generates a new clip from one or more `--ref`/`--ref-video` inputs.
 
@@ -97,7 +108,9 @@ Kling O3 and Wan 2.7 Ref/Edit are dual-mode cards. `videodraft edit video` uses 
 
 ### Avatar / talking head
 
-Choose the dedicated path from the media the user already has:
+**First decide the framing, not just "someone talks".** This lane animates a PORTRAIT facing the lens. A character delivering a line inside a real scene, with blocking, framing or camera movement, belongs to `generate video` instead: use `kling-2.6-pro` (one or two voices cited as `<<<voice_1>>>` / `<<<voice_2>>>`), `kling-3.0` (a voice bound per element, so several characters can speak in one shot), or `happy-horse` (strong character identity from a frontal image, native audio, multilingual lip-sync). Sending a cinematic shot to Fabric returns a head-on talking headshot, not the shot that was asked for. `videodraft models video --json` lists these under `recommended.in_scene_dialogue`.
+
+For a presenter, spokesperson or explainer speaking to camera, VEED Fabric is the preferred model. Choose the dedicated path from the media the user already has:
 
 | Starting media                            | Command                                                                   | Use                                                 |
 | ----------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------- |
@@ -151,6 +164,9 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - Lyria music: flat per track, 10 credits (clip) / 15 credits (pro).
 - Seed Audio 1.0: 19 credits per actual output minute, prorated and rounded up to a whole credit. VideoDraft reserves the 120-second maximum of 38 credits and refunds the unused portion after generation. Fal BYOK is free.
 - ElevenLabs audio: sound effects are per second, dialogue is per character, music/voice-changer/dubbing are per started minute. Voice changer and dubbing reject source media above 300s in the current synchronous flow.
+- Seedance 2.0 / 2.5 real people: every listed Seedance 2.x rate assumes `--allow-real-people` is OFF, which runs the job on Byteplus alone and is priced at Byteplus cost (2.0 Mini 4/8 cr/s, Fast 6/13, Standard 7/16/38/78, 2.5 11/24/57 (480p/720p/1080p)). Byteplus refuses real-person likenesses, so such a job fails with a content-filter error instead of falling back. Passing `--allow-real-people` permits the Fal fallback, which allows them, and prices at FAL's rate for that tier: 2.0 Mini 8/16, Fast 11/25, Standard 14/31/69/156, 2.5 23/48/114. That is roughly 2x but NOT exactly 2x — Byteplus charges more per token at both 1080p tiers (1.82x there). Only pass it when the prompt or the reference images involve a real, identifiable person.
+- Grok Imagine images: `grok-imagine` is a flat 2 cr (3 with a reference). `grok-imagine-2.0` is a separate, newer model priced by resolution and quality: 1K 4 (low) / 6 (medium), 2K 6 / 8, plus 1 cr per reference image (up to 3). v1 is NOT superseded — pick it when cost matters more than 2K.
+- xAI bills refused requests, so failed Grok generations are not refunded.
 - Upscales: priced by scale and source size.
 
 Quote before spending:
@@ -160,6 +176,8 @@ videodraft costs gemini-omni-flash --type video --duration 8 --resolution 720p -
 videodraft costs minimax-h3 --type video --duration 10 --ref-images 7 --ref-video-seconds 5
 videodraft costs grok-imagine-video-1.5 --type video --duration 8 --resolution 720p --ref-images 4
 videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio
+videodraft costs grok-imagine-2.0 --type image --resolution 2K --quality medium --num 2
+videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio --allow-real-people # 2x
 videodraft costs elevenlabs-dubbing --type audio --duration 60
 videodraft costs seed-audio-1.0 --type audio --duration 60 # scenario only; model controls actual length
 videodraft costs elevenlabs-dialogue --type audio --chars 350

@@ -5,6 +5,65 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-18
+
+### Added
+
+- `videodraft generate video --allow-real-people` for Seedance 2.0 / 2.5.
+  Without it a job runs on Byteplus alone, which refuses real-person
+  likenesses and fails with a content-filter error rather than silently
+  falling back. With it the Fal fallback is permitted and the job is priced at
+  Fal's rate for that tier. Threaded through both the submit and `--estimate`
+  paths.
+- New image model `grok-imagine-2.0` (xAI Grok Imagine 2.0), alongside the
+  existing `grok-imagine`, which is unchanged. Adds `--resolution 1K|2K` and
+  `--quality low|medium`: 1K 4/6 cr, 2K 6/8 cr, plus 1 cr per reference image
+  (up to 3 on edit), and 13 aspect ratios including 20:9 and 9:20.
+- `seedance-2.5` accepts `--resolution 1080p` (57 cr/s, 114 with
+  `--allow-real-people`). The provider added the tier on 2026-08-17.
+- `minimax-h3` accepts `--resolution 480p|768p|2K|4K`. It was pinned to 2K.
+
+### Changed
+
+- **Seedance 2.x rates re-derived from each provider's published per-token
+  rate.** Byteplus-routed jobs are priced at Byteplus cost and the
+  `--allow-real-people` path at Fal cost, as a per-tier lookup rather than a
+  flat 2x — Fal is about 2x on most tiers but 1.82x at both 1080p rows.
+  Current per-second rates, Byteplus / Fal:
+
+  | tier | 480p | 720p | 1080p | 4K |
+  | --- | --- | --- | --- | --- |
+  | 2.0 Mini | 4 / 8 | 8 / 16 | – | – |
+  | 2.0 Fast | 6 / 11 | 13 / 25 | – | – |
+  | 2.0 Standard | 7 / 14 | 16 / 31 | 38 / 69 | 78 / 156 |
+  | 2.5 | 11 / 23 | 24 / 48 | 57 / 114 | – |
+
+  Rates are pegged to Byteplus LIST prices, deliberately NOT to its
+  limited-time promos (2.5 1080p is 28% off through 2026-09-17; 2.0 Mini and
+  Fast through 2026-09-07), because pricing against a promo goes underwater
+  the day it expires.
+- **MiniMax H3 is priced at exact Fal cost and is no longer 2K-only:** 5 / 6 /
+  13 / 16 cr/s at 480p / 768p / 2K / 4K, against a previous flat 26 (exactly
+  2x cost). The first 5 reference images stay free with 8 credits each after,
+  matching Fal. Reference VIDEO seconds are no longer charged at all, because
+  Fal does not bill them.
+- Wan 2.7 is resolution-aware (10 cr/s at 720p, 15 at 1080p) and
+  reference-to-video now bills input video seconds alongside output, matching
+  how Fal charges, capped at 3 reference videos and 15 combined seconds.
+- Seedance reference-video pricing multiplier is per version: `seedance-2`
+  uses 0.62 and `seedance-2.5` 0.60. A flat 0.60 (taken from Fal) left 2.0
+  Standard 1080p and 4K reference-video jobs under cost.
+
+### Fixed
+
+- `generate image --estimate` counts `--ref` images for `grok-imagine-2.0`,
+  which bills 1 credit per reference on top of the resolution x quality
+  matrix. Two 2K-medium outputs with three references were quoted 16 credits
+  and 22 were deducted.
+- Bundled skill guidance no longer tells agents that Seedance 2.5 is
+  480p/720p-only or that MiniMax H3 is fixed at 2K, so they stop refusing
+  supported requests.
+
 ## [0.12.0]
 
 ### Added
@@ -36,7 +95,7 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 ### Added
 
 - AI Studio generation history is now queryable from the CLI. `videodraft
-  generations` gains `--session <id>` and `--project <id>` scoping (shared
+generations` gains `--session <id>` and `--project <id>` scoping (shared
   scopes include collaborators' generations), `--model` and `--favorites`
   filters, `--offset` pagination, `--full` (pair with `--json`) for each
   row's exact generation parameters, and a favorite (★) column.
@@ -90,8 +149,7 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 - Added Black Forest Labs FLUX 3 to video generation, model selection, and cost
   estimates: 5-20 second clips at 720p (17 cr/s) or 1080p (29 cr/s) with native
   audio, from a prompt, a first frame, first + last frames, or keyframes.
-- Added `--keyframe <url|file@seconds>` to `generate video` (repeatable, up to
-  10) for FLUX 3 keyframes mode, which pins images to exact moments in the
+- Added `--keyframe <url|file@seconds>` to `generate video` (repeatable, up to 10) for FLUX 3 keyframes mode, which pins images to exact moments in the
   generated clip. Local files are uploaded like `--ref`, and the position is
   parsed off the last `@` so signed URLs containing one still work.
 - Added the FLUX 3 draft tier via `--quality draft`, which renders the same shot
