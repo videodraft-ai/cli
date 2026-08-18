@@ -3,8 +3,8 @@
 import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { capture } from "../cli/telemetry.js";
-import { emit } from "../cli/output.js";
-import { UsageError } from "../core/errors.js";
+import { emit, note, table } from "../cli/output.js";
+import { EXIT, UsageError } from "../core/errors.js";
 import {
   handleAsyncJob,
   parseKlingElements,
@@ -13,11 +13,29 @@ import {
 } from "./generate.js";
 
 const VIDEO_EDIT_MODELS = new Set([
+  "gemini-omni-flash",
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
   "wan-2.7-ref-edit",
 ]);
+
+/** Reference-image cap per edit model; mirrors the server's own limits. */
+const EDIT_MODEL_MAX_REFS: Record<string, number> = {
+  "gemini-omni-flash": 10,
+  "happy-horse-video-edit": 5,
+  "kling-o3-video-ref-edit": 4,
+  "wan-2.7-ref-edit": 1,
+  "grok-imagine-video-edit": 0,
+};
+
+/**
+ * Priced cost lookups need a concrete id, so --estimate without --model quotes
+ * the preferred edit model. Runtime submission stays model-less on purpose so
+ * the SERVER makes the choice: it can measure the source duration, which the
+ * CLI cannot, and it returns a priced menu when no model is safe to assume.
+ */
+const ESTIMATE_FALLBACK_EDIT_MODEL = "gemini-omni-flash";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -41,21 +59,24 @@ function nonNegativeInteger(value: unknown, label: string): number | undefined {
   return parsed;
 }
 
-function chooseEditModel(
-  explicit: string | undefined,
-  refCount: number,
-): string {
-  if (explicit) {
-    if (!VIDEO_EDIT_MODELS.has(explicit)) {
-      throw new UsageError(
-        `Unsupported video edit model "${explicit}". Run videodraft models video and use a video_edit entry.`,
-      );
-    }
-    return explicit;
+/**
+ * Validate an explicitly named edit model, or return undefined so the server
+ * chooses.
+ *
+ * This deliberately does NOT pick a model. The old ladder here mapped "one
+ * --ref" to Wan 2.7 and "no --ref" to Grok, which meant the reference-image
+ * COUNT silently selected the model and the user never saw it happen. The
+ * server picks now: it measures the source, prefers Gemini Omni Flash, and
+ * returns a priced choice payload rather than guessing.
+ */
+function validateEditModel(explicit: string | undefined): string | undefined {
+  if (!explicit) return undefined;
+  if (!VIDEO_EDIT_MODELS.has(explicit)) {
+    throw new UsageError(
+      `Unsupported video edit model "${explicit}". Run videodraft models video --category video_edit and use one of those ids.`,
+    );
   }
-  if (refCount > 1) return "happy-horse-video-edit";
-  if (refCount === 1) return "wan-2.7-ref-edit";
-  return "grok-imagine-video-edit";
+  return explicit;
 }
 
 export function registerEditCommands(program: Command): void {
@@ -68,7 +89,7 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "happy-horse-video-edit | kling-o3-video-ref-edit | grok-imagine-video-edit | wan-2.7-ref-edit",
+      "gemini-omni-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | wan-2.7-ref-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
     )
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option("--resolution <res>", "model-specific output resolution")
@@ -92,43 +113,49 @@ export function registerEditCommands(program: Command): void {
     ) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
-      const model = chooseEditModel(opts.model, (opts.ref ?? []).length);
+      const model = validateEditModel(opts.model);
       const duration = positiveNumber(opts.duration, "--duration");
       const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
       const shotIndex = nonNegativeInteger(opts.shot, "--shot");
       const refCount = (opts.ref ?? []).length;
-      const maxRefs =
-        model === "happy-horse-video-edit"
-          ? 5
-          : model === "kling-o3-video-ref-edit"
-            ? 4
-            : model === "wan-2.7-ref-edit"
-              ? 1
-              : 0;
+      // With no --model the server picks, so only reject a count no edit model
+      // could accept; the server enforces the exact per-model cap after it
+      // chooses.
+      const maxRefs = model
+        ? (EDIT_MODEL_MAX_REFS[model] ?? 0)
+        : Math.max(...Object.values(EDIT_MODEL_MAX_REFS));
       if (refCount > maxRefs) {
         throw new UsageError(
-          `${model} accepts at most ${maxRefs} reference images.`,
+          model
+            ? `${model} accepts at most ${maxRefs} reference images.`
+            : `No video edit model accepts more than ${maxRefs} reference images.`,
         );
       }
       if (opts.quality && model !== "kling-o3-video-ref-edit") {
         throw new UsageError(
-          "--quality applies only to kling-o3-video-ref-edit.",
+          model
+            ? "--quality applies only to kling-o3-video-ref-edit."
+            : "--quality applies only to kling-o3-video-ref-edit. Pass --model kling-o3-video-ref-edit to use it.",
         );
       }
       if (opts.quality && !["standard", "pro"].includes(opts.quality)) {
         throw new UsageError('--quality must be "standard" or "pro".');
       }
-      if (opts.preserveAudio && model === "grok-imagine-video-edit") {
+      if (
+        opts.preserveAudio &&
+        (model === "grok-imagine-video-edit" || model === "gemini-omni-flash")
+      ) {
         throw new UsageError(
-          "grok-imagine-video-edit does not expose source-audio preservation.",
+          `${model} does not expose source-audio preservation.`,
         );
       }
 
       if (opts.estimate) {
+        const estimateModel = model ?? ESTIMATE_FALLBACK_EDIT_MODEL;
         const estimate = await ctx.client.callTool(
           "get_model_costs",
           compact({
-            model_id: model,
+            model_id: estimateModel,
             type: "video",
             duration_seconds: duration,
             resolution: opts.resolution,
@@ -137,14 +164,20 @@ export function registerEditCommands(program: Command): void {
         );
         emit(ctx.out, {
           estimate,
-          model,
-          note: "No credits were spent (--estimate).",
+          model: estimateModel,
+          model_assumed: model === undefined,
+          note:
+            model === undefined
+              ? `No credits were spent (--estimate). Quoted with ${estimateModel}, the preferred edit model; the server picks the real model at submit time and returns a priced menu when this one cannot run the source.`
+              : "No credits were spent (--estimate).",
         });
         return;
       }
       if (duration !== undefined && model !== "wan-2.7-ref-edit") {
         throw new UsageError(
-          `--duration is only controllable for wan-2.7-ref-edit. ${model} follows its source/model duration.`,
+          model
+            ? `--duration is only controllable for wan-2.7-ref-edit. ${model} follows its source/model duration.`
+            : "--duration is only controllable for wan-2.7-ref-edit. Pass --model wan-2.7-ref-edit to set it; every other edit model follows its source/model duration.",
         );
       }
 
@@ -152,7 +185,11 @@ export function registerEditCommands(program: Command): void {
         resolveRefs(ctx, [videoSource]),
         resolveRefs(ctx, opts.ref ?? []),
       ]);
-      capture("cli_edit", { kind: "video", model, wait: opts.wait !== false });
+      capture("cli_edit", {
+        kind: "video",
+        model: model ?? "auto",
+        wait: opts.wait !== false,
+      });
       const submitted = await ctx.client.callTool(
         "edit_video",
         compact({
@@ -171,10 +208,50 @@ export function registerEditCommands(program: Command): void {
           shot_index: shotIndex,
         }),
       );
+      // The server could not safely assume a model (source longer than the
+      // preferred model's 10s ceiling, unmeasurable duration, or a BYOK/limit
+      // conflict). Nothing was spent: print the priced menu and exit 2 so the
+      // caller re-runs with --model. Emitting instead of throwing keeps --json
+      // to exactly one document on stdout.
+      const choice = submitted as any;
+      if (choice?.status === "needs_model_choice") {
+        emit(ctx.out, choice, (o) => {
+          note(o, choice.message);
+          const rows: string[][] = (choice.options ?? []).map((opt: any) => [
+            String(opt.model ?? ""),
+            opt.edited_seconds === null ? "?" : `${opt.edited_seconds}s`,
+            opt.dropped_seconds === null ? "?" : `${opt.dropped_seconds}s`,
+            opt.credits_estimate === null ? "n/a" : String(opt.credits_estimate),
+            String(opt.max_reference_images ?? ""),
+          ]);
+          table(
+            o,
+            ["model", "edits", "drops", "credits", "max refs"],
+            rows,
+          );
+          if (choice.chunked_option?.chunks) {
+            note(
+              o,
+              `Full length: ${choice.chunked_option.chunks} x <=10s Gemini edits reassembled in the native editor, about ${choice.chunked_option.credits_estimate} credits. ${choice.chunked_option.caveat}`,
+            );
+          }
+          note(o, "Re-run with --model <id>. No credits were spent.");
+        });
+        process.exitCode = EXIT.USAGE;
+        return;
+      }
+
+      if (choice?.source?.truncated) {
+        note(
+          ctx.out,
+          `Heads up: ${choice.model} edits at most ${choice.source.edited_seconds}s of this ${choice.source.source_seconds}s source. ${choice.source.dropped_seconds}s will not appear in the result.`,
+        );
+      }
+
       await handleAsyncJob(ctx, submitted, {
         wait: opts.wait !== false,
         download: opts.download,
-        label: `Editing video with ${model}`,
+        label: `Editing video with ${choice?.model ?? model ?? "the selected model"}`,
       });
     });
 

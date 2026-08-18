@@ -184,8 +184,20 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 28. Existing-video edit uses the video-edit category
 
 - **Query:** "Use this style image to turn my existing product clip into a warm evening scene. Keep its motion and audio."
-- **Must:** choose `wan-2.7-ref-edit` from the `video_edit` category and run `videodraft edit video <video> "..." --model wan-2.7-ref-edit --ref <image> --preserve-audio`.
-- **Must NOT:** send the model id to generic `generate video` or replace the source video with a text-only generation.
+- **Must:** run `videodraft edit video <video> "..." --ref <image> --preserve-audio` with an explicit `--model` that can preserve source audio (`wan-2.7-ref-edit` for a single style image, or `happy-horse-video-edit` / `kling-o3-video-ref-edit`), because the preferred default `gemini-omni-flash` regenerates the audio track.
+- **Must NOT:** send the model id to generic `generate video`, replace the source video with a text-only generation, or claim Gemini Omni Flash will keep the original audio.
+
+## 28a. A plain source edit takes the preferred model by default
+
+- **Query:** "Make it snow in this 6-second clip."
+- **Must:** run `videodraft edit video <video> "..."` and let the server select `gemini-omni-flash`, or name it explicitly. No `--model` guess based on how many reference images were passed.
+- **Must NOT:** default to `wan-2.7-ref-edit`, `grok-imagine-video-edit`, or `happy-horse-video-edit` when nothing about the request rules Gemini out.
+
+## 28b. A source longer than 10s surfaces the choice instead of truncating silently
+
+- **Query:** "Restyle this 30-second clip to look like winter."
+- **Must:** recognise that the preferred edit model caps the source at 10s, present the returned `needs_model_choice` options (what each model would edit, what it would drop, what it would cost) or the chunked native-editor route, and let the user decide.
+- **Must NOT:** silently submit to a model that edits only the first 8-15 seconds, or report the result as a full-length edit. If a truncating model is chosen, say how many seconds are dropped.
 
 ## 29. Motion reference uses motion control
 

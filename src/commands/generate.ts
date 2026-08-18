@@ -374,6 +374,7 @@ async function printEstimate(
     referenceImageCount?: number;
     referenceVideoDurationSeconds?: number;
     voiceControl?: boolean;
+    allowRealPeople?: boolean;
   },
 ): Promise<void> {
   const estimate = await ctx.client.callTool(
@@ -389,6 +390,7 @@ async function printEstimate(
       reference_image_count: params.referenceImageCount,
       reference_video_duration_seconds: params.referenceVideoDurationSeconds,
       voice_control: params.voiceControl ? true : undefined,
+      allow_real_people: params.allowRealPeople ? true : undefined,
       num_images: params.num,
     }),
   );
@@ -536,6 +538,14 @@ export function registerGenerateCommands(program: Command): void {
           quality: opts.quality,
           renderingSpeed: opts.renderingSpeed,
           num: opts.num ? Number(opts.num) : undefined,
+          // grok-imagine-2.0 bills 1 credit per reference image on top of the
+          // resolution x quality matrix. Without this the quote omits the
+          // surcharge entirely (two 2K-medium outputs with 3 refs quoted 16,
+          // deducted 22). Only sent when refs exist, so a plain estimate call
+          // keeps its existing shape.
+          ...(Array.isArray(opts.ref) && opts.ref.length > 0
+            ? { referenceImageCount: opts.ref.length }
+            : {}),
         });
         return;
       }
@@ -597,6 +607,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--audio", "generate native model audio")
     .option("--no-audio", "disable native model audio")
+    .option(
+      "--allow-real-people",
+      "seedance-2/2.5 only: permit real-person likenesses. Prices at the fallback provider rate for that tier, which is roughly 2x but not exactly (seedance-2 1080p 38->69, seedance-2.5 1080p 57->114). Without it the job runs on Byteplus alone at the cheaper rate and fails if the content filter blocks it. Use --estimate to see the resolved cost.",
+    )
     .option("--start-image <url|file>", "start frame (image-to-video)")
     .option("--end-image <url|file>", "end frame (supported models only)")
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
@@ -1030,6 +1044,7 @@ export function registerGenerateCommands(program: Command): void {
           voiceControl:
             voiceIds.length > 0 ||
             rawElements.some((element) => element.voice_id),
+          allowRealPeople: opts.allowRealPeople,
         });
         return;
       }
@@ -1196,6 +1211,7 @@ export function registerGenerateCommands(program: Command): void {
           resolution: opts.resolution,
           quality: opts.quality,
           generate_audio: opts.audio,
+          allow_real_people: opts.allowRealPeople ? true : undefined,
           start_image_url: startImage,
           end_image_url: endImage,
           reference_images: refs.length > 0 ? refs : undefined,

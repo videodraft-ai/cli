@@ -56,7 +56,10 @@ describe("specialized video edit commands", () => {
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
-  it("uses Grok for a simple source-video edit when no model is named", async () => {
+  it("sends no model when none is named, leaving the choice to the server", async () => {
+    // The CLI used to pick here: 0 refs meant Grok and exactly 1 ref meant
+    // Wan 2.7, so the reference COUNT silently selected the model. Only the
+    // server can measure the source duration, so it chooses now.
     await runEdit([
       "edit",
       "video",
@@ -68,10 +71,101 @@ describe("specialized video edit commands", () => {
     ]);
 
     expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
-      model: "grok-imagine-video-edit",
       prompt: "Add falling snow",
       video_url: "https://cdn.example.test/source.mp4",
     });
+  });
+
+  it("does not fall back to Wan 2.7 just because one reference image is passed", async () => {
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Warm",
+      "evening",
+      "grade",
+      "--ref",
+      "https://cdn.example.test/style.png",
+      "--no-wait",
+    ]);
+
+    const [, args] = mocks.callTool.mock.calls[0]!;
+    expect(args).not.toHaveProperty("model");
+    expect(args).toMatchObject({
+      reference_images: ["https://cdn.example.test/style.png"],
+    });
+  });
+
+  it("accepts gemini-omni-flash as an explicit video edit model", async () => {
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Make",
+      "it",
+      "snow",
+      "--model",
+      "gemini-omni-flash",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
+      model: "gemini-omni-flash",
+      prompt: "Make it snow",
+      video_url: "https://cdn.example.test/source.mp4",
+    });
+  });
+
+  it("rejects --preserve-audio on gemini-omni-flash, which regenerates audio", async () => {
+    await expect(
+      runEdit([
+        "edit",
+        "video",
+        "https://cdn.example.test/source.mp4",
+        "Change",
+        "it",
+        "--model",
+        "gemini-omni-flash",
+        "--preserve-audio",
+        "--no-wait",
+      ]),
+    ).rejects.toMatchObject({ name: "UsageError", exitCode: 2 });
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("prints the priced menu and exits 2 when the server cannot choose a model", async () => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({
+      status: "needs_model_choice",
+      reason: "source_longer_than_preferred_edit_limit",
+      source_seconds: 30,
+      message: "The source is 30s.",
+      options: [
+        {
+          model: "grok-imagine-video-edit",
+          edited_seconds: 8,
+          dropped_seconds: 22,
+          credits_estimate: 56,
+          max_reference_images: 0,
+        },
+      ],
+      chunked_option: { chunks: 3, credits_estimate: 390, caveat: "seams" },
+    });
+    const previousExitCode = process.exitCode;
+
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/long.mp4",
+      "Change",
+      "it",
+      "--no-wait",
+    ]);
+
+    // Reported as a usage error (a model is required for this source) without
+    // throwing, so --json stays a single document on stdout.
+    expect(process.exitCode).toBe(2);
+    process.exitCode = previousExitCode;
   });
 
   it("preserves an explicitly selected Happy Horse edit model and refs", async () => {
@@ -120,7 +214,6 @@ describe("specialized video edit commands", () => {
     ]);
 
     expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
-      model: "grok-imagine-video-edit",
       prompt: "Change the weather",
       video_url: "https://cdn.example.test/source.mp4",
       project_id: "project_123",
@@ -351,7 +444,7 @@ describe("specialized video edit commands", () => {
   it("filters the video catalog by category", async () => {
     mocks.callTool.mockResolvedValueOnce({
       models: [
-        { id: "gemini-omni-flash", category: "generation" },
+        { id: "seedance-2.5", category: "generation" },
         { id: "grok-imagine-video-edit", category: "video_edit" },
       ],
       categories: { generation: "new", video_edit: "edit" },
@@ -364,7 +457,41 @@ describe("specialized video edit commands", () => {
       .mock.calls.map((call) => String(call[0]))
       .join("");
     expect(written).toContain("grok-imagine-video-edit");
-    expect(written).not.toContain("gemini-omni-flash");
+    expect(written).not.toContain("seedance-2.5");
+  });
+
+  it("surfaces a dual-category model under both of its categories", async () => {
+    // gemini-omni-flash is the generation default AND the preferred edit
+    // model, so its card declares `categories` and must match either one.
+    const catalog = {
+      models: [
+        {
+          id: "gemini-omni-flash",
+          category: "generation",
+          categories: ["generation", "video_edit"],
+        },
+        { id: "grok-imagine-video-edit", category: "video_edit" },
+      ],
+      categories: { generation: "new", video_edit: "edit" },
+    };
+
+    mocks.callTool.mockResolvedValueOnce(catalog);
+    await runAccount(["models", "video", "--category", "video_edit"]);
+    let written = vi
+      .mocked(process.stdout.write)
+      .mock.calls.map((call) => String(call[0]))
+      .join("");
+    expect(written).toContain("gemini-omni-flash");
+
+    vi.mocked(process.stdout.write).mockClear();
+    mocks.callTool.mockResolvedValueOnce(catalog);
+    await runAccount(["models", "video", "--category", "generation"]);
+    written = vi
+      .mocked(process.stdout.write)
+      .mock.calls.map((call) => String(call[0]))
+      .join("");
+    expect(written).toContain("gemini-omni-flash");
+    expect(written).not.toContain("grok-imagine-video-edit");
   });
 
   it("rejects reference inputs that a specialized edit would otherwise drop", async () => {

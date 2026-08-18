@@ -144,8 +144,14 @@ export function registerAccountCommands(program: Command): void {
         result.video = opts.category
           ? {
               ...video,
-              models: (video?.models ?? []).filter(
-                (model: any) => model.category === opts.category,
+              // A card may belong to more than one category — gemini-omni-flash
+              // is both the generation default and the preferred video_edit
+              // model — and declares that in `categories`. Match either field so
+              // dual-category cards surface under both.
+              models: (video?.models ?? []).filter((model: any) =>
+                Array.isArray(model.categories)
+                  ? model.categories.includes(opts.category)
+                  : model.category === opts.category,
               ),
               selected_category: opts.category,
             }
