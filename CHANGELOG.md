@@ -5,6 +5,18 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-08-18
+
+### Fixed
+
+- Bundled skill contradicted itself and the shipped capabilities in three
+  places, all of which went out in 0.13.0: it told agents Seedance 2.5 "has no
+  1080p or 4K" (it has 1080p, and three other lines in the same file said so),
+  and described MiniMax H3 as "fixed 2K" twice after it gained the
+  480p/768p/2K/4K ladder. Agents reading those lines would refuse or misprice
+  supported requests. The skill only reaches agents through a publish, so a
+  release is the only way to correct it.
+
 ## [0.13.0] - 2026-08-18
 
 ### Added
