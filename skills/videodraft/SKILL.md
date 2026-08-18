@@ -100,7 +100,7 @@ For expensive work, estimate with `--estimate` or `videodraft costs`, state the 
 
 Kling voice creation costs 1 VideoDraft credit on the platform Fal account and 0 credits with Fal BYOK. Preview it with `videodraft kling-voices create <sample> --name <name> --estimate`; the estimate does not create a voice or require consent confirmation. Actual creation requires `--confirm-consent`.
 
-MiniMax H3 costs 26 credits per output second. In reference mode the first 5 images are included, each additional image costs 8 credits, and reference video costs 26 credits per verified input second. Audio references are included. For a pre-upload estimate, pass `--ref-video-seconds <total>`; the server measures the actual uploaded video duration before charging.
+MiniMax H3 costs 5 / 6 / 13 / 16 credits per output second at 480p / 768p / 2K / 4K (768p by default). In reference mode the first 5 images are included and each additional image costs 8 credits. Reference video and reference audio are NOT billed.
 
 Grok Imagine Video 1.5 costs 8 credits per output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native audio is always generated.
 

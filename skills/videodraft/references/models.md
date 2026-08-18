@@ -145,7 +145,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4); everything else ignores it. You do not need a seed for variation — `--num` already varies.
 - `--rendering-speed` applies to Ideogram (V3: `Default`/`Turbo`/`Quality`; V4: `Turbo`/`Balanced`/`Quality`) and affects image cost — pass it to `videodraft costs ... --rendering-speed <tier>` for an accurate estimate. Always trust `videodraft models image --json` over this list; new models and tiers appear there the moment the platform ships them, with no CLI update.
 - `seedream-v5-pro` supports unified text-to-image and reference-image editing with up to 10 image references. Use `--resolution 1K` for 7 credits/image or `--resolution 2K` for 14 credits/image.
-- Reference inputs: `--ref <img>` (images, including up to 7 for Grok 1.5), `--ref-video <v>` (Gemini Omni Flash, MiniMax H3, Seedance 2, Wan 2.7), `--ref-audio <a>` (MiniMax H3, Seedance 2), and `--element '<json>'` or `--element @elements.json` for Kling V3/O3. The CLI uploads local files inside every structured element without flattening the video/voice association. For an exact MiniMax H3 pre-upload estimate, add `--ref-video-seconds <combined-seconds>`; the server measures actual duration before charging a real job. `--segment "<prompt>:<seconds>"` (repeatable) drives Kling 3.0, Kling 3.0 Turbo, and O3 multi-prompt generation. Use 1-6 segments of 1-15 whole seconds each, with 3-15 seconds total. `generate image --video-ref` is the nano-banana-2 video reference.
+- Reference inputs: `--ref <img>` (images, including up to 7 for Grok 1.5), `--ref-video <v>` (Gemini Omni Flash, MiniMax H3, Seedance 2, Wan 2.7), `--ref-audio <a>` (MiniMax H3, Seedance 2), and `--element '<json>'` or `--element @elements.json` for Kling V3/O3. For an exact Seedance 2.x reference-video `--estimate`, add `--ref-video-seconds <combined-seconds>`; Seedance bills input seconds alongside output, and the server measures the real duration before charging. The CLI uploads local files inside every structured element without flattening the video/voice association. `--segment "<prompt>:<seconds>"` (repeatable) drives Kling 3.0, Kling 3.0 Turbo, and O3 multi-prompt generation. Use 1-6 segments of 1-15 whole seconds each, with 3-15 seconds total. `generate image --video-ref` is the nano-banana-2 video reference.
 - The top-level prompt is OPTIONAL for `generate video` with multi-prompt models and for Kling 3.0 Turbo (`--model kling-v3-turbo`) image-to-video — a `--segment`-only or `--start-image`-only call is valid. Every other model still needs a prompt; the server enforces per-model rules.
 - Hosted AI Production fallback: `videodraft produce <project> --mode full_video` generates one Seedance 2 video per scene; poll with `videodraft generations`, then `videodraft finalize <project>` swaps them into the hosted timeline before `export`. In VideoDraft ADE, do not choose this path while `videodraft_editor` is available unless the user explicitly requests hosted production. Generate or download the scene assets, import them, and assemble/export with the native editor instead. If the user explicitly requests another compatible video model for a hosted production, do not use this fixed Seedance path; generate the project shots manually with the requested model and attach them to the hosted timeline.
 
@@ -153,7 +153,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 
 - Images: per image (× `--num`). Matrix-priced models (GPT-Image, Nano Banana Pro, Seedream v5 Pro) vary by resolution/quality.
 - Video: usually credits/second × duration; rate depends on model + resolution + quality + native audio on/off.
-- MiniMax H3: 26 credits/output second. The first 5 reference images are included, then 8 credits for each additional image. Reference video adds 26 credits/input second; reference audio is included.
+- MiniMax H3: 5 / 6 / 13 / 16 credits per output second at 480p / 768p / 2K / 4K (768p default). The first 5 reference images are included, then 8 credits for each additional image. Reference video and reference audio are NOT billed.
 - Grok Imagine Video 1.5: 8 credits/output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native generated audio is part of every output.
 - Kling voice control: 17 credits/output second for Kling 2.6 Pro, 16 at Kling V3 Standard, and 20 at Kling V3 Pro.
 - Shot-image batches: one image per shot (+1 grid image per scene in `--grid` mode) — the largest single spend in the pipeline.
@@ -173,7 +173,7 @@ Quote before spending:
 
 ```bash
 videodraft costs gemini-omni-flash --type video --duration 8 --resolution 720p --audio
-videodraft costs minimax-h3 --type video --duration 10 --ref-images 7 --ref-video-seconds 5
+videodraft costs minimax-h3 --type video --duration 10 --resolution 2K --ref-images 7
 videodraft costs grok-imagine-video-1.5 --type video --duration 8 --resolution 720p --ref-images 4
 videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio
 videodraft costs grok-imagine-2.0 --type image --resolution 2K --quality medium --num 2

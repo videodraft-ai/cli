@@ -5,6 +5,23 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-08-18
+
+### Fixed
+
+- Bundled skill still quoted MiniMax H3 at a flat **26 credits per output
+  second** and claimed reference video costs 26 credits per input second, in
+  both `SKILL.md` and `references/models.md`. 0.13.1 corrected the capability
+  statements but not the pricing ones, so agents could still quote a cost up
+  to 5x wrong and bill for reference video that is not charged. H3 is
+  5 / 6 / 13 / 16 cr/s at 480p / 768p / 2K / 4K, and reference video and audio
+  are not billed.
+- `--ref-video-seconds` only ever reached MiniMax H3 estimates, which no
+  longer bill reference video, so the flag was a no-op while its help text
+  claimed otherwise. It now also feeds Seedance 2.x, which genuinely bills
+  input seconds alongside output — those `--estimate` quotes were short by the
+  whole reference duration.
+
 ## [0.13.1] - 2026-08-18
 
 ### Fixed

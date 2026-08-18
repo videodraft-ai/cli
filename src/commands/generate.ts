@@ -640,7 +640,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "combined reference-video duration for an exact MiniMax H3 --estimate",
+      "combined reference-video duration for an exact --estimate (Seedance 2.x bills input seconds; MiniMax H3 does not)",
     )
     .option(
       "--keyframe <url|file@seconds>",
@@ -1015,12 +1015,25 @@ export function registerGenerateCommands(program: Command): void {
                   ? 1
                   : 0
               : undefined;
+        // Seedance 2.x bills (input + output) seconds, so its estimate needs
+        // this or every reference-video quote is short. MiniMax H3 no longer
+        // bills reference video at all, so it resolves to 0 there.
+        const hasRefVideos =
+          Array.isArray(opts.refVideo) && opts.refVideo.length > 0;
+        // Seedance 2.x bills (input + output) seconds, so its estimate needs
+        // this or every reference-video quote is short. MiniMax H3 no longer
+        // bills reference video, but its existing 0 is preserved so a plain
+        // estimate keeps the payload shape its tests assert.
         const estimateReferenceVideoDuration =
           estimateModel === "minimax-h3"
-            ? Array.isArray(opts.refVideo) && opts.refVideo.length > 0
+            ? hasRefVideos
               ? refVideoSeconds
               : 0
-            : undefined;
+            : (estimateModel === "seedance-2" ||
+                  estimateModel === "seedance-2.5") &&
+                hasRefVideos
+              ? refVideoSeconds
+              : undefined;
         const estimateDuration =
           (segments.length > 0 ? segmentDuration : duration) ??
           (estimateModel === "grok-imagine-video-1.5"
