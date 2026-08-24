@@ -17,7 +17,6 @@ const VIDEO_EDIT_MODELS = new Set([
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
-  "wan-2.7-ref-edit",
 ]);
 
 /** Reference-image cap per edit model; mirrors the server's own limits. */
@@ -25,7 +24,6 @@ const EDIT_MODEL_MAX_REFS: Record<string, number> = {
   "gemini-omni-flash": 10,
   "happy-horse-video-edit": 5,
   "kling-o3-video-ref-edit": 4,
-  "wan-2.7-ref-edit": 1,
   "grok-imagine-video-edit": 0,
 };
 
@@ -89,14 +87,14 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "gemini-omni-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | wan-2.7-ref-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
+      "gemini-omni-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
     )
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option("--resolution <res>", "model-specific output resolution")
     .option("--quality <tier>", "Kling O3 only: standard or pro")
     .option(
       "--duration <seconds>",
-      "Wan 2.7 only: 2-10s; other edit models follow the source/model duration",
+      "estimate-only output duration; submitted edits follow the source/model duration",
     )
     .option("--preserve-audio", "preserve original source audio when supported")
     .option("--project <id>", "group in a project's AI Studio session")
@@ -177,14 +175,11 @@ export function registerEditCommands(program: Command): void {
         });
         return;
       }
-      if (duration !== undefined && model !== "wan-2.7-ref-edit") {
+      if (duration !== undefined) {
         throw new UsageError(
-          model
-            ? `--duration is only controllable for wan-2.7-ref-edit. ${model} follows its source/model duration.`
-            : "--duration is only controllable for wan-2.7-ref-edit. Pass --model wan-2.7-ref-edit to set it; every other edit model follows its source/model duration.",
+          "--duration is estimate-only for video edits. Submitted edits follow the source and model duration.",
         );
       }
-
       const [[videoUrl], referenceImages] = await Promise.all([
         resolveRefs(ctx, [videoSource]),
         resolveRefs(ctx, opts.ref ?? []),
@@ -204,7 +199,6 @@ export function registerEditCommands(program: Command): void {
             referenceImages.length > 0 ? referenceImages : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
-          duration_seconds: duration,
           preserve_audio: opts.preserveAudio ? true : undefined,
           project_id: opts.project,
           session_id: sessionArg(this, opts),

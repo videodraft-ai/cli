@@ -66,7 +66,7 @@ describe("bundledSkillFiles", () => {
     expect(editor).toContain("videodraft-editor tool project_control");
     expect(skill).toContain("Managed script/creation is bundled/free");
     expect(models).toContain(
-      "A video plus any image/audio references that must all be preserved: use MiniMax H3 or Seedance 2.0.",
+      "A video plus any image/audio references that must all be preserved: use Wan 3.0, MiniMax H3, or Seedance 2.0.",
     );
     expect(models).not.toContain("speech may add separate costs");
     expect(models).toContain(

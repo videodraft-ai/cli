@@ -5,6 +5,26 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-24
+
+### Added
+
+- Wan 3.0 video generation with text, first and last frames, mixed image,
+  video, and audio references, document and webpage references, 2 to 30 second
+  clips, automatic duration, 480p to 1080p output, prompt expansion, and
+  provider thinking controls.
+- Wan 3.0 cost estimates now understand automatic duration. Completed jobs
+  expose the provider-reported output metadata used for final credit
+  reconciliation.
+
+### Changed
+
+- Retired Wan 2.7 from current generation and video-edit commands, bundled
+  agent guidance, model routing examples, and evaluation scenarios. Existing
+  generation history remains readable in the VideoDraft app.
+- Video-edit duration remains available for cost estimates but is rejected on
+  submission because active edit models follow the source and model duration.
+
 ## [0.15.1] - 2026-08-24
 
 ### Fixed
