@@ -292,18 +292,17 @@ function optionalPositiveNumber(
 const REF_VIDEO_SECONDS_MAX = 30;
 
 /**
- * Combined reference-video seconds a model bills and accepts, or null when it
- * does not bill reference video. Mirrors the server: Seedance 2.5 allows 30,
- * Seedance 2.0 and Wan 2.7 allow 15, MiniMax H3 accepts 15 but bills none.
+ * Combined reference-video seconds a model accepts, or null when this CLI
+ * does not expose a duration window for it. Pricing still decides separately
+ * whether those input seconds are billable.
  */
 function refVideoSecondsWindow(model: string | undefined): number | null {
   switch (model) {
     case "seedance-2.5":
       return 30;
     case "seedance-2":
-    case "wan-2.7":
-    case "wan-2.7-ref-edit":
     case "minimax-h3":
+    case "wan-3.0":
       return 15;
     default:
       return null;
@@ -345,6 +344,20 @@ function optionalSeed(value: unknown): number | undefined {
   return parsed;
 }
 
+function optionalBooleanChoice(
+  value: unknown,
+  label: string,
+): boolean | undefined {
+  if (value === undefined) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "on", "yes", "1"].includes(normalized)) return true;
+  if (["false", "off", "no", "0"].includes(normalized)) return false;
+  throw new CliError(
+    `${label} must be true or false (on/off and yes/no are also accepted).`,
+    EXIT.USAGE,
+  );
+}
+
 function estimateVideoModel(
   opts: Record<string, any>,
   duration: number | undefined,
@@ -357,6 +370,13 @@ function estimateVideoModel(
   const referenceAudioCount = Array.isArray(opts.refAudio)
     ? opts.refAudio.length
     : 0;
+  const wan3Task =
+    opts.autoDuration === true ||
+    opts.promptExpansion !== undefined ||
+    opts.thinking === true ||
+    Boolean(opts.fileUrl) ||
+    Boolean(opts.webUrl);
+  if (wan3Task) return "wan-3.0";
   // Anything past Seedance 2.0's ceilings (15s, 9 image / 3 video / 3 audio
   // refs) needs 2.5, which reaches 30s and 30/10/10 references.
   const seedance25Task =
@@ -393,6 +413,7 @@ async function printEstimate(
     model?: string;
     type: "image" | "video" | "audio";
     duration?: number;
+    autoDuration?: boolean;
     resolution?: string;
     quality?: string;
     renderingSpeed?: string;
@@ -410,6 +431,7 @@ async function printEstimate(
       model_id: params.model,
       type: params.type,
       duration_seconds: params.duration,
+      auto_duration: params.autoDuration ? true : undefined,
       resolution: params.resolution,
       quality: params.quality,
       rendering_speed: params.renderingSpeed,
@@ -488,6 +510,7 @@ export async function handleAsyncJob(
         job_id: jobId,
         status: result.status,
         outputs: result.outputUrls,
+        outputMetadata: result.payload?.outputMetadata,
         downloaded_files: downloaded,
         output_media: media,
       },
@@ -633,6 +656,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9", "9:16"')
     .option("--duration <seconds>", "clip duration in seconds")
+    .option(
+      "--auto-duration",
+      "Wan 3.0 only: provider selects 2-30s; reserves 30s and reconciles unused credits",
+    )
     .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "2K", "4k"')
     .option(
       "--quality <tier>",
@@ -649,13 +676,13 @@ export function registerGenerateCommands(program: Command): void {
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
       "--ref-video <url|file>",
-      "reference video (repeatable; MiniMax H3, Gemini Omni Flash, Seedance 2 and 2.5, Wan 2.7, Kling/Wan Ref-Edit; local files uploaded)",
+      "reference video (repeatable; Wan 3.0, MiniMax H3, Gemini Omni Flash, Seedance 2 and 2.5, Kling O3; local files uploaded)",
       collect,
       [],
     )
     .option(
       "--ref-audio <url|file>",
-      "reference audio (repeatable; MiniMax H3, Seedance 2, or Seedance 2.5; local files uploaded)",
+      "reference audio (repeatable; Wan 3.0, MiniMax H3, Seedance 2, or Seedance 2.5; local files uploaded)",
       collect,
       [],
     )
@@ -673,7 +700,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "combined reference-video duration for an exact --estimate (Seedance 2.x and Wan 2.7 bill input seconds; MiniMax H3 does not). Max 30s on Seedance 2.5, 15s elsewhere",
+      "combined reference-video duration for an exact --estimate (Seedance 2.x bills input seconds; MiniMax H3 and Wan 3.0 do not). Max 30s on Seedance 2.5, 15s elsewhere",
     )
     .option(
       "--keyframe <url|file@seconds>",
@@ -687,8 +714,24 @@ export function registerGenerateCommands(program: Command): void {
       collect,
       [],
     )
-    .option("--negative <text>", "negative prompt (Kling/Wan/Luma)")
+    .option("--negative <text>", "negative prompt (Kling/Luma; not Wan 3.0)")
     .option("--camera-fixed", "Seedance 1.5 Pro: lock camera motion")
+    .option(
+      "--prompt-expansion <true|false>",
+      "Wan 3.0 only: enable or disable prompt expansion (default true)",
+    )
+    .option(
+      "--thinking",
+      "Wan 3.0 only: enable provider thinking; required with --file-url/--web-url",
+    )
+    .option(
+      "--file-url <url>",
+      "Wan 3.0 reference mode: public document URL (requires --thinking)",
+    )
+    .option(
+      "--web-url <url>",
+      "Wan 3.0 reference mode: public webpage URL (requires --thinking)",
+    )
     .option("--seed <n>", "seed")
     .option("--project <id>", "attach to a project")
     .option(
@@ -707,13 +750,23 @@ export function registerGenerateCommands(program: Command): void {
     .action(async function (this: Command, promptWords: string[] = []) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
+      if (["wan-2.7", "wan27", "wan-2.7-ref-edit"].includes(opts.model)) {
+        throw new CliError(
+          "Wan 2.7 is retired from VideoDraft generation. Use --model wan-3.0.",
+          EXIT.USAGE,
+        );
+      }
       // prompt is OPTIONAL: Kling 3.0 / 3.0 Turbo / O3 allow multi-prompt-only
       // calls, and Kling 3.0 Turbo allows image-to-video with no prompt.
       const prompt = promptWords.join(" ").trim();
       const duration = optionalPositiveNumber(opts.duration, "--duration");
+      const promptExpansion = optionalBooleanChoice(
+        opts.promptExpansion,
+        "--prompt-expansion",
+      );
       // Parsed against the WIDEST window any model accepts. The real limit is
       // per model — Seedance 2.5 takes 30 combined reference seconds where 2.0
-      // and Wan 2.7 take 15 — and the model is not resolved until the estimate
+      // takes 15 — and the model is not resolved until the estimate
       // branch below, which is where the exact limit is enforced. A global 15
       // here rejected perfectly valid 2.5 commands before they were ever
       // priced.
@@ -772,7 +825,15 @@ export function registerGenerateCommands(program: Command): void {
           EXIT.USAGE,
         );
       }
-      if (!opts.model && voiceIds.length > 0) {
+      const hasWan3OnlyControls =
+        opts.autoDuration === true ||
+        promptExpansion !== undefined ||
+        opts.thinking === true ||
+        Boolean(opts.fileUrl) ||
+        Boolean(opts.webUrl);
+      if (!opts.model && hasWan3OnlyControls) {
+        opts.model = "wan-3.0";
+      } else if (!opts.model && voiceIds.length > 0) {
         opts.model = "kling-2.6-pro";
       } else if (!opts.model && rawElements.length > 0) {
         opts.model = opts.startImage ? "kling-3.0" : "kling-o3";
@@ -1044,6 +1105,107 @@ export function registerGenerateCommands(program: Command): void {
         }
       }
 
+      if (opts.model !== "wan-3.0" && hasWan3OnlyControls) {
+        throw new CliError(
+          "--auto-duration, --prompt-expansion, --thinking, --file-url, and --web-url are supported only by --model wan-3.0.",
+          EXIT.USAGE,
+        );
+      }
+      if (opts.model === "wan-3.0") {
+        const imageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
+        const videoCount = Array.isArray(opts.refVideo)
+          ? opts.refVideo.length
+          : 0;
+        const audioCount = Array.isArray(opts.refAudio)
+          ? opts.refAudio.length
+          : 0;
+        const mediaReferenceCount = imageCount + videoCount + audioCount;
+        const hasLinkReference = Boolean(opts.fileUrl || opts.webUrl);
+        if (opts.autoDuration && duration !== undefined) {
+          throw new CliError(
+            "--auto-duration and --duration are mutually exclusive.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) || duration < 2 || duration > 30)
+        ) {
+          throw new CliError(
+            "wan-3.0 --duration must be a whole second from 2 to 30.",
+            EXIT.USAGE,
+          );
+        }
+        if (prompt.length > 5000) {
+          throw new CliError(
+            "wan-3.0 prompts must be 5000 characters or fewer.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.endImage && !opts.startImage) {
+          throw new CliError(
+            "wan-3.0 --end-image requires --start-image.",
+            EXIT.USAGE,
+          );
+        }
+        if ((mediaReferenceCount > 0 || hasLinkReference) && opts.startImage) {
+          throw new CliError(
+            "wan-3.0 cannot combine frame inputs with reference sources.",
+            EXIT.USAGE,
+          );
+        }
+        if (imageCount > 10 || videoCount > 5 || audioCount > 5) {
+          throw new CliError(
+            "wan-3.0 accepts up to 10 --ref images, 5 --ref-video clips, and 5 --ref-audio clips.",
+            EXIT.USAGE,
+          );
+        }
+        if (mediaReferenceCount > 20) {
+          throw new CliError(
+            "wan-3.0 accepts at most 20 image/video/audio reference files in total.",
+            EXIT.USAGE,
+          );
+        }
+        if (hasLinkReference && opts.thinking !== true) {
+          throw new CliError(
+            "wan-3.0 --file-url and --web-url require --thinking.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.negative) {
+          throw new CliError(
+            "wan-3.0 does not support --negative.",
+            EXIT.USAGE,
+          );
+        }
+        if (seed !== undefined && seed > 2147483647) {
+          throw new CliError(
+            "wan-3.0 --seed must be a whole number from 0 to 2147483647.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.resolution &&
+          !["480p", "720p", "1080p"].includes(opts.resolution)
+        ) {
+          throw new CliError(
+            "wan-3.0 --resolution must be 480p, 720p, or 1080p.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.ar &&
+          !["adaptive", "16:9", "4:3", "1:1", "3:4", "9:16"].includes(
+            opts.ar,
+          )
+        ) {
+          throw new CliError(
+            "wan-3.0 --ar must be adaptive, 16:9, 4:3, 1:1, 3:4, or 9:16.",
+            EXIT.USAGE,
+          );
+        }
+      }
+
       if (opts.estimate) {
         const estimateModel = estimateVideoModel(opts, duration);
         const refVideoWindow = refVideoSecondsWindow(estimateModel);
@@ -1101,6 +1263,7 @@ export function registerGenerateCommands(program: Command): void {
           model: estimateModel,
           type: "video",
           duration: estimateDuration,
+          autoDuration: opts.autoDuration === true,
           resolution: opts.resolution,
           quality: opts.quality,
           audio: opts.audio,
@@ -1150,10 +1313,14 @@ export function registerGenerateCommands(program: Command): void {
         segments.length === 0 &&
         !startImage &&
         keyframes.length === 0 &&
-        refVideos.length === 0
+        refs.length === 0 &&
+        refVideos.length === 0 &&
+        refAudios.length === 0 &&
+        !opts.fileUrl &&
+        !opts.webUrl
       ) {
         throw new CliError(
-          "Provide a prompt, --segment (multi-prompt), or --start-image.",
+          "Provide a prompt, --segment, a frame, or a reference source.",
           EXIT.USAGE,
         );
       }
@@ -1273,6 +1440,7 @@ export function registerGenerateCommands(program: Command): void {
           model: opts.model,
           aspect_ratio: opts.ar,
           duration_seconds: duration,
+          auto_duration: opts.autoDuration ? true : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
           generate_audio: opts.audio,
@@ -1282,6 +1450,10 @@ export function registerGenerateCommands(program: Command): void {
           reference_images: refs.length > 0 ? refs : undefined,
           reference_videos: refVideos.length > 0 ? refVideos : undefined,
           reference_audio: refAudios.length > 0 ? refAudios : undefined,
+          file_url: opts.fileUrl,
+          web_url: opts.webUrl,
+          enable_prompt_expansion: promptExpansion,
+          enable_thinking: opts.thinking ? true : undefined,
           elements: elements.length > 0 ? elements : undefined,
           voice_ids:
             voiceIds.length > 0

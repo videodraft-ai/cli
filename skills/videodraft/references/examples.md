@@ -96,7 +96,7 @@ Edit an existing video with a dedicated edit model:
 videodraft models video --category video_edit
 videodraft edit video ./product-demo.mp4 \
   "Turn the room into a warm evening scene while preserving the product and camera motion" \
-  --model wan-2.7-ref-edit --ref ./evening-style.jpg \
+  --model kling-o3-video-ref-edit --ref ./evening-style.jpg \
   --preserve-audio --download ./media/product-demo-evening.mp4
 ```
 

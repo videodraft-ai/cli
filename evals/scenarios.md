@@ -184,14 +184,14 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 28. Existing-video edit uses the video-edit category
 
 - **Query:** "Use this style image to turn my existing product clip into a warm evening scene. Keep its motion and audio."
-- **Must:** run `videodraft edit video <video> "..." --ref <image> --preserve-audio` with an explicit `--model` that can preserve source audio (`wan-2.7-ref-edit` for a single style image, or `happy-horse-video-edit` / `kling-o3-video-ref-edit`), because the preferred default `gemini-omni-flash` regenerates the audio track.
+- **Must:** run `videodraft edit video <video> "..." --ref <image> --preserve-audio` with an explicit active `--model` that can preserve source audio (`happy-horse-video-edit` or `kling-o3-video-ref-edit`), because the preferred default `gemini-omni-flash` regenerates the audio track.
 - **Must NOT:** send the model id to generic `generate video`, replace the source video with a text-only generation, or claim Gemini Omni Flash will keep the original audio.
 
 ## 28a. A plain source edit takes the preferred model by default
 
 - **Query:** "Make it snow in this 6-second clip."
 - **Must:** run `videodraft edit video <video> "..."` and let the server select `gemini-omni-flash`, or name it explicitly. No `--model` guess based on how many reference images were passed.
-- **Must NOT:** default to `wan-2.7-ref-edit`, `grok-imagine-video-edit`, or `happy-horse-video-edit` when nothing about the request rules Gemini out.
+- **Must NOT:** default to `grok-imagine-video-edit`, `happy-horse-video-edit`, or another specialist when nothing about the request rules Gemini out. Wan 2.7 is retired and must not be suggested.
 
 ## 28b. A source longer than 10s surfaces the choice instead of truncating silently
 

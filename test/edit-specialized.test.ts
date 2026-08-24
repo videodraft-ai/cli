@@ -428,7 +428,7 @@ describe("specialized video edit commands", () => {
         "Change",
         "it",
         "--model",
-        "wan-2.7-ref-edit",
+        "happy-horse-video-edit",
         "--duration",
         "later",
         "--no-wait",
@@ -437,6 +437,28 @@ describe("specialized video edit commands", () => {
       name: "UsageError",
       exitCode: 2,
       message: "--duration must be a positive number.",
+    });
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("rejects a valid edit duration outside estimate mode", async () => {
+    await expect(
+      runEdit([
+        "edit",
+        "video",
+        "https://cdn.example.test/source.mp4",
+        "Change",
+        "it",
+        "--model",
+        "happy-horse-video-edit",
+        "--duration",
+        "5",
+        "--no-wait",
+      ]),
+    ).rejects.toMatchObject({
+      name: "UsageError",
+      exitCode: 2,
+      message: expect.stringContaining("estimate-only"),
     });
     expect(mocks.callTool).not.toHaveBeenCalled();
   });
