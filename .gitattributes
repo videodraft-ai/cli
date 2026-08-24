@@ -1,0 +1,4 @@
+# The agent skill is byte-hashed in skills/index.json and baked into the binary.
+# Force LF so the content (and its sha256 hashes) are identical on every OS —
+# a Windows CRLF checkout would otherwise change the hashes and break check:index.
+skills/** text eol=lf
