@@ -22,13 +22,13 @@
         },
         {
           "path": "references/pipeline.md",
-          "sha256": "5d696b6702af472b24dfdc674b8c4b4482cace65cde56748c2fa91f10d0dcb6f",
-          "bytes": 13021
+          "sha256": "431b22afd062eb919a48c8b3e1432dda3b3f8199d9ecbb01ae326e366bb7b6ac",
+          "bytes": 13358
         },
         {
           "path": "SKILL.md",
-          "sha256": "d891f3d602bb8f2e77a81bcc3cc7ed4ebb42176c6ae1bf5b0758dd508de87480",
-          "bytes": 31422
+          "sha256": "4b2e42cc88cf678984ecf994bd2e6dce96983ca36e2bf2639acf26ffa991e42c",
+          "bytes": 32052
         }
       ]
     }

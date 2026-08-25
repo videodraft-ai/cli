@@ -5,6 +5,19 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-25
+
+### Added
+
+- `videodraft sessions name "<title>"` lets an agent create the current
+  connection session with one concise, task-specific title before its first
+  generation. Existing session names are always preserved, so later calls
+  cannot rename the user's work unexpectedly. The command refuses to run while
+  `VIDEODRAFT_SESSION` pins an explicit session.
+- The bundled skill now asks agents to name the automatic session once from
+  the creative intent instead of creating a second session and passing
+  `--session` to every generation.
+
 ## [0.16.0] - 2026-08-24
 
 ### Added

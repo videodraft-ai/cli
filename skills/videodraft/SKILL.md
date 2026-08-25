@@ -40,7 +40,7 @@ If you are reading this skill through `videodraft skills show skill`, run `video
   - `videodraft generate image "a red fox in snow, cinematic" --ar 16:9 --download ./out/`
   - `videodraft generate video "slow dolly over a misty lake" --model gemini-omni-flash --duration 6 --download ./out/`
 - **Any final video, production timeline, existing footage, local `.vdproject`, or hands-on edit**: use `videodraft_editor` when available. List or open the intended local project, or create a native project for a new production. The editor can work without showing its UI.
-- **A small set of related assets**: still stay in the asset lane. They are grouped automatically (see [AI Studio sessions](#ai-studio-sessions)); name the group with `videodraft sessions create "<name>"` + `--session` only when the user would want to find it by name. Switch to a project only when the deliverable matches the project criteria below or the user asks to attach the assets to one.
+- **A small set of related assets**: still stay in the asset lane. They are grouped automatically (see [AI Studio sessions](#ai-studio-sessions)); give the current group one useful task-specific name with `videodraft sessions name "<name>"`. Switch to a project only when the deliverable matches the project criteria below or the user asks to attach the assets to one.
 - **A generated multi-scene video / ad / explainer**: when the editor is available, use hosted tools only for any needed script, storyboard, shot planning, or generated assets; stop before hosted production, import the assets, and build/export the native timeline. A hosted project is optional unless the user wants the web project or its storyboard workflow.
 - **A hosted web project or hosted export**: use the hosted pipeline only when the user explicitly asks for it or the native editor is unavailable.
 - **Just a script** (no video asked for): A script-only request creates a script-stage project but stops at the script. Use `videodraft create "..." --script-only`; do not build a storyboard the user didn't ask for.
@@ -138,11 +138,19 @@ For completed Wan 3.0 jobs, MCP `check_generation_status` and CLI `status`/`wait
 
 Every standalone (project-less) generation is filed into an AI Studio session in the web app. You do not have to create one:
 
-- **MCP hosts** (Claude Code, claude.ai, Codex, VideoDraft ADE): the server mints an `Mcp-Session-Id` on `initialize`; your host echoes it, and this conversation's generations land in their own session named after the client and date ("Claude Code · Aug 22, 2026"). Tool results echo it as `ai_studio_session_id`.
+- **MCP hosts** (Claude Code, claude.ai, Codex, VideoDraft ADE): the server mints an `Mcp-Session-Id` on `initialize`; your host echoes it, and this conversation's generations land in their own session. Tool results echo it as `ai_studio_session_id`.
 - **CLI**: the same handshake runs once per (profile, server, working directory) and is cached for 12 idle hours, so everything generated from one directory shares one session. `videodraft sessions current` shows it; `videodraft sessions reset` starts a new one.
 - Project generations (`--project <id>` / `project_id`) always go to that project's session.
 
-Pass `--session <id>` / `session_id` only to **name** the work or **continue** earlier work:
+Once you understand the creative task, name the current automatic session before the first standalone generation:
+
+```bash
+videodraft sessions name "Purple Seal Rescue Short"
+```
+
+Choose a concise, specific 3-6 word title for the intended work. Do not copy the client name, date, or exact chat title. Name it once: the operation creates the session with that title. If generation, a user, or an earlier agent created the session first, its existing name is preserved.
+
+Pass `--session <id>` / `session_id` only to **continue earlier work** or create an explicit separate group:
 
 ```bash
 SESSION=$(videodraft sessions create "Fox brand explorations" --json | jq -r '.session.id')
@@ -151,7 +159,7 @@ videodraft generations --session "$SESSION"          # what is in it
 videodraft sessions list --name fox                  # find it again later
 ```
 
-`VIDEODRAFT_SESSION=<id>` sets the default for every command (ignored when `--project` is given); `VIDEODRAFT_SESSION_SCOPE=<label>` groups several directories into one connection session; `VIDEODRAFT_CLIENT_NAME=<host>` names the auto session after your host (e.g. `Claude Code`); `VIDEODRAFT_NO_SESSION=1` disables the handshake. Generations that reach the server with no session at all fall back to the account-wide "Agent (MCP)" session; if you see work landing there, pass `--session` explicitly.
+`VIDEODRAFT_SESSION=<id>` sets the default for every command (ignored when `--project` is given). While it is set, `sessions name` refuses to run because that command names the current automatic connection session, not the pinned override; unset it first or rename the pinned session in AI Studio. `VIDEODRAFT_SESSION_SCOPE=<label>` groups several directories into one connection session; `VIDEODRAFT_CLIENT_NAME=<host>` labels the fallback placeholder used when generation creates the session before `sessions name`; `VIDEODRAFT_NO_SESSION=1` disables the handshake. Generations that reach the server with no session at all fall back to the account-wide "Agent (MCP)" session; if you see work landing there, pass `--session` explicitly.
 
 ## Generation history
 

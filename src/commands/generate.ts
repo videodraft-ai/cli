@@ -565,7 +565,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "attach to a project")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option(
@@ -736,7 +736,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "attach to a project")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--scene <n>", "0-based scene index")
@@ -1506,7 +1506,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "link to a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option(
@@ -1649,7 +1649,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
@@ -1723,7 +1723,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
@@ -1777,7 +1777,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "link to a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
@@ -1829,7 +1829,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "link to a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
@@ -1890,7 +1890,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "link to a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
@@ -1955,7 +1955,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--project <id>", "link to a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the dubbed file")
@@ -2014,7 +2014,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--scale <factor>", '"1x" | "2x" | "4x" (default 2x)')
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the result")
@@ -2057,7 +2057,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--scale <factor>", 'e.g. "2x" (default)')
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option(

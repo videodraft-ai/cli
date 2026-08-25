@@ -103,7 +103,7 @@ export function registerAvatarCommands(program: Command): void {
     .option("--project <id>", "group in a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the finished video")
@@ -213,7 +213,7 @@ export function registerAvatarCommands(program: Command): void {
     .option("--project <id>", "group in a project's AI Studio session")
     .option(
       "--session <id>",
-      "pin an AI Studio session id (default: this directory's connection session; env VIDEODRAFT_SESSION)",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the finished video")

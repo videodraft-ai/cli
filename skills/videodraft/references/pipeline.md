@@ -74,9 +74,11 @@ Uploads persist in the media library — recall later with `videodraft media lis
 
 ## AI Studio sessions (standalone generations)
 
-Project generations group automatically, and standalone work is grouped per conversation (MCP) or per working directory (CLI) by the connection session — see the "AI Studio sessions" section of SKILL.md. Create a named session only when the user should find the work by name later:
+Project generations group automatically, and standalone work is grouped per conversation (MCP) or per working directory (CLI) by the connection session — see the "AI Studio sessions" section of SKILL.md. Once the task is clear, give that automatic session a concise 3-6 word title before the first generation:
 
 ```bash
-SESSION=$(videodraft sessions create "Fox brand explorations" --json | jq -r '.session.id')
-videodraft generate image "..." --session "$SESSION"
+videodraft sessions name "Fox Brand Explorations"
+videodraft generate image "..."
 ```
+
+Naming creates the session with that title. If generation, a user, or an earlier agent created it first, the existing name is preserved. The command refuses to run while `VIDEODRAFT_SESSION` is set, because that override would send later generations to a different session. Use `sessions create` plus `--session` only to continue or deliberately create a separate group.

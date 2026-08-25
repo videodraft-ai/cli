@@ -141,8 +141,8 @@ export function buildContext(command: Command): CommandContext {
     baseUrl: auth.baseUrl,
     userAgent: `videodraft-cli/${VERSION}`,
     session,
-    // Lets an agent host name the auto-created AI Studio session after
-    // itself ("Claude Code · …") instead of "VideoDraft CLI · …".
+    // Labels the automatic placeholder after the agent host until the agent
+    // gives the session a task-specific name.
     clientName: process.env.VIDEODRAFT_CLIENT_NAME,
   });
   return {
