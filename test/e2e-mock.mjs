@@ -234,6 +234,11 @@ const server = http.createServer((req, res) => {
           });
         case "create_ai_studio_session":
           return toolResult({ session_id: "sess_new", name: args.name });
+        case "name_current_ai_studio_session":
+          return toolResult({
+            session: { id: "sess_current", name: args.name },
+            renamed: true,
+          });
         case "check_export_status":
           return toolResult({
             export_id: args.export_id ?? null,
@@ -276,6 +281,7 @@ const baseEnv = {
   VIDEODRAFT_API_KEY: "vd_mcp_test",
   VIDEODRAFT_CONFIG_DIR: path.join(tmp, "config"),
   VIDEODRAFT_NO_UPDATE_CHECK: "1",
+  VIDEODRAFT_SESSION: "",
   NO_COLOR: "1",
 };
 
@@ -645,6 +651,23 @@ ok("describe: vision describe_image");
 const sess = await run(["sessions", "create", "My session", "--json"]);
 assert.match(sess, /sess_new/);
 ok("sessions create returns a session id");
+
+const named = JSON.parse(
+  await run(["sessions", "name", "Purple Seal Rescue Short", "--json"]),
+);
+assert.equal(named.session.name, "Purple Seal Rescue Short");
+assert.equal(named.renamed, true);
+ok("sessions name titles the current automatic session");
+
+const pinnedName = JSON.parse(
+  await run(["sessions", "name", "Wrong Session", "--json"], {
+    env: { VIDEODRAFT_SESSION: "sess_1" },
+    expectExit: 2,
+  }),
+);
+assert.equal(pinnedName.exit_code, 2);
+assert.match(pinnedName.error, /VIDEODRAFT_SESSION/);
+ok("sessions name refuses an explicit session override");
 
 server.close();
 fs.rmSync(tmp, { recursive: true, force: true });

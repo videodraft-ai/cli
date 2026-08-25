@@ -109,7 +109,7 @@ late Byteplus output refusals are refunded but cannot be rerouted.
 | Group           | Commands                                                                                                                                                                             |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Auth            | `login` `logout` `whoami`                                                                                                                                                            |
-| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/reset` `kling-voices list/create/delete`                                       |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                                  |
 | Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                            |
 | Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                        |
 | Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |

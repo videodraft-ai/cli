@@ -271,9 +271,7 @@ export function registerAccountCommands(program: Command): void {
 
   sessions
     .command("current")
-    .description(
-      "Show the connection session this directory's standalone generations are filed under",
-    )
+    .description("Show the current scope's automatic AI Studio session")
     .action(async function (this: Command) {
       const ctx = buildContext(this);
       // The verification RPC runs FIRST: it performs the handshake and can
@@ -310,9 +308,9 @@ export function registerAccountCommands(program: Command): void {
       const record = info?.record ?? null;
       const active = Boolean(record) && !info?.expired;
       const sessionId = active ? (info?.sessionId ?? null) : null;
-      // The token reserves an id; the ai_studio_sessions row only exists
-      // once the first generation lands. Verify before advertising a URL,
-      // or `sessions current` hands out a link the web app cannot open.
+      // The token reserves an id; the ai_studio_sessions row only exists once
+      // it is named or the first generation lands. Verify before advertising
+      // a URL, or `sessions current` hands out a link the web app cannot open.
       const created = Boolean(sessionId) && listed && knownIds.has(sessionId!);
       const result = {
         enabled: Boolean(ctx.session),
@@ -320,7 +318,7 @@ export function registerAccountCommands(program: Command): void {
         active,
         expired: Boolean(info?.expired),
         session_id: sessionId,
-        /** False until the first generation creates the AI Studio row. */
+        /** False until naming or the first generation creates the row. */
         session_created: created,
         url:
           sessionId && created
@@ -332,8 +330,8 @@ export function registerAccountCommands(program: Command): void {
         note: ctx.session
           ? active
             ? created
-              ? "Project-less generations from this directory share this AI Studio session. `videodraft sessions reset` starts a new one; --session <id> pins a specific session."
-              : "Session id reserved for this directory; the AI Studio session appears on the first generation. `videodraft sessions reset` starts a new one; --session <id> pins a specific session."
+              ? "Project-less generations in this scope share this AI Studio session. `videodraft sessions reset` starts a new one; --session <id> pins a specific session."
+              : "Session id reserved for this scope; name it with `videodraft sessions name <title>` or generate the first asset to create it. `videodraft sessions reset` starts a new one; --session <id> pins a specific session."
             : info?.expired
               ? "The previous session idled out (12h); the next command starts a new one. --session <id> pins a specific session instead."
               : "No session yet; the next command creates one. --session <id> pins a specific session instead."
@@ -354,9 +352,31 @@ export function registerAccountCommands(program: Command): void {
     });
 
   sessions
+    .command("name <name>")
+    .description("Name the automatic AI Studio session before first use")
+    .action(async function (this: Command, name: string) {
+      if (process.env.VIDEODRAFT_SESSION?.trim()) {
+        throw new UsageError(
+          "Cannot name the automatic session while VIDEODRAFT_SESSION is set. Unset it first, or rename the pinned session in AI Studio.",
+        );
+      }
+      const ctx = buildContext(this);
+      const result: any = await ctx.client.callTool(
+        "name_current_ai_studio_session",
+        { name },
+      );
+      emit(ctx.out, result, () => {
+        const session = result?.session ?? result;
+        process.stdout.write(
+          `${String(session?.name ?? name)}  ${String(session?.id ?? result?.session_id ?? "")}\n`,
+        );
+      });
+    });
+
+  sessions
     .command("reset")
     .description(
-      "Forget this directory's connection session so the next generation starts a fresh AI Studio session (--all: every directory)",
+      "Forget this connection session so the next generation starts a fresh AI Studio session (--all: every scope)",
     )
     .option("--all", "reset every stored connection session")
     .action(async function (this: Command) {

@@ -3,9 +3,9 @@
  *
  * The VideoDraft MCP server hands every connection an `Mcp-Session-Id` on
  * `initialize` and files that connection's project-less generations into its
- * own AI Studio session (named after the client and date). MCP hosts echo the
- * header for free; the CLI is stateless per invocation, so it keeps the
- * header in a small store and replays it on every request.
+ * own AI Studio session (initially labelled after the client and date). MCP
+ * hosts echo the header for free; the CLI is stateless per invocation, so it
+ * keeps the header in a small store and replays it on every request.
  *
  * Scope: one session per (profile, base URL, working directory), expiring
  * after SESSION_IDLE_MS without use. A working directory is a good proxy for

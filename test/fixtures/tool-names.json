@@ -73,6 +73,7 @@
   "list_visual_asset_history",
   "list_workspaces",
   "move_clip",
+  "name_current_ai_studio_session",
   "produce_project",
   "regenerate_visual_asset",
   "remove_asset_reference_image",

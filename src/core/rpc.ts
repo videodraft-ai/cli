@@ -40,8 +40,8 @@ export interface VideoDraftClientOptions {
   session?: ConnectionSessionStore;
   /**
    * Name reported as MCP clientInfo.name during the session handshake; it
-   * becomes the label of the auto-created AI Studio session ("Claude Code ·
-   * Aug 22, 2026"). Defaults to the user-agent's product token.
+   * labels the automatic placeholder until the agent gives the session a
+   * task-specific name. Defaults to the user-agent's product token.
    */
   clientName?: string;
 }
