@@ -335,11 +335,8 @@ function optionalRangedNumber(
 function optionalSeed(value: unknown): number | undefined {
   if (value === undefined) return undefined;
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new CliError(
-      "--seed must be a non-negative safe integer.",
-      EXIT.USAGE,
-    );
+  if (!Number.isSafeInteger(parsed)) {
+    throw new CliError("--seed must be a safe integer.", EXIT.USAGE);
   }
   return parsed;
 }
@@ -376,6 +373,10 @@ function estimateVideoModel(
     opts.thinking === true ||
     Boolean(opts.fileUrl) ||
     Boolean(opts.webUrl);
+  const h3MaxTask =
+    opts.promptExpansionMode !== undefined ||
+    opts.safetyChecker !== undefined;
+  if (h3MaxTask) return "minimax-h3-max";
   if (wan3Task) return "wan-3.0";
   // Anything past Seedance 2.0's ceilings (15s, 9 image / 3 video / 3 audio
   // refs) needs 2.5, which reaches 30s and 30/10/10 references.
@@ -721,6 +722,14 @@ export function registerGenerateCommands(program: Command): void {
       "Wan 3.0 only: enable or disable prompt expansion (default true)",
     )
     .option(
+      "--prompt-expansion-mode <mode>",
+      "MiniMax H3 Max only: disabled, balanced (default), or quality",
+    )
+    .option(
+      "--safety-checker <true|false>",
+      "MiniMax H3 Max only: enable or disable provider safety checking (default true)",
+    )
+    .option(
       "--thinking",
       "Wan 3.0 only: enable provider thinking; required with --file-url/--web-url",
     )
@@ -764,6 +773,23 @@ export function registerGenerateCommands(program: Command): void {
         opts.promptExpansion,
         "--prompt-expansion",
       );
+      const safetyChecker = optionalBooleanChoice(
+        opts.safetyChecker,
+        "--safety-checker",
+      );
+      const promptExpansionMode =
+        opts.promptExpansionMode === undefined
+          ? undefined
+          : String(opts.promptExpansionMode).trim().toLowerCase();
+      if (
+        promptExpansionMode !== undefined &&
+        !["disabled", "balanced", "quality"].includes(promptExpansionMode)
+      ) {
+        throw new CliError(
+          "--prompt-expansion-mode must be disabled, balanced, or quality.",
+          EXIT.USAGE,
+        );
+      }
       // Parsed against the WIDEST window any model accepts. The real limit is
       // per model — Seedance 2.5 takes 30 combined reference seconds where 2.0
       // takes 15 — and the model is not resolved until the estimate
@@ -831,7 +857,11 @@ export function registerGenerateCommands(program: Command): void {
         opts.thinking === true ||
         Boolean(opts.fileUrl) ||
         Boolean(opts.webUrl);
-      if (!opts.model && hasWan3OnlyControls) {
+      const hasH3MaxOnlyControls =
+        promptExpansionMode !== undefined || safetyChecker !== undefined;
+      if (!opts.model && hasH3MaxOnlyControls) {
+        opts.model = "minimax-h3-max";
+      } else if (!opts.model && hasWan3OnlyControls) {
         opts.model = "wan-3.0";
       } else if (!opts.model && voiceIds.length > 0) {
         opts.model = "kling-2.6-pro";
@@ -839,6 +869,23 @@ export function registerGenerateCommands(program: Command): void {
         opts.model = opts.startImage ? "kling-3.0" : "kling-o3";
       } else if (!opts.model && segments.length > 0) {
         opts.model = "kling-3.0";
+      }
+      if (
+        ["h3-max", "h3max", "minimax_h3_max"].includes(
+          String(opts.model || ""),
+        )
+      ) {
+        opts.model = "minimax-h3-max";
+      }
+      if (
+        seed !== undefined &&
+        seed < 0 &&
+        opts.model !== "minimax-h3-max"
+      ) {
+        throw new CliError(
+          "--seed must be non-negative unless --model minimax-h3-max is selected.",
+          EXIT.USAGE,
+        );
       }
       if (
         segments.length > 0 &&
@@ -1110,6 +1157,107 @@ export function registerGenerateCommands(program: Command): void {
           "--auto-duration, --prompt-expansion, --thinking, --file-url, and --web-url are supported only by --model wan-3.0.",
           EXIT.USAGE,
         );
+      }
+      if (opts.model !== "minimax-h3-max" && hasH3MaxOnlyControls) {
+        throw new CliError(
+          "--prompt-expansion-mode and --safety-checker are supported only by --model minimax-h3-max.",
+          EXIT.USAGE,
+        );
+      }
+      if (opts.model === "minimax-h3-max") {
+        const imageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
+        const videoCount = Array.isArray(opts.refVideo)
+          ? opts.refVideo.length
+          : 0;
+        const audioCount = Array.isArray(opts.refAudio)
+          ? opts.refAudio.length
+          : 0;
+        if (!prompt) {
+          throw new CliError(
+            "minimax-h3-max requires a prompt.",
+            EXIT.USAGE,
+          );
+        }
+        if (prompt.length > 50000) {
+          throw new CliError(
+            "minimax-h3-max prompts must be 50000 characters or fewer.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) || duration < 5 || duration > 15)
+        ) {
+          throw new CliError(
+            "minimax-h3-max --duration must be a whole second from 5 to 15.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.endImage && !opts.startImage) {
+          throw new CliError(
+            "minimax-h3-max --end-image requires --start-image.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.startImage && opts.ar) {
+          throw new CliError(
+            "minimax-h3-max image-to-video follows --start-image framing; remove --ar.",
+            EXIT.USAGE,
+          );
+        }
+        if (imageCount > 0 || videoCount > 0 || audioCount > 0) {
+          throw new CliError(
+            "minimax-h3-max does not support --ref, --ref-video, or --ref-audio. Use --start-image/--end-image for frame control.",
+            EXIT.USAGE,
+          );
+        }
+        if (segments.length > 0) {
+          throw new CliError(
+            "minimax-h3-max does not support --segment.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.negative ||
+          opts.quality ||
+          opts.cameraFixed ||
+          (opts.keyframe?.length ?? 0) > 0 ||
+          opts.allowRealPeople
+        ) {
+          throw new CliError(
+            "minimax-h3-max does not support --negative, --quality, --camera-fixed, --keyframe, or --allow-real-people.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.audio === false) {
+          throw new CliError(
+            "minimax-h3-max always generates native audio; remove --no-audio.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.resolution &&
+          !["480p", "768p"].includes(String(opts.resolution).toLowerCase())
+        ) {
+          throw new CliError(
+            "minimax-h3-max --resolution must be 480p or 768p.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.resolution) {
+          opts.resolution = String(opts.resolution).toLowerCase();
+        }
+        if (
+          opts.ar &&
+          !["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"].includes(
+            opts.ar,
+          )
+        ) {
+          throw new CliError(
+            "minimax-h3-max --ar must be 21:9, 16:9, 4:3, 1:1, 3:4, or 9:16.",
+            EXIT.USAGE,
+          );
+        }
       }
       if (opts.model === "wan-3.0") {
         const imageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
@@ -1453,6 +1601,8 @@ export function registerGenerateCommands(program: Command): void {
           file_url: opts.fileUrl,
           web_url: opts.webUrl,
           enable_prompt_expansion: promptExpansion,
+          prompt_expansion_mode: promptExpansionMode,
+          enable_safety_checker: safetyChecker,
           enable_thinking: opts.thinking ? true : undefined,
           elements: elements.length > 0 ? elements : undefined,
           voice_ids:

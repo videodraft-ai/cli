@@ -38,6 +38,7 @@ Use `--num 1..4` for variations of one prompt in a single call. Never loop separ
 | Grok 1.5 text, first-frame, or 1-7 image-reference clips with native audio and optional 1080p              | `grok-imagine-video-1.5` | 1-15s; 480p/720p/1080p for text/first-frame; references are 480p/720p only; no last frame                                                                                       |
 | Unified text, first/last-frame, mixed-media, document, or webpage reference generation                    | `wan-3.0`                | 2-30s or auto; 480p/720p/1080p at 7/14/28 cr/s; 10 image, 5 video, 5 audio refs, 20 media files total; document/web refs require thinking                                      |
 | 480p/768p/2K/4K with native stereo audio, first/last frames, or mixed image/video/audio references         | `minimax-h3`             | 5-15s; 5/6/13/16 cr/s by resolution; up to 9 image, 3 video, 3 audio refs, 12 files total; first 5 reference images free then 8 cr each; reference video/audio each total <=15s |
+| Text or first/last-frame video with native audio and stronger prompt adherence                             | `minimax-h3-max`         | 5-15s; 5/8 cr/s at 480p/768p; seed, safety checker, and disabled/balanced/quality prompt expansion; no reference media |
 | Images pinned to specific moments (keyframes), 16-20s clips, or a cheap draft pass before committing       | `flux-3`                 | 5-20s (auto for text/first-frame only); 720p/1080p; up to 10 keyframes; `--quality draft` is 720p-only at ~1/3 the cost                                                         |
 | Video/audio references, mixed reference media, broad aspect ratios, frame-mode first+last frame, or 11-15s | `seedance-2`             | 4-15s or auto; up to 9 image, 3 video, and 3 audio refs; audio toggle; Mini/Fast are 480p/720p only                                                                             |
 | Single takes past 15s, or more references than Seedance 2.0 allows                                         | `seedance-2.5`           | 4-30s or auto; up to 30 image, 10 video, and 10 audio refs (50 files total); one quality tier; 480p/720p/1080p                                                                  |
@@ -49,6 +50,7 @@ Use `--num 1..4` for variations of one prompt in a single call. Never loop separ
 Routing rules:
 
 - 480p/768p/2K/4K with native stereo audio: use MiniMax H3 (5/6/13/16 cr/s).
+- 480p/768p text or first/last-frame video with native audio: use MiniMax H3 Max (5/8 cr/s). It has no reference mode.
 - Grok 1.5 reference mode accepts 1-7 images only. Address them in array order as `<IMAGE_0>` through `<IMAGE_6>`. Do not combine reference images with `--start-image`, `--end-image`, `--ref-video`, or `--ref-audio`.
 - Grok 1.5 first-frame mode accepts one `--start-image`, derives the output aspect ratio from that image, and does not support `--end-image`. Text and first-frame modes support 480p, 720p, or 1080p. Reference mode supports 480p or 720p.
 - Grok 1.5 always generates native audio. Do not pass `--no-audio`, `--seed`, `--negative`, or `--quality`.
@@ -56,7 +58,7 @@ Routing rules:
 - One existing source video that should be edited: use `videodraft edit video`, which auto-selects Gemini Omni Flash for a source up to 10s. Do not route a source edit through `generate video --ref-video`.
 - Video or audio supplied as creative reference: use Wan 3.0 for up to 5 ordered video/audio references and 1080p, MiniMax H3 for 2K/4K, or Seedance 2.0 when quality-tier control matters.
 - A video plus any image/audio references that must all be preserved: use Wan 3.0, MiniMax H3, or Seedance 2.0. Do not promise that Gemini will preserve mixed source media; its Fal BYOK edit mode accepts only the source video and prompt.
-- First and last frame control: use Wan 3.0, MiniMax H3, Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
+- First and last frame control: use Wan 3.0, MiniMax H3, MiniMax H3 Max, Seedance, Kling O3, or Kling 3.0. Gemini supports a first frame but not a last frame.
 - Wan 3.0 reference mode and frame mode are separate. It accepts 10 images, 5 videos, and 5 audio clips, at most 20 media files total. Video and audio each total at most 15 seconds. `--file-url` and `--web-url` require `--thinking`. `--auto-duration` cannot be combined with `--duration`.
 - MiniMax H3 reference mode and first-plus-last-frame mode are separate. Audio cannot be the only reference. Address references as `Image 1`, `Video 1`, and `Audio 1` in array order.
 - Seedance reference mode and first-plus-last-frame mode are separate. Do not promise reference video/audio plus a last frame in one generation.
@@ -157,6 +159,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - Images: per image (× `--num`). Matrix-priced models (GPT-Image, Nano Banana Pro, Seedream v5 Pro) vary by resolution/quality.
 - Video: usually credits/second × duration; rate depends on model + resolution + quality + native audio on/off.
 - MiniMax H3: 5 / 6 / 13 / 16 credits per output second at 480p / 768p / 2K / 4K (768p default). The first 5 reference images are included, then 8 credits for each additional image. Reference video and reference audio are NOT billed.
+- MiniMax H3 Max: 5 credits per output second at 480p or 8 credits per second at 768p (default).
 - Wan 3.0: 7 / 14 / 28 credits per output second at 480p / 720p / 1080p. Auto duration reserves 30 seconds and reconciles unused credits from the provider-reported output duration. Fal BYOK charges zero VideoDraft credits.
 - Grok Imagine Video 1.5: 8 credits/output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native generated audio is part of every output.
 - Kling voice control: 17 credits/output second for Kling 2.6 Pro, 16 at Kling V3 Standard, and 20 at Kling V3 Pro.
@@ -178,6 +181,7 @@ Quote before spending:
 ```bash
 videodraft costs gemini-omni-flash --type video --duration 8 --resolution 720p --audio
 videodraft costs minimax-h3 --type video --duration 10 --resolution 2K --ref-images 7
+videodraft costs minimax-h3-max --type video --duration 10 --resolution 768p
 videodraft costs grok-imagine-video-1.5 --type video --duration 8 --resolution 720p --ref-images 4
 videodraft costs seedance-2 --type video --duration 15 --resolution 720p --quality standard --audio
 videodraft costs grok-imagine-2.0 --type image --resolution 2K --quality medium --num 2
@@ -187,4 +191,5 @@ videodraft costs seed-audio-1.0 --type audio --duration 60 # scenario only; mode
 videodraft costs elevenlabs-dialogue --type audio --chars 350
 videodraft costs voiceover --type audio --chars 800    # TTS: 10 cr / 1000 chars
 videodraft generate video "..." --model gemini-omni-flash --estimate # same quote, inline
+videodraft generate video "..." --model minimax-h3-max --duration 8 --resolution 768p --prompt-expansion-mode balanced --safety-checker true
 ```
