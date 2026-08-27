@@ -48,6 +48,19 @@ const SEED_AUDIO_MAX_REFERENCES = 3;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export function normalizeGeminiOmniResolutionOption(
+  value: unknown,
+): "360p" | "720p" | "1080p" | "4k" | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "360p" ||
+    normalized === "720p" ||
+    normalized === "1080p" ||
+    normalized === "4k"
+    ? normalized
+    : undefined;
+}
+
 function inferDubMediaType(
   source: string,
   explicit?: string,
@@ -408,7 +421,7 @@ function estimateVideoModel(
     opts.quality === "fast" ||
     opts.quality === "quality" ||
     (typeof opts.resolution === "string" &&
-      !["360p", "720p", "1080p", "4K"].includes(opts.resolution));
+      !normalizeGeminiOmniResolutionOption(opts.resolution));
   if (veoTask) {
     return referenceVideoCount > 0 ? "seedance-2" : "google-veo3.1";
   }
@@ -978,6 +991,15 @@ export function registerGenerateCommands(program: Command): void {
         opts.model = "minimax-h3-max";
       }
       if (
+        (!opts.model || opts.model === "gemini-omni-1.1-flash") &&
+        opts.resolution
+      ) {
+        const normalizedResolution = normalizeGeminiOmniResolutionOption(
+          opts.resolution,
+        );
+        if (normalizedResolution) opts.resolution = normalizedResolution;
+      }
+      if (
         seed !== undefined &&
         seed < 0 &&
         opts.model !== "minimax-h3-max"
@@ -1135,10 +1157,10 @@ export function registerGenerateCommands(program: Command): void {
         }
         if (
           opts.resolution &&
-          !["360p", "720p", "1080p", "4K"].includes(opts.resolution)
+          !normalizeGeminiOmniResolutionOption(opts.resolution)
         ) {
           throw new CliError(
-            "gemini-omni-1.1-flash --resolution must be 360p, 720p, 1080p, or 4K.",
+            "gemini-omni-1.1-flash --resolution must be 360p, 720p, 1080p, or 4k.",
             EXIT.USAGE,
           );
         }

@@ -116,6 +116,27 @@ describe("specialized video edit commands", () => {
     });
   });
 
+  it("accepts and normalizes lowercase Gemini 4k edit resolution", async () => {
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Make it snow",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--resolution",
+      "4k",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
+      model: "gemini-omni-1.1-flash",
+      prompt: "Make it snow",
+      video_url: "https://cdn.example.test/source.mp4",
+      resolution: "4k",
+    });
+  });
+
   it("forwards Gemini Omni 1.1 creative video references separately from the edit source", async () => {
     await runEdit([
       "edit",
@@ -442,7 +463,7 @@ describe("specialized video edit commands", () => {
 
     expect(mocks.callTool).toHaveBeenCalledWith("generate_video", {
       model: "gemini-omni-1.1-flash",
-      resolution: "4K",
+      resolution: "4k",
       previous_interaction_id: "interaction_123",
       video_task: "edit",
     });

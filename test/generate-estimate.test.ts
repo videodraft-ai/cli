@@ -81,6 +81,23 @@ describe("generate --estimate model selection", () => {
     });
   });
 
+  it("keeps lowercase 4k on Gemini when --model is omitted", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "a tracking shot",
+      "--resolution",
+      "4k",
+      "--estimate",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "gemini-omni-1.1-flash",
+      type: "video",
+      resolution: "4k",
+    });
+  });
+
   it("uses an explicit video model for the estimate", async () => {
     await runGenerate([
       "generate",
