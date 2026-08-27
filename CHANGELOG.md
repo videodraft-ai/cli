@@ -5,6 +5,15 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-08-28
+
+### Fixed
+
+- Accepted canonical lowercase `4k` for Gemini Omni 1.1 Flash generation,
+  estimates, and video edits while continuing to accept uppercase `4K` as an
+  alias. Both spellings now route to Gemini and are sent to the server as
+  canonical `4k`.
+
 ## [0.19.0] - 2026-08-28
 
 ### Changed

@@ -7,6 +7,7 @@ import { emit, note, table } from "../cli/output.js";
 import { EXIT, UsageError } from "../core/errors.js";
 import {
   handleAsyncJob,
+  normalizeGeminiOmniResolutionOption,
   parseKlingElements,
   resolveKlingElements,
   resolveRefs,
@@ -190,11 +191,20 @@ export function registerEditCommands(program: Command): void {
       if (
         model === "gemini-omni-1.1-flash" &&
         opts.resolution &&
-        !["360p", "720p", "1080p", "4K"].includes(opts.resolution)
+        !normalizeGeminiOmniResolutionOption(opts.resolution)
       ) {
         throw new UsageError(
-          'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4K".',
+          'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4k".',
         );
+      }
+      if (
+        (!model || model === "gemini-omni-1.1-flash") &&
+        opts.resolution
+      ) {
+        const normalizedResolution = normalizeGeminiOmniResolutionOption(
+          opts.resolution,
+        );
+        if (normalizedResolution) opts.resolution = normalizedResolution;
       }
       if (
         opts.preserveAudio &&
