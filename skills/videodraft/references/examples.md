@@ -20,7 +20,7 @@ mkdir -p outputs
 while IFS=, read -r name image tagline; do
   job=$(videodraft generate video \
     "Premium product shot of ${name}: ${tagline}. Slow orbit, studio lighting." \
-    --model gemini-omni-flash --ar 9:16 --duration 6 \
+    --model gemini-omni-1.1-flash --ar 9:16 --duration 6 \
     --start-image "$image" \
     --no-wait --json | jq -r .job_id)
   echo "$name,$job" >> outputs/jobs.csv
@@ -32,7 +32,28 @@ videodraft wait $(cut -d, -f2 outputs/jobs.csv) \
 # map job ids back to product names via outputs/jobs.csv
 ```
 
-Submit-then-collect parallelizes server-side generation; the single multi-id `wait` keeps it to one local process and one batched poll request per tick no matter how many jobs. Gemini Omni Flash is selected because these are six-second first-frame product clips. Estimate first: `videodraft costs gemini-omni-flash --type video --duration 6 --resolution 720p --audio` × rows, and confirm with the user.
+Submit-then-collect parallelizes server-side generation; the single multi-id `wait` keeps it to one local process and one batched poll request per tick no matter how many jobs. Gemini Omni 1.1 Flash is selected because these are six-second first-frame product clips. Estimate first: `videodraft costs gemini-omni-1.1-flash --type video --duration 6 --resolution 720p --audio` × rows, and confirm with the user.
+
+Extend an uploaded clip or conversationally edit an official Google interaction with Gemini Omni 1.1 Flash:
+
+Each extension appends 3-10 seconds at the end, up to 40 seconds total. Uploaded-video extensions cannot add new dialogue; use a previous Google interaction when the extension needs additional speech.
+
+```bash
+# Uploaded-video extension with a separate creative camera reference.
+videodraft generate video --model gemini-omni-1.1-flash \
+  --source-video ./ending.mp4 --ref-video ./camera-language.mp4 \
+  --ref-video-duration 3 --extend --duration 6 --resolution 1080p \
+  --download ./media/extended.mp4
+
+# Conversational edit from the interaction_id returned by Google. Add --extend to lengthen instead.
+videodraft generate video --model gemini-omni-1.1-flash \
+  --previous-interaction-id "$INTERACTION_ID" \
+  --ref-video ./new-performance-reference.mp4 --ref-video-duration 2.5 \
+  --resolution 720p \
+  --download ./media/continued.mp4
+```
+
+Fal BYOK supports the currently callable Gemini Omni 1.1 generation and basic source-edit endpoints at zero VideoDraft credits. Its published callable v1.1 endpoints do not expose continuation, extension, or separate creative references on a source edit. Do not infer a Fal route or retry on paid Google while Fal BYOK is active.
 
 ## 2. Hosted full marketing video from one idea (fallback)
 
@@ -94,6 +115,12 @@ Edit an existing video with a dedicated edit model:
 
 ```bash
 videodraft models video --category video_edit
+videodraft edit video ./product-demo.mp4 \
+  "Preserve the product but follow the reference camera rhythm" \
+  --model gemini-omni-1.1-flash --ref-video ./camera-rhythm.mp4 \
+  --ref-video-duration 2.5 --resolution 1080p \
+  --download ./media/product-demo-reframed.mp4
+
 videodraft edit video ./product-demo.mp4 \
   "Turn the room into a warm evening scene while preserving the product and camera motion" \
   --model kling-o3-video-ref-edit --ref ./evening-style.jpg \

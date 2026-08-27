@@ -76,7 +76,7 @@ describe("generate --estimate model selection", () => {
 
     expect(mocks.callTool).toHaveBeenCalledOnce();
     expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
-      model_id: "gemini-omni-flash",
+      model_id: "gemini-omni-1.1-flash",
       type: "video",
     });
   });
@@ -124,7 +124,7 @@ describe("generate --estimate model selection", () => {
     });
   });
 
-  it("uses Seedance 2 for an unspecified mixed-reference estimate", async () => {
+  it("uses Gemini Omni 1.1 for an unspecified mixed-reference estimate", async () => {
     await runGenerate([
       "generate",
       "video",
@@ -137,7 +137,7 @@ describe("generate --estimate model selection", () => {
     ]);
 
     expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
-      model_id: "seedance-2",
+      model_id: "gemini-omni-1.1-flash",
       type: "video",
     });
   });

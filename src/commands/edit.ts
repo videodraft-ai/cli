@@ -13,7 +13,7 @@ import {
 } from "./generate.js";
 
 const VIDEO_EDIT_MODELS = new Set([
-  "gemini-omni-flash",
+  "gemini-omni-1.1-flash",
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
@@ -21,7 +21,7 @@ const VIDEO_EDIT_MODELS = new Set([
 
 /** Reference-image cap per edit model; mirrors the server's own limits. */
 const EDIT_MODEL_MAX_REFS: Record<string, number> = {
-  "gemini-omni-flash": 10,
+  "gemini-omni-1.1-flash": 10,
   "happy-horse-video-edit": 5,
   "kling-o3-video-ref-edit": 4,
   "grok-imagine-video-edit": 0,
@@ -33,7 +33,7 @@ const EDIT_MODEL_MAX_REFS: Record<string, number> = {
  * the SERVER makes the choice: it can measure the source duration, which the
  * CLI cannot, and it returns a priced menu when no model is safe to assume.
  */
-const ESTIMATE_FALLBACK_EDIT_MODEL = "gemini-omni-flash";
+const ESTIMATE_FALLBACK_EDIT_MODEL = "gemini-omni-1.1-flash";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -64,7 +64,7 @@ function nonNegativeInteger(value: unknown, label: string): number | undefined {
  * This deliberately does NOT pick a model. The old ladder here mapped "one
  * --ref" to Wan 2.7 and "no --ref" to Grok, which meant the reference-image
  * COUNT silently selected the model and the user never saw it happen. The
- * server picks now: it measures the source, prefers Gemini Omni Flash, and
+ * server picks now: it measures the source, prefers Gemini Omni 1.1 Flash, and
  * returns a priced choice payload rather than guessing.
  */
 function validateEditModel(explicit: string | undefined): string | undefined {
@@ -87,9 +87,21 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "gemini-omni-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
+      "gemini-omni-1.1-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
     )
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
+    .option(
+      "--ref-video <url|file>",
+      "Gemini Omni 1.1 Flash creative reference video, up to 3 and 3s each (repeatable)",
+      collect,
+      [],
+    )
+    .option(
+      "--ref-video-duration <seconds>",
+      "measured duration matching each creative --ref-video (repeatable; usually auto-measured)",
+      collect,
+      [],
+    )
     .option("--resolution <res>", "model-specific output resolution")
     .option("--quality <tier>", "Kling O3 only: standard or pro")
     .option(
@@ -120,6 +132,10 @@ export function registerEditCommands(program: Command): void {
       const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
       const shotIndex = nonNegativeInteger(opts.shot, "--shot");
       const refCount = (opts.ref ?? []).length;
+      const refVideoCount = (opts.refVideo ?? []).length;
+      const referenceVideoDurations = (opts.refVideoDuration ?? []).map(
+        (raw: string) => Number(raw),
+      );
       // With no --model the server picks, so only reject a count no edit model
       // could accept; the server enforces the exact per-model cap after it
       // chooses.
@@ -133,6 +149,34 @@ export function registerEditCommands(program: Command): void {
             : `No video edit model accepts more than ${maxRefs} reference images.`,
         );
       }
+      if (refVideoCount > 3) {
+        throw new UsageError(
+          "gemini-omni-1.1-flash accepts at most 3 creative --ref-video inputs.",
+        );
+      }
+      if (refVideoCount > 0 && model && model !== "gemini-omni-1.1-flash") {
+        throw new UsageError(
+          "--ref-video on edit video is supported only by --model gemini-omni-1.1-flash.",
+        );
+      }
+      if (
+        referenceVideoDurations.length > 0 &&
+        referenceVideoDurations.length !== refVideoCount
+      ) {
+        throw new UsageError(
+          "Repeat --ref-video-duration once for each --ref-video.",
+        );
+      }
+      if (
+        referenceVideoDurations.some(
+          (seconds: number) =>
+            !Number.isFinite(seconds) || seconds <= 0 || seconds > 3,
+        )
+      ) {
+        throw new UsageError(
+          "Each --ref-video-duration must be greater than 0 and at most 3 seconds.",
+        );
+      }
       if (opts.quality && model !== "kling-o3-video-ref-edit") {
         throw new UsageError(
           model
@@ -144,8 +188,17 @@ export function registerEditCommands(program: Command): void {
         throw new UsageError('--quality must be "standard" or "pro".');
       }
       if (
+        model === "gemini-omni-1.1-flash" &&
+        opts.resolution &&
+        !["360p", "720p", "1080p", "4K"].includes(opts.resolution)
+      ) {
+        throw new UsageError(
+          'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4K".',
+        );
+      }
+      if (
         opts.preserveAudio &&
-        (model === "grok-imagine-video-edit" || model === "gemini-omni-flash")
+        (model === "grok-imagine-video-edit" || model === "gemini-omni-1.1-flash")
       ) {
         throw new UsageError(
           `${model} does not expose source-audio preservation.`,
@@ -180,9 +233,10 @@ export function registerEditCommands(program: Command): void {
           "--duration is estimate-only for video edits. Submitted edits follow the source and model duration.",
         );
       }
-      const [[videoUrl], referenceImages] = await Promise.all([
+      const [[videoUrl], referenceImages, referenceVideos] = await Promise.all([
         resolveRefs(ctx, [videoSource]),
         resolveRefs(ctx, opts.ref ?? []),
+        resolveRefs(ctx, opts.refVideo ?? []),
       ]);
       capture("cli_edit", {
         kind: "video",
@@ -197,6 +251,12 @@ export function registerEditCommands(program: Command): void {
           video_url: videoUrl,
           reference_images:
             referenceImages.length > 0 ? referenceImages : undefined,
+          reference_videos:
+            referenceVideos.length > 0 ? referenceVideos : undefined,
+          reference_video_durations:
+            referenceVideoDurations.length > 0
+              ? referenceVideoDurations
+              : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
           preserve_audio: opts.preserveAudio ? true : undefined,
@@ -223,8 +283,13 @@ export function registerEditCommands(program: Command): void {
               ? "n/a"
               : String(opt.credits_estimate),
             String(opt.max_reference_images ?? ""),
+            String(opt.max_reference_videos ?? ""),
           ]);
-          table(o, ["model", "edits", "drops", "credits", "max refs"], rows);
+          table(
+            o,
+            ["model", "edits", "drops", "credits", "img refs", "vid refs"],
+            rows,
+          );
           if (choice.chunked_option?.chunks) {
             note(
               o,
