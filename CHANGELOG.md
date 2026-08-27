@@ -5,6 +5,17 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-27
+
+### Added
+
+- MiniMax H3 Max video generation as a separate model for 5 to 15 second text
+  or first/last-frame clips at 480p or 768p. The CLI exposes seeds, the safety
+  checker, and disabled/balanced/quality prompt expansion without advertising
+  unsupported reference media.
+- H3 Max estimates use Fal's post-launch rates of 5 credits per second at
+  480p and 8 credits per second at 768p.
+
 ## [0.17.0] - 2026-08-25
 
 ### Added

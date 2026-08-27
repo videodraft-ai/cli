@@ -37,6 +37,7 @@ Standalone images, clips and audio are complete deliverables. They do not need a
 ```bash
 videodraft generate image "isometric workspace, warm light" --num 4 --download "./out/{job_id}_{index}.{ext}"
 videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --estimate
+videodraft generate video "A cyclist races through rain at night" --model minimax-h3-max --duration 8 --resolution 768p --prompt-expansion-mode balanced --safety-checker true
 videodraft generate audio "Read this in a calm documentary voice" --voice vivi_mixed_en_zh_ja_es_id --download narration.mp3
 videodraft generate audio "Extend @Audio1 with soft rain" --ref-audio ./opening.wav --download extended.wav --format wav
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3

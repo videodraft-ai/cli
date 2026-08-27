@@ -79,6 +79,12 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** choose `seedance-2.5` (up to 30 image, 10 video, and 10 audio references) and pass all supplied references.
 - **Must NOT:** choose `seedance2` or `minimax-h3` and silently drop references past their 9-image / 3-video caps.
 
+## 10c. Explicit MiniMax H3 Max keeps its distinct controls
+
+- **Query:** "Use MiniMax H3 Max for an 8-second 768p first-to-last-frame clip. Use quality prompt expansion and seed 42."
+- **Must:** choose `minimax-h3-max`, pass both frames, `--prompt-expansion-mode quality`, `--seed 42`, and keep the safety checker enabled. Quote the 8 credits per second 768p rate.
+- **Must NOT:** choose `minimax-h3`, pass reference media, add an aspect ratio alongside the start frame, or collapse the prompt expansion mode to the Wan boolean flag.
+
 ## 11. Source-video editing selects Gemini
 
 - **Query:** "Edit this existing video into a rainy night version, about 8 seconds."
