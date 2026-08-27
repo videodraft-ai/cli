@@ -38,6 +38,10 @@ Standalone images, clips and audio are complete deliverables. They do not need a
 videodraft generate image "isometric workspace, warm light" --num 4 --download "./out/{job_id}_{index}.{ext}"
 videodraft generate video "slow dolly over a misty lake" --model google-veo3.1 --duration 6 --estimate
 videodraft generate video "A cyclist races through rain at night" --model minimax-h3-max --duration 8 --resolution 768p --prompt-expansion-mode balanced --safety-checker true
+videodraft generate video "Keep the product and match these camera moves" --model gemini-omni-1.1-flash --duration 8 --resolution 1080p --video-task generate --ref ./product.png --ref-video ./move-1.mp4 --ref-video ./move-2.mp4
+videodraft generate video "Keep the subject and use this camera language" --model gemini-omni-1.1-flash --source-video ./source.mp4 --ref-video ./camera-ref.mp4 --ref-video-duration 2.5 --video-task edit --resolution 1080p
+videodraft generate video "The scene continues as the camera follows her outside" --model gemini-omni-1.1-flash --source-video ./source.mp4 --extend --duration 8 --resolution 720p --download ./extended.mp4
+videodraft generate video --model gemini-omni-1.1-flash --previous-interaction-id INTERACTION_ID --ref-video ./new-motion-ref.mp4 --ref-video-duration 3 --resolution 4K --download ./edited-turn.mp4 # conversational edit; add --extend to lengthen
 videodraft generate audio "Read this in a calm documentary voice" --voice vivi_mixed_en_zh_ja_es_id --download narration.mp3
 videodraft generate audio "Extend @Audio1 with soft rain" --ref-audio ./opening.wav --download extended.wav --format wav
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3

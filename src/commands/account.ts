@@ -151,7 +151,7 @@ export function registerAccountCommands(program: Command): void {
         result.video = opts.category
           ? {
               ...video,
-              // A card may belong to more than one category — gemini-omni-flash
+              // A card may belong to more than one category — gemini-omni-1.1-flash
               // is both the generation default and the preferred video_edit
               // model — and declares that in `categories`. Match either field so
               // dual-category cards surface under both.

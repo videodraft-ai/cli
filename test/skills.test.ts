@@ -66,7 +66,7 @@ describe("bundledSkillFiles", () => {
     expect(editor).toContain("videodraft-editor tool project_control");
     expect(skill).toContain("Managed script/creation is bundled/free");
     expect(models).toContain(
-      "A video plus any image/audio references that must all be preserved: use Wan 3.0, MiniMax H3, or Seedance 2.0.",
+      "Video supplied as a creative reference: Gemini Omni 1.1 Flash accepts up to 3 videos of at most 3 seconds each, including mixed image and video input.",
     );
     expect(models).not.toContain("speech may add separate costs");
     expect(models).toContain(

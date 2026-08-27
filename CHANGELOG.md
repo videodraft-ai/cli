@@ -5,6 +5,21 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-28
+
+### Changed
+
+- Replaced Gemini Omni Flash with Gemini Omni 1.1 Flash as the recommended
+  generation and edit model. The CLI now exposes 360p, 720p, 1080p, and 4K
+  pricing, first/last frames, up to 10 total image inputs, up to 3 short video
+  references, source edit, uploaded-video extension, and official Google
+  conversational edit through `--previous-interaction-id`, plus explicit
+  extension with `--extend`. Creative reference durations are measured by the
+  server and can be supplied explicitly with repeatable `--ref-video-duration`.
+- Fal BYOK uses the Gemini Omni 1.1 endpoints at zero VideoDraft credits for
+  supported generation and edit modes. Continuation and extension remain
+  unavailable with Fal BYOK and never fall back to paid Google.
+
 ## [0.18.0] - 2026-08-27
 
 ### Added
@@ -446,7 +461,7 @@ generations` gains `--session <id>` and `--project <id>` scoping (shared
 
 ### Added
 
-- Added first-class `videodraft edit video` commands for Gemini Omni Flash,
+- Added first-class `videodraft edit video` commands for Gemini Omni 1.1 Flash,
   Kling O3, Grok Imagine, Happy Horse, and Wan 2.7 reference editing, including
   local source/reference uploads, project/scene/shot scope, JSON output, cost
   estimates, and downloads.
@@ -535,7 +550,7 @@ generations` gains `--session <id>` and `--project <id>` scoping (shared
 - Synced the public CLI repo with the latest monorepo CLI source and npm line.
 - Updated the schema-drift tool snapshot for the live MCP catalog, including
   `get_tool_catalog` and `list_cloned_voices`.
-- Updated packaged CLI/agent help for Gemini Omni Flash, Nano Banana 2 Lite,
+- Updated packaged CLI/agent help for Gemini Omni 1.1 Flash, Nano Banana 2 Lite,
   Kling O3, and Wan 2.7 reference-video support.
 
 ## [0.3.0]
@@ -546,7 +561,7 @@ generations` gains `--session <id>` and `--project <id>` scoping (shared
   enable, disable, remove, and cloned/professional voice listing.
 - Added authenticated REST request support in the CLI client for non-MCP
   account routes such as `/api/elevenlabs-key`.
-- Added bundled agent guidance for Nano Banana 2 Lite and Gemini Omni Flash.
+- Added bundled agent guidance for Nano Banana 2 Lite and Gemini Omni 1.1 Flash.
 
 ## [0.2.1]
 

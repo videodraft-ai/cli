@@ -96,7 +96,7 @@ describe("specialized video edit commands", () => {
     });
   });
 
-  it("accepts gemini-omni-flash as an explicit video edit model", async () => {
+  it("accepts gemini-omni-1.1-flash as an explicit video edit model", async () => {
     await runEdit([
       "edit",
       "video",
@@ -105,18 +105,45 @@ describe("specialized video edit commands", () => {
       "it",
       "snow",
       "--model",
-      "gemini-omni-flash",
+      "gemini-omni-1.1-flash",
       "--no-wait",
     ]);
 
     expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
-      model: "gemini-omni-flash",
+      model: "gemini-omni-1.1-flash",
       prompt: "Make it snow",
       video_url: "https://cdn.example.test/source.mp4",
     });
   });
 
-  it("rejects --preserve-audio on gemini-omni-flash, which regenerates audio", async () => {
+  it("forwards Gemini Omni 1.1 creative video references separately from the edit source", async () => {
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Match",
+      "this",
+      "camera",
+      "motion",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--ref-video",
+      "https://cdn.example.test/camera.mp4",
+      "--ref-video-duration",
+      "2.5",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("edit_video", {
+      model: "gemini-omni-1.1-flash",
+      prompt: "Match this camera motion",
+      video_url: "https://cdn.example.test/source.mp4",
+      reference_videos: ["https://cdn.example.test/camera.mp4"],
+      reference_video_durations: [2.5],
+    });
+  });
+
+  it("rejects --preserve-audio on gemini-omni-1.1-flash, which regenerates audio", async () => {
     await expect(
       runEdit([
         "edit",
@@ -125,7 +152,7 @@ describe("specialized video edit commands", () => {
         "Change",
         "it",
         "--model",
-        "gemini-omni-flash",
+        "gemini-omni-1.1-flash",
         "--preserve-audio",
         "--no-wait",
       ]),
@@ -400,6 +427,107 @@ describe("specialized video edit commands", () => {
     });
   });
 
+  it("forwards Gemini Omni 1.1 official continuation as an edit task by default", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--previous-interaction-id",
+      "interaction_123",
+      "--resolution",
+      "4K",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_video", {
+      model: "gemini-omni-1.1-flash",
+      resolution: "4K",
+      previous_interaction_id: "interaction_123",
+      video_task: "edit",
+    });
+  });
+
+  it("forwards Gemini Omni 1.1 uploaded-video extension with its output duration", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "Continue the scene outside",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--source-video",
+      "https://cdn.example.test/source.mp4",
+      "--extend",
+      "--duration",
+      "8",
+      "--resolution",
+      "720p",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_video", {
+      model: "gemini-omni-1.1-flash",
+      prompt: "Continue the scene outside",
+      duration_seconds: 8,
+      resolution: "720p",
+      video_url: "https://cdn.example.test/source.mp4",
+      video_task: "extend",
+    });
+  });
+
+  it("forwards measured Gemini Omni 1.1 creative-reference durations by index", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "Match the movement",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--ref-video",
+      "https://cdn.example.test/movement.mp4",
+      "--ref-video-duration",
+      "2.5",
+      "--video-task",
+      "generate",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_video", {
+      model: "gemini-omni-1.1-flash",
+      prompt: "Match the movement",
+      reference_videos: ["https://cdn.example.test/movement.mp4"],
+      reference_video_durations: [2.5],
+      video_task: "generate",
+    });
+  });
+
+  it("keeps the Gemini Omni 1.1 edit source separate from creative references", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "Keep the subject and use the reference camera motion",
+      "--model",
+      "gemini-omni-1.1-flash",
+      "--source-video",
+      "https://cdn.example.test/source.mp4",
+      "--ref-video",
+      "https://cdn.example.test/camera.mp4",
+      "--ref-video-duration",
+      "2.5",
+      "--video-task",
+      "edit",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_video", {
+      model: "gemini-omni-1.1-flash",
+      prompt: "Keep the subject and use the reference camera motion",
+      video_url: "https://cdn.example.test/source.mp4",
+      reference_videos: ["https://cdn.example.test/camera.mp4"],
+      reference_video_durations: [2.5],
+      video_task: "edit",
+    });
+  });
+
   it("rejects duration as an output override for motion control", async () => {
     await expect(
       runEdit([
@@ -483,12 +611,12 @@ describe("specialized video edit commands", () => {
   });
 
   it("surfaces a dual-category model under both of its categories", async () => {
-    // gemini-omni-flash is the generation default AND the preferred edit
+    // gemini-omni-1.1-flash is the generation default AND the preferred edit
     // model, so its card declares `categories` and must match either one.
     const catalog = {
       models: [
         {
-          id: "gemini-omni-flash",
+          id: "gemini-omni-1.1-flash",
           category: "generation",
           categories: ["generation", "video_edit"],
         },
@@ -503,7 +631,7 @@ describe("specialized video edit commands", () => {
       .mocked(process.stdout.write)
       .mock.calls.map((call) => String(call[0]))
       .join("");
-    expect(written).toContain("gemini-omni-flash");
+    expect(written).toContain("gemini-omni-1.1-flash");
 
     vi.mocked(process.stdout.write).mockClear();
     mocks.callTool.mockResolvedValueOnce(catalog);
@@ -512,7 +640,7 @@ describe("specialized video edit commands", () => {
       .mocked(process.stdout.write)
       .mock.calls.map((call) => String(call[0]))
       .join("");
-    expect(written).toContain("gemini-omni-flash");
+    expect(written).toContain("gemini-omni-1.1-flash");
     expect(written).not.toContain("grok-imagine-video-edit");
   });
 

@@ -360,6 +360,14 @@ function estimateVideoModel(
   duration: number | undefined,
 ): string {
   if (opts.model) return opts.model;
+  if (
+    opts.previousInteractionId ||
+    opts.videoTask ||
+    opts.extend ||
+    (opts.refVideoDuration?.length ?? 0) > 0
+  ) {
+    return "gemini-omni-1.1-flash";
+  }
   const referenceImageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
   const referenceVideoCount = Array.isArray(opts.refVideo)
     ? opts.refVideo.length
@@ -389,23 +397,22 @@ function estimateVideoModel(
 
   const seedanceTask =
     (duration !== undefined && duration > 10) ||
-    referenceVideoCount > 1 ||
+    referenceVideoCount > 3 ||
     referenceAudioCount > 0 ||
-    (referenceVideoCount > 0 && referenceImageCount > 0) ||
     opts.quality === "mini" ||
     opts.quality === "standard";
   if (seedanceTask) return "seedance-2";
 
   const veoTask =
-    Boolean(opts.endImage) ||
     opts.audio === false ||
     opts.quality === "fast" ||
     opts.quality === "quality" ||
-    (typeof opts.resolution === "string" && opts.resolution !== "720p");
+    (typeof opts.resolution === "string" &&
+      !["360p", "720p", "1080p", "4K"].includes(opts.resolution));
   if (veoTask) {
     return referenceVideoCount > 0 ? "seedance-2" : "google-veo3.1";
   }
-  return "gemini-omni-flash";
+  return "gemini-omni-1.1-flash";
 }
 
 async function printEstimate(
@@ -505,6 +512,10 @@ export async function handleAsyncJob(
       result.outputUrls,
       result.payload?.type,
     );
+    const interactionId =
+      result.payload?.interaction_id ??
+      submitted?.geminiOmniInteractionId ??
+      submitted?.interaction_id;
     emit(
       ctx.out,
       {
@@ -512,11 +523,56 @@ export async function handleAsyncJob(
         status: result.status,
         outputs: result.outputUrls,
         outputMetadata: result.payload?.outputMetadata,
+        ...(interactionId ? { interaction_id: interactionId } : {}),
+        ...(result.payload?.video_task
+          ? { video_task: result.payload.video_task }
+          : {}),
+        ...(result.payload?.cumulative_duration_seconds !== undefined
+          ? {
+              cumulative_duration_seconds:
+                result.payload.cumulative_duration_seconds,
+            }
+          : {}),
+        ...(result.payload?.continuation_available !== undefined
+          ? {
+              continuation_available:
+                result.payload.continuation_available,
+            }
+          : {}),
+        ...(result.payload?.continuation_unavailable_reason
+          ? {
+              continuation_unavailable_reason:
+                result.payload.continuation_unavailable_reason,
+            }
+          : {}),
         downloaded_files: downloaded,
         output_media: media,
       },
       (o) => {
         note(o, fmt.green(o, `Completed — job ${jobId}`));
+        if (
+          interactionId &&
+          result.payload?.continuation_available !== false
+        ) {
+          note(
+            o,
+            fmt.dim(
+              o,
+              `Interaction ID: ${interactionId} (use with --previous-interaction-id)`,
+            ),
+          );
+        } else if (
+          interactionId &&
+          result.payload?.continuation_available === false
+        ) {
+          note(
+            o,
+            fmt.dim(
+              o,
+              `Interaction ID: ${interactionId} (continuation unavailable${result.payload?.continuation_unavailable_reason ? `: ${result.payload.continuation_unavailable_reason}` : ""})`,
+            ),
+          );
+        }
         for (const url of result.outputUrls) process.stdout.write(`${url}\n`);
         for (const file of downloaded ?? [])
           note(o, fmt.dim(o, savedLine(file)));
@@ -661,7 +717,7 @@ export function registerGenerateCommands(program: Command): void {
       "--auto-duration",
       "Wan 3.0 only: provider selects 2-30s; reserves 30s and reconciles unused credits",
     )
-    .option("--resolution <res>", 'e.g. "480p", "720p", "1080p", "2K", "4k"')
+    .option("--resolution <res>", 'e.g. "360p", "720p", "1080p", "2K", "4K"')
     .option(
       "--quality <tier>",
       'e.g. "mini", "fast", "standard", "quality", "pro"',
@@ -676,8 +732,18 @@ export function registerGenerateCommands(program: Command): void {
     .option("--end-image <url|file>", "end frame (supported models only)")
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
+      "--source-video <url|file>",
+      "Gemini Omni 1.1 Flash source video for edit (up to 10s) or extend (1-30s); creative --ref-video inputs may accompany it (local file uploaded)",
+    )
+    .option(
       "--ref-video <url|file>",
-      "reference video (repeatable; Wan 3.0, MiniMax H3, Gemini Omni Flash, Seedance 2 and 2.5, Kling O3; local files uploaded)",
+      "creative reference video (repeatable; Gemini Omni 1.1 Flash accepts up to 3 of <=3s each; one ref with no --source-video remains a legacy source edit; local files uploaded)",
+      collect,
+      [],
+    )
+    .option(
+      "--ref-video-duration <seconds>",
+      "Gemini Omni 1.1 Flash: measured duration matching each creative --ref-video by index (repeatable; optional because the server measures public videos)",
       collect,
       [],
     )
@@ -741,6 +807,18 @@ export function registerGenerateCommands(program: Command): void {
       "--web-url <url>",
       "Wan 3.0 reference mode: public webpage URL (requires --thinking)",
     )
+    .option(
+      "--previous-interaction-id <id>",
+      "Gemini Omni 1.1 Flash: continue an earlier official Google interaction; with --extend, append 3-10s up to 40s total (unsupported with Fal BYOK)",
+    )
+    .option(
+      "--video-task <task>",
+      "Gemini Omni 1.1 Flash mode: generate, edit, or extend",
+    )
+    .option(
+      "--extend",
+      "Gemini Omni 1.1 Flash: append an explicit 3-10s to a 1-30s uploaded source or prior interaction, up to 40s total; shorthand for --video-task extend",
+    )
     .option("--seed <n>", "seed")
     .option("--project <id>", "attach to a project")
     .option(
@@ -802,6 +880,20 @@ export function registerGenerateCommands(program: Command): void {
         0,
         REF_VIDEO_SECONDS_MAX,
       );
+      const referenceVideoDurations = (opts.refVideoDuration ?? []).map(
+        (raw: string) => Number(raw),
+      );
+      if (
+        referenceVideoDurations.some(
+          (seconds: number) =>
+            !Number.isFinite(seconds) || seconds <= 0 || seconds > 3,
+        )
+      ) {
+        throw new CliError(
+          "Each --ref-video-duration must be greater than 0 and at most 3 seconds.",
+          EXIT.USAGE,
+        );
+      }
       const seed = optionalSeed(opts.seed);
       const rawElements = parseKlingElements(opts.element ?? []);
       const voiceIds = (opts.voiceId ?? []) as string[];
@@ -859,7 +951,15 @@ export function registerGenerateCommands(program: Command): void {
         Boolean(opts.webUrl);
       const hasH3MaxOnlyControls =
         promptExpansionMode !== undefined || safetyChecker !== undefined;
-      if (!opts.model && hasH3MaxOnlyControls) {
+      const hasGeminiOmniOnlyControls =
+        Boolean(opts.sourceVideo) ||
+        Boolean(opts.previousInteractionId) ||
+        Boolean(opts.videoTask) ||
+        opts.extend === true ||
+        referenceVideoDurations.length > 0;
+      if (!opts.model && hasGeminiOmniOnlyControls) {
+        opts.model = "gemini-omni-1.1-flash";
+      } else if (!opts.model && hasH3MaxOnlyControls) {
         opts.model = "minimax-h3-max";
       } else if (!opts.model && hasWan3OnlyControls) {
         opts.model = "wan-3.0";
@@ -895,6 +995,153 @@ export function registerGenerateCommands(program: Command): void {
           "--segment is supported only by kling-3.0, kling-v3-turbo, and kling-o3.",
           EXIT.USAGE,
         );
+      }
+
+      let geminiVideoTask = opts.videoTask
+        ? String(opts.videoTask).trim().toLowerCase()
+        : undefined;
+      if (
+        geminiVideoTask !== undefined &&
+        !["generate", "edit", "extend"].includes(geminiVideoTask)
+      ) {
+        throw new CliError(
+          "--video-task must be generate, edit, or extend.",
+          EXIT.USAGE,
+        );
+      }
+      if (opts.extend === true) {
+        if (geminiVideoTask && geminiVideoTask !== "extend") {
+          throw new CliError(
+            "--extend conflicts with a non-extend --video-task.",
+            EXIT.USAGE,
+          );
+        }
+        geminiVideoTask = "extend";
+      }
+      if (opts.previousInteractionId) {
+        if (geminiVideoTask === "generate") {
+          throw new CliError(
+            "--previous-interaction-id supports --video-task edit or extend, not generate.",
+            EXIT.USAGE,
+          );
+        }
+        geminiVideoTask = geminiVideoTask || "edit";
+      }
+      if (
+        hasGeminiOmniOnlyControls &&
+        opts.model !== "gemini-omni-1.1-flash"
+      ) {
+        throw new CliError(
+          "--source-video, --previous-interaction-id, --video-task, --extend, and --ref-video-duration are supported only by --model gemini-omni-1.1-flash.",
+          EXIT.USAGE,
+        );
+      }
+
+      if (opts.model === "gemini-omni-1.1-flash") {
+        const imageCount = Array.isArray(opts.ref) ? opts.ref.length : 0;
+        const videoCount = Array.isArray(opts.refVideo)
+          ? opts.refVideo.length
+          : 0;
+        const frameInputCount =
+          Number(Boolean(opts.startImage)) + Number(Boolean(opts.endImage));
+        const usesLegacyReferenceAsSource =
+          !opts.sourceVideo &&
+          !opts.previousInteractionId &&
+          geminiVideoTask !== "generate" &&
+          videoCount === 1;
+        const maxReferenceImages = 10 - frameInputCount;
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) || duration < 3 || duration > 10)
+        ) {
+          throw new CliError(
+            "gemini-omni-1.1-flash --duration must be a whole second from 3 to 10.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.endImage && !opts.startImage) {
+          throw new CliError(
+            "gemini-omni-1.1-flash --end-image requires --start-image.",
+            EXIT.USAGE,
+          );
+        }
+        if (imageCount > maxReferenceImages) {
+          throw new CliError(
+            `gemini-omni-1.1-flash accepts at most ${maxReferenceImages} --ref images after counting --start-image and --end-image toward the 10-image total.`,
+            EXIT.USAGE,
+          );
+        }
+        if (videoCount > 3) {
+          throw new CliError(
+            "gemini-omni-1.1-flash accepts at most 3 --ref-video inputs.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.previousInteractionId && opts.sourceVideo) {
+          throw new CliError(
+            "--previous-interaction-id cannot be combined with --source-video.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.sourceVideo && geminiVideoTask === "generate") {
+          throw new CliError(
+            "--source-video supports --video-task edit or extend, not generate.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          videoCount > 1 &&
+          !opts.sourceVideo &&
+          !opts.previousInteractionId &&
+          geminiVideoTask !== "generate"
+        ) {
+          throw new CliError(
+            "gemini-omni-1.1-flash multiple --ref-video inputs require --video-task generate, --source-video, or --previous-interaction-id.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          referenceVideoDurations.length > 0 &&
+          (usesLegacyReferenceAsSource ||
+            referenceVideoDurations.length !== videoCount)
+        ) {
+          throw new CliError(
+            "Repeat --ref-video-duration once for each creative --ref-video. Do not use it for the legacy single source-video form.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          (geminiVideoTask === "edit" || geminiVideoTask === "extend") &&
+          !opts.previousInteractionId &&
+          !opts.sourceVideo &&
+          !usesLegacyReferenceAsSource
+        ) {
+          throw new CliError(
+            `gemini-omni-1.1-flash --video-task ${geminiVideoTask} requires --source-video or --previous-interaction-id.`,
+            EXIT.USAGE,
+          );
+        }
+        if ((opts.refAudio?.length ?? 0) > 0) {
+          throw new CliError(
+            "gemini-omni-1.1-flash does not accept --ref-audio.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.audio === false) {
+          throw new CliError(
+            "gemini-omni-1.1-flash always generates audio; remove --no-audio.",
+            EXIT.USAGE,
+          );
+        }
+        if (
+          opts.resolution &&
+          !["360p", "720p", "1080p", "4K"].includes(opts.resolution)
+        ) {
+          throw new CliError(
+            "gemini-omni-1.1-flash --resolution must be 360p, 720p, 1080p, or 4K.",
+            EXIT.USAGE,
+          );
+        }
       }
 
       if (rawElements.length > 0) {
@@ -1425,7 +1672,15 @@ export function registerGenerateCommands(program: Command): void {
         return;
       }
 
-      const [refs, refVideos, refAudios, startImage, endImage, elements] =
+      const [
+        refs,
+        refVideos,
+        refAudios,
+        startImage,
+        endImage,
+        sourceVideo,
+        elements,
+      ] =
         await Promise.all([
           resolveRefs(ctx, opts.ref ?? []),
           resolveRefs(ctx, opts.refVideo ?? []),
@@ -1435,6 +1690,9 @@ export function registerGenerateCommands(program: Command): void {
             : undefined,
           opts.endImage
             ? resolveRefs(ctx, [opts.endImage]).then((r) => r[0])
+            : undefined,
+          opts.sourceVideo
+            ? resolveRefs(ctx, [opts.sourceVideo]).then((r) => r[0])
             : undefined,
           resolveKlingElements(ctx, rawElements),
         ]);
@@ -1464,8 +1722,10 @@ export function registerGenerateCommands(program: Command): void {
         refs.length === 0 &&
         refVideos.length === 0 &&
         refAudios.length === 0 &&
+        !sourceVideo &&
         !opts.fileUrl &&
-        !opts.webUrl
+        !opts.webUrl &&
+        !opts.previousInteractionId
       ) {
         throw new CliError(
           "Provide a prompt, --segment, a frame, or a reference source.",
@@ -1596,10 +1856,17 @@ export function registerGenerateCommands(program: Command): void {
           start_image_url: startImage,
           end_image_url: endImage,
           reference_images: refs.length > 0 ? refs : undefined,
+          video_url: sourceVideo,
           reference_videos: refVideos.length > 0 ? refVideos : undefined,
+          reference_video_durations:
+            referenceVideoDurations.length > 0
+              ? referenceVideoDurations
+              : undefined,
           reference_audio: refAudios.length > 0 ? refAudios : undefined,
           file_url: opts.fileUrl,
           web_url: opts.webUrl,
+          previous_interaction_id: opts.previousInteractionId,
+          video_task: geminiVideoTask,
           enable_prompt_expansion: promptExpansion,
           prompt_expansion_mode: promptExpansionMode,
           enable_safety_checker: safetyChecker,
