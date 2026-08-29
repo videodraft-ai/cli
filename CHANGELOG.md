@@ -5,6 +5,15 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-08-30
+
+### Changed
+
+- Updated the bundled `videodraft` skill's audio pricing reference: Lyria 3
+  music is now 4 credits for the clip model and 8 for pro, matching Google's
+  per-song price. The skill previously stated 10 / 15.
+
+
 ## [0.19.1] - 2026-08-28
 
 ### Fixed
