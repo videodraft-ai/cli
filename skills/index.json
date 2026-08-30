@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "name": "videodraft",
+      "description": "Create and edit AI videos, images, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers the cloud `videodraft` CLI/MCP and local headless `videodraft_editor` MCP. When the editor MCP is exposed, prefer it for production, timeline assembly, and export; use cloud production/export only when explicitly requested or the editor is unavailable.",
+      "files": [
+        {
+          "path": "references/editor.md",
+          "sha256": "eaff6f40758f6bc51b829f3760ea12a414ba501bb214e6c4e616736de07fc384",
+          "bytes": 9067
+        },
+        {
+          "path": "references/examples.md",
+          "sha256": "32e30ae37f0e9fb95e76421bf8ad245ad89b03e6def57440893d3b237af10f73",
+          "bytes": 9200
+        },
+        {
+          "path": "references/models.md",
+          "sha256": "3c2ee6f1b4ef3a3b8dea6cf12e494abafb4f0775a495851c0cf0389b105a026e",
+          "bytes": 34761
+        },
+        {
+          "path": "references/pipeline.md",
+          "sha256": "431b22afd062eb919a48c8b3e1432dda3b3f8199d9ecbb01ae326e366bb7b6ac",
+          "bytes": 13358
+        },
+        {
+          "path": "SKILL.md",
+          "sha256": "8a44b7c8c453a6678835a02dd23ecf83711a42efade053f01fa5c57841ca9a8f",
+          "bytes": 34401
+        }
+      ]
+    }
+  ]
+}
