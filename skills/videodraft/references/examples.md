@@ -174,7 +174,15 @@ videodraft upscale image ./poster.png --scale 1x --download ./media/poster-enhan
 
 # General image and video enlargement
 videodraft upscale image ./frame.png --scale 2x --download ./media/frame-2x.png
-videodraft upscale video ./clip.mp4 --scale 2x --download ./media/clip-2x.mp4
+videodraft upscale video ./clip.mp4 --resolution 1080p --download ./media/clip-1080p.mp4
+
+# Rebuild detail in a tiny/blurry source (generative), or reimagine it (creative)
+videodraft upscale image ./tiny.jpg --scale 4x --mode generative --model "Wonder 3.5" --download ./media/tiny-4x.png
+videodraft upscale video ./ai-clip.mp4 --resolution 4k --mode generative --download ./media/ai-clip-4k.mp4
+
+# Smoother motion or slow motion (resolution unchanged)
+videodraft interpolate ./clip.mp4 --fps 60 --download ./media/clip-60fps.mp4
+videodraft interpolate ./clip.mp4 --model Chronos --slowdown 4 --download ./media/clip-slowmo.mp4
 ```
 
 Use these when the content is correct and only quality or resolution needs improvement. If the poster text, composition, subject, or motion is wrong, edit or regenerate instead.

@@ -67,7 +67,16 @@ export {
   type DownloadedFile,
 } from "./core/download.js";
 
-export { uploadFile, guessContentType, type UploadResult } from "./core/upload.js";
+export { uploadFile, upload3DFile, guessContentType, type UploadResult } from "./core/upload.js";
+
+export {
+  downloadModel3DPackage,
+  model3DArtifacts,
+  model3DOutputFields,
+  isModel3DResult,
+  type Model3DArtifact,
+  type Model3DDownload,
+} from "./core/model3d.js";
 
 export {
   CliError,

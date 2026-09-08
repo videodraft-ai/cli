@@ -35,6 +35,7 @@ import {
 } from "../core/audio-retry.js";
 import { capture } from "../cli/telemetry.js";
 import { CliError, EXIT, seedanceRealPersonRetryHint } from "../core/errors.js";
+import { register3DGenerationCommand } from "./model3d.js";
 
 /** Any URI scheme (http(s), gs://, data:, …) passes through; a bare path is a local file. */
 const URI_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -606,7 +607,9 @@ export async function handleAsyncJob(
 export function registerGenerateCommands(program: Command): void {
   const generate = program
     .command("generate")
-    .description("Generate images, video and audio");
+    .description("Generate images, video, audio and 3D assets");
+
+  register3DGenerationCommand(generate);
 
   generate
     .command("image <prompt...>")
@@ -1725,6 +1728,41 @@ export function registerGenerateCommands(program: Command): void {
             : refVideoWindow !== null && hasRefVideos
               ? refVideoSeconds
               : undefined;
+        // H3 Max bills reference media as pooled tokens. Missing video/audio
+        // durations can be supplied by flag; image dimensions cannot be, since
+        // the server measures the real pixels, so any image reference is a
+        // floor on its own.
+        const h3MaxMissingDurationFlags =
+          estimateModel === "minimax-h3-max"
+            ? [
+                hasRefVideos && refVideoSeconds === undefined
+                  ? "--ref-video-seconds"
+                  : null,
+                Array.isArray(opts.refAudio) &&
+                opts.refAudio.length > 0 &&
+                refAudioSeconds === undefined
+                  ? "--ref-audio-seconds"
+                  : null,
+              ].filter((flag): flag is string => flag !== null)
+            : [];
+        const h3MaxHasImageRefs =
+          estimateModel === "minimax-h3-max" &&
+          Array.isArray(opts.ref) &&
+          opts.ref.length > 0;
+        const h3MaxLowerBoundReason =
+          h3MaxMissingDurationFlags.length > 0 || h3MaxHasImageRefs
+            ? [
+                "minimax-h3-max bills reference media as pooled tokens.",
+                h3MaxMissingDurationFlags.length > 0
+                  ? `Pass ${h3MaxMissingDurationFlags.join(" and ")} for an exact quote.`
+                  : null,
+                h3MaxHasImageRefs
+                  ? "Reference images are priced on their measured pixel area, so this quote assumes 1024x1024 and the charge may be higher."
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" ")
+            : undefined;
         const estimateDuration =
           (segments.length > 0 ? segmentDuration : duration) ??
           (estimateModel === "grok-imagine-video-1.5"
@@ -1754,32 +1792,7 @@ export function registerGenerateCommands(program: Command): void {
               : undefined,
           // H3 Max bills reference video and audio as pooled tokens, so a
           // quote that cannot see their durations omits a real surcharge.
-          lowerBoundReason:
-            estimateModel === "minimax-h3-max"
-              ? [
-                  hasRefVideos && refVideoSeconds === undefined
-                    ? "--ref-video-seconds"
-                    : null,
-                  Array.isArray(opts.refAudio) &&
-                  opts.refAudio.length > 0 &&
-                  refAudioSeconds === undefined
-                    ? "--ref-audio-seconds"
-                    : null,
-                ].filter(Boolean).length > 0
-                ? `minimax-h3-max bills reference media as pooled tokens; pass ${[
-                    hasRefVideos && refVideoSeconds === undefined
-                      ? "--ref-video-seconds"
-                      : null,
-                    Array.isArray(opts.refAudio) &&
-                    opts.refAudio.length > 0 &&
-                    refAudioSeconds === undefined
-                      ? "--ref-audio-seconds"
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" and ")} for an exact quote.`
-                : undefined
-              : undefined,
+          lowerBoundReason: h3MaxLowerBoundReason,
           voiceControl:
             voiceIds.length > 0 ||
             rawElements.some((element) => element.voice_id),
@@ -2172,7 +2185,10 @@ export function registerGenerateCommands(program: Command): void {
   generate
     .command("voiceover <text...>")
     .description("Generate TTS audio (synchronous — returns an audio URL)")
-    .option("--voice <id>", "voice id (see `videodraft models voices`)")
+    .option(
+      "--voice <id>",
+      "TTS voice ID; accepts raw ElevenLabs IDs or elevenlabs-<id>, including voices outside `videodraft models voices`; must be accessible to the provider account",
+    )
     .option("--language <bcp47>", 'target language, default "en"')
     .option("--project <id>", "attach to a project")
     .option(
@@ -2352,7 +2368,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--line <voiceId:text>",
-      'a dialogue line as "voiceId:text" (repeatable)',
+      'a dialogue line as "voiceId:text" (repeatable); accepts raw ElevenLabs IDs or elevenlabs-<id>, including voices outside the catalog; must be accessible to the provider account',
       collect,
       [],
     )
@@ -2413,7 +2429,10 @@ export function registerGenerateCommands(program: Command): void {
   generate
     .command("voice-changer <audio>")
     .description("Restyle speech into another ElevenLabs voice (Voice Changer)")
-    .option("--voice <id>", "target ElevenLabs voice id (default Brittney)")
+    .option(
+      "--voice <id>",
+      "target ElevenLabs voice ID, raw or elevenlabs-<id>; catalog membership is not required, but provider account access is (default Brittney, or an account voice with ElevenLabs BYOK)",
+    )
     .option(
       "--duration <seconds>",
       "length of the source audio in seconds (required, max 300)",
@@ -2536,7 +2555,10 @@ export function registerGenerateCommands(program: Command): void {
 
   const upscale = program
     .command("upscale")
-    .description("Upscale images and videos (Topaz)");
+    .description("Upscale / enhance images and videos (Topaz)");
+
+  const numOpt = (v: unknown) =>
+    v === undefined || v === null || v === "" ? undefined : Number(v);
 
   upscale
     .command("image <url|file>")
@@ -2544,6 +2566,37 @@ export function registerGenerateCommands(program: Command): void {
       "Enhance or upscale an existing image with Topaz (synchronous)",
     )
     .option("--scale <factor>", '"1x" | "2x" | "4x" (default 2x)')
+    .option(
+      "--mode <mode>",
+      "generative (default; Wonder 3.5, best for AI images) | precision (faithful, cheapest; real photos) | creative (Bloom, artistic)",
+    )
+    .option(
+      "--model <name>",
+      'Topaz model inside the mode, e.g. "High Fidelity V3", "Wonder 3.5", "Redefine", "Bloom 2" (see: videodraft models image --json)',
+    )
+    .option("--format <jpeg|png>", "output format (default jpeg)")
+    .option("--no-face-enhance", "disable Topaz face recovery")
+    .option("--face-strength <0-1>", "face recovery strength (default 0.8)")
+    .option("--sharpen <0-1>", "extra sharpening (precision/generative)")
+    .option("--denoise <0-1>", "noise reduction (precision/generative)")
+    .option(
+      "--fix-compression <0-1>",
+      "compression-artifact repair (precision)",
+    )
+    .option(
+      "--prompt <text>",
+      "guide detail (generative Redefine / creative Bloom)",
+    )
+    .option("--creativity <n>", "generative 1-6 / creative 1-9")
+    .option("--texture <1-5>", "texture amount (generative Redefine)")
+    .option(
+      "--width <px>",
+      "source width hint (server must verify dimensions; max source 50MB)",
+    )
+    .option(
+      "--height <px>",
+      "source height hint (server must verify dimensions; max source 50MB)",
+    )
     .option(
       "--session <id>",
       "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
@@ -2554,12 +2607,28 @@ export function registerGenerateCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const [url] = await resolveRefs(ctx, [source]);
-      capture("cli_upscale", { kind: "image" });
+      capture("cli_upscale", {
+        kind: "image",
+        mode: opts.mode ?? "generative",
+      });
       const result: any = await ctx.client.callTool(
         "upscale_image",
         compact({
           image_url: url,
           scale: opts.scale,
+          mode: opts.mode,
+          model: opts.model,
+          output_format: opts.format,
+          face_enhancement: opts.faceEnhance === false ? false : undefined,
+          face_enhancement_strength: numOpt(opts.faceStrength),
+          sharpen: numOpt(opts.sharpen),
+          denoise: numOpt(opts.denoise),
+          fix_compression: numOpt(opts.fixCompression),
+          prompt: opts.prompt,
+          creativity: numOpt(opts.creativity),
+          texture: numOpt(opts.texture),
+          image_width: numOpt(opts.width),
+          image_height: numOpt(opts.height),
           session_id: sessionArg(this, opts),
         }),
       );
@@ -2586,7 +2655,33 @@ export function registerGenerateCommands(program: Command): void {
     .description(
       "Enhance or upscale an existing video with Topaz (async; waits by default)",
     )
-    .option("--scale <factor>", 'e.g. "2x" (default)')
+    .option(
+      "--resolution <720p|1080p|4k>",
+      "output preset by short edge (preferred over --scale)",
+    )
+    .option(
+      "--scale <factor>",
+      '"1x" | "2x" | "4x" (default 2x when no --resolution)',
+    )
+    .option(
+      "--mode <mode>",
+      "generative (default; Starlight Precise 2.6, best for AI clips) | precision (Proteus, 6x cheaper; real footage) | creative (Astra 2)",
+    )
+    .option(
+      "--model <name>",
+      'Topaz model inside the mode, e.g. "Proteus", "Gaia 2", "Starlight Precise 2.6", "Starlight Fast 2" (see: videodraft models video --category upscale --json)',
+    )
+    .option("--fps <n>", "deliver at this frame rate (24-120; 60 doubles cost)")
+    .option("--prompt <text>", "creative (Astra 2) only")
+    .option("--creativity <0-1>", "creative (Astra 2) only")
+    .option("--realism <0-1>", "creative (Astra 2) only")
+    .option("--sharp <0-1>", "creative (Astra 2) only")
+    .option("--softness <1-5>", "generative (Starlight Precise 2.6) only")
+    .option("--compression <0-1>", "precision only")
+    .option("--noise <0-1>", "precision only")
+    .option("--halo <0-1>", "precision only")
+    .option("--grain <0-0.1>", "precision only")
+    .option("--recover-detail <0-1>", "precision only")
     .option(
       "--session <id>",
       "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
@@ -2594,12 +2689,19 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--duration <seconds>",
-      "source duration override (only if auto-probe fails, e.g. >100MB)",
+      "source duration hint (compatibility only; server must probe MP4/MOV up to 100MB)",
     )
-    .option("--width <px>", "source width override (only if auto-probe fails)")
+    .option(
+      "--width <px>",
+      "source width hint (server measurement is required)",
+    )
     .option(
       "--height <px>",
-      "source height override (only if auto-probe fails)",
+      "source height hint (server measurement is required)",
+    )
+    .option(
+      "--source-fps <n>",
+      "source frame rate hint (compatibility only; server measurement controls billing)",
     )
     .option("--download <path>", "download the result")
     .option("--no-wait", "submit and return the job id immediately")
@@ -2607,22 +2709,100 @@ export function registerGenerateCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const [url] = await resolveRefs(ctx, [source]);
-      capture("cli_upscale", { kind: "video" });
+      capture("cli_upscale", {
+        kind: "video",
+        mode: opts.mode ?? "generative",
+      });
       const submitted = await ctx.client.callTool(
         "upscale_video",
         compact({
           video_url: url,
           scale: opts.scale,
+          target_resolution: opts.resolution?.toLowerCase(),
+          mode: opts.mode,
+          model: opts.model,
+          target_fps: numOpt(opts.fps),
+          prompt: opts.prompt,
+          creativity: numOpt(opts.creativity),
+          realism: numOpt(opts.realism),
+          sharp: numOpt(opts.sharp),
+          softness: numOpt(opts.softness),
+          compression: numOpt(opts.compression),
+          noise: numOpt(opts.noise),
+          halo: numOpt(opts.halo),
+          grain: numOpt(opts.grain),
+          recover_detail: numOpt(opts.recoverDetail),
           session_id: sessionArg(this, opts),
-          duration_seconds: opts.duration ? Number(opts.duration) : undefined,
-          video_width: opts.width ? Number(opts.width) : undefined,
-          video_height: opts.height ? Number(opts.height) : undefined,
+          duration_seconds: numOpt(opts.duration),
+          video_width: numOpt(opts.width),
+          video_height: numOpt(opts.height),
+          source_fps: numOpt(opts.sourceFps),
         }),
       );
       await handleAsyncJob(ctx, submitted, {
         wait: opts.wait !== false,
         download: opts.download,
         label: "Upscaling video",
+      });
+    });
+
+  program
+    .command("interpolate <url|file>")
+    .description(
+      "Raise a video's frame rate or make slow motion with Topaz (async; waits by default)",
+    )
+    .option(
+      "--model <Apollo|Chronos|Aion>",
+      "interpolation model (default Apollo)",
+    )
+    .option("--fps <n>", "target frame rate 24-120 (default 60)")
+    .option("--slowdown <1-8>", "slow-motion factor (default 1)")
+    .option(
+      "--session <id>",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
+      process.env.VIDEODRAFT_SESSION,
+    )
+    .option(
+      "--duration <seconds>",
+      "source duration hint (compatibility only; server must probe MP4/MOV up to 100MB)",
+    )
+    .option(
+      "--width <px>",
+      "source width hint (server measurement is required)",
+    )
+    .option(
+      "--height <px>",
+      "source height hint (server measurement is required)",
+    )
+    .option(
+      "--source-fps <n>",
+      "source frame rate hint (compatibility only; server measurement controls billing)",
+    )
+    .option("--download <path>", "download the result")
+    .option("--no-wait", "submit and return the job id immediately")
+    .action(async function (this: Command, source: string) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      const [url] = await resolveRefs(ctx, [source]);
+      capture("cli_interpolate", { model: opts.model ?? "Apollo" });
+      const submitted = await ctx.client.callTool(
+        "interpolate_video",
+        compact({
+          video_url: url,
+          model: opts.model,
+          target_fps: numOpt(opts.fps),
+          slowdown_factor: numOpt(opts.slowdown),
+          session_id: sessionArg(this, opts),
+          duration_seconds: numOpt(opts.duration),
+          video_width: numOpt(opts.width),
+          video_height: numOpt(opts.height),
+          source_fps: numOpt(opts.sourceFps),
+        }),
+      );
+      await handleAsyncJob(ctx, submitted, {
+        wait: opts.wait !== false,
+        download: opts.download,
+        label: "Interpolating video",
       });
     });
 }

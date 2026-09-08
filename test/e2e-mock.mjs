@@ -477,6 +477,7 @@ ok("skills show serves the embedded skill");
 const skillAll = JSON.parse(await run(["skills", "show", "--all", "--json"]));
 assert.deepEqual(Object.keys(skillAll.files).sort(), [
   "SKILL.md",
+  "references/3d.md",
   "references/editor.md",
   "references/examples.md",
   "references/models.md",

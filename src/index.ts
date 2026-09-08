@@ -31,6 +31,7 @@ import { registerSkillCommands } from "./commands/skills.js";
 import { registerMiscCommands } from "./commands/misc.js";
 import { registerEditCommands } from "./commands/edit.js";
 import { registerKlingVoiceCommands } from "./commands/kling-voices.js";
+import { register3DAssetCommands } from "./commands/model3d.js";
 
 // HTTPS_PROXY / HTTP_PROXY / NO_PROXY support for corporate networks. The
 // undici package ships EnvHttpProxyAgent; setting the global dispatcher makes
@@ -57,7 +58,7 @@ function buildProgram(): Command {
   program
     .name("videodraft")
     .description(
-      "Create AI videos, images and audio from your terminal.\n" +
+      "Create AI videos, images, audio and 3D assets from your terminal.\n" +
         "Agent-friendly: every command supports --json; exit codes are stable\n" +
         "(0 ok, 1 error, 2 usage, 3 auth, 4 insufficient credits).",
     )
@@ -89,6 +90,7 @@ function buildProgram(): Command {
   registerProjectCommands(program);
   registerPipelineCommands(program);
   registerGenerateCommands(program);
+  register3DAssetCommands(program);
   registerJobCommands(program);
   registerMediaCommands(program);
   registerAvatarCommands(program);

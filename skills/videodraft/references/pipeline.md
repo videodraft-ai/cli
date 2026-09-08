@@ -6,35 +6,36 @@ Use direct asset tools for standalone images, clips, audio, upscales, and descri
 
 ## Stages and their tools
 
-| Stage                                   | CLI                                                                         | Underlying tool                            |
-| --------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------ |
-| Idea → full storyboard project          | `videodraft create "<idea>"`                                                | `generate_storyboard_from_idea`            |
-| Idea → script only (stop there)         | `videodraft create "<idea>" --script-only`                                  | `generate_script_from_idea`                |
-| Footage IS the video                    | `videodraft call generate_storyboard_from_media`                            | `generate_storyboard_from_media`           |
-| Batch shot images                       | `videodraft shots <project>`                                                | `generate_shot_images`                     |
-| One shot image                          | `videodraft generate image --project <id> --scene N --shot M`               | `generate_image`                           |
-| Produce (voiceover, captions, timeline) | `videodraft produce <project>`                                              | `produce_project`                          |
+| Stage                                   | CLI                                                                         | Underlying tool                             |
+| --------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
+| Idea → full storyboard project          | `videodraft create "<idea>"`                                                | `generate_storyboard_from_idea`             |
+| Idea → script only (stop there)         | `videodraft create "<idea>" --script-only`                                  | `generate_script_from_idea`                 |
+| Footage IS the video                    | `videodraft call generate_storyboard_from_media`                            | `generate_storyboard_from_media`            |
+| Batch shot images                       | `videodraft shots <project>`                                                | `generate_shot_images`                      |
+| One shot image                          | `videodraft generate image --project <id> --scene N --shot M`               | `generate_image`                            |
+| Produce (voiceover, captions, timeline) | `videodraft produce <project>`                                              | `produce_project`                           |
 | Seedance full-video production          | `videodraft produce <project> --mode full_video`                            | `produce_project` with `mode: "full_video"` |
-| Per-shot motion prompts                 | `videodraft video-prompts <project>`                                        | `generate_video_prompts`                   |
-| Motion clip for a shot                  | `videodraft generate video --project <id>`                                  | `generate_video`                           |
-| Attach a finished clip to the timeline  | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot`                     |
-| Background music                        | `videodraft generate music --attach <project>`                              | `generate_music` / `set_background_music`  |
-| General or reference-driven audio       | `videodraft generate audio "..."`                                          | `generate_audio`                           |
-| Sound effect                            | `videodraft generate sound-effect "..."`                                    | `generate_sound_effect`                    |
-| Dialogue audio                          | `videodraft generate dialogue --line "voice:text"`                          | `generate_dialogue`                        |
-| Voice changer                           | `videodraft generate voice-changer <audio>`                                 | `change_voice`                             |
-| Dubbing                                 | `videodraft generate dub <audio_or_video>`                                  | `dub_media`                                |
-| Scene voiceover                         | `videodraft generate voiceover --project <id> --scene N`                    | `generate_voiceover`                       |
-| Avatar script                           | `videodraft avatar script "<idea>"`                                         | `generate_avatar_script`                   |
-| Avatar + speech                         | `videodraft avatar create <portrait> --script "..."`                        | `create_avatar_video`                      |
-| Talking-head render                     | `videodraft avatar render <avatar_video_id>`                                | `render_avatar_video` + `get_avatar_video` |
-| Direct portrait + text/audio            | `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`      | `generate_veed_fabric_video`               |
-| Existing video + replacement audio      | `videodraft avatar lipsync <video> --audio <file>`                          | `generate_sync_lipsync_video`              |
-| Existing-video AI edit                  | `videodraft edit video <video> "<change>" --model <video-edit-model>`       | `edit_video`                               |
-| Motion transfer                         | `videodraft edit motion <image> [direction] --motion-video <video>`         | `generate_motion_control_video`            |
-| Image enhancement/upscale               | `videodraft upscale image <image>`                                          | `upscale_image`                            |
-| Video enhancement/upscale               | `videodraft upscale video <video>`                                          | `upscale_video`                            |
-| Final MP4                               | `videodraft export <project>`                                               | `export_video` + `check_export_status`     |
+| Per-shot motion prompts                 | `videodraft video-prompts <project>`                                        | `generate_video_prompts`                    |
+| Motion clip for a shot                  | `videodraft generate video --project <id>`                                  | `generate_video`                            |
+| Attach a finished clip to the timeline  | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot`                      |
+| Background music                        | `videodraft generate music --attach <project>`                              | `generate_music` / `set_background_music`   |
+| General or reference-driven audio       | `videodraft generate audio "..."`                                           | `generate_audio`                            |
+| Sound effect                            | `videodraft generate sound-effect "..."`                                    | `generate_sound_effect`                     |
+| Dialogue audio                          | `videodraft generate dialogue --line "voice:text"`                          | `generate_dialogue`                         |
+| Voice changer                           | `videodraft generate voice-changer <audio>`                                 | `change_voice`                              |
+| Dubbing                                 | `videodraft generate dub <audio_or_video>`                                  | `dub_media`                                 |
+| Scene voiceover                         | `videodraft generate voiceover --project <id> --scene N`                    | `generate_voiceover`                        |
+| Avatar script                           | `videodraft avatar script "<idea>"`                                         | `generate_avatar_script`                    |
+| Avatar + speech                         | `videodraft avatar create <portrait> --script "..."`                        | `create_avatar_video`                       |
+| Talking-head render                     | `videodraft avatar render <avatar_video_id>`                                | `render_avatar_video` + `get_avatar_video`  |
+| Direct portrait + text/audio            | `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`      | `generate_veed_fabric_video`                |
+| Existing video + replacement audio      | `videodraft avatar lipsync <video> --audio <file>`                          | `generate_sync_lipsync_video`               |
+| Existing-video AI edit                  | `videodraft edit video <video> "<change>" --model <video-edit-model>`       | `edit_video`                                |
+| Motion transfer                         | `videodraft edit motion <image> [direction] --motion-video <video>`         | `generate_motion_control_video`             |
+| Image enhancement/upscale               | `videodraft upscale image <image>`                                          | `upscale_image`                             |
+| Video enhancement/upscale               | `videodraft upscale video <video>`                                          | `upscale_video`                             |
+| Frame rate / slow motion                | `videodraft interpolate <video> --fps 60 [--slowdown 4]`                    | `interpolate_video`                         |
+| Final MP4                               | `videodraft export <project>`                                               | `export_video` + `check_export_status`      |
 
 ## Rules that prevent broken results
 
@@ -48,7 +49,7 @@ Use direct asset tools for standalone images, clips, audio, upscales, and descri
 - **Generated motion clips do not auto-attach**: after `generate video` completes, attach the clip with `attach_media_to_shot` (`media_type:"video"`, include `duration_seconds`) — it replaces the production timeline clip while keeping the storyboard still.
 - **Talking heads use dedicated avatar tools**: do not use `generate video`. Use managed `avatar create` and `avatar render` for reusable avatars, direct `avatar fabric` for a portrait plus text/audio, and `avatar lipsync` for an existing video plus replacement audio. Reuse a supplied person image or generate a clear front-facing portrait with the explicitly requested compatible image model, otherwise Nano Banana 2. Managed avatar creation and speech are bundled/free; direct Fabric, Sync, and render are paid.
 - **Existing-video edits use their own category**: call `edit_video` or `videodraft edit video` with a `video_edit` model when transforming the source itself. Kling O3 also has a reference-generation mode that creates a new guided clip. Wan 3.0 is a text/frame/reference generation model, not a source-video editor. Motion transfer similarly uses `generate_motion_control_video` or `videodraft edit motion` with a `motion_control` model.
-- **Upscaling preserves rather than redesigns**: use Topaz when resolution, detail, or cleanup is the problem. Regenerate or edit when the subject, text, framing, continuity, or motion is wrong. Upscale a low-quality avatar portrait before Fabric; do not render a new avatar at 480p just to upscale the result.
+- **Upscaling preserves rather than redesigns**: use Topaz when resolution, detail, or cleanup is the problem (generative mode by default: Wonder 3.5 / Starlight Precise 2.6, Topaz's pick for AI sources; precision for real photos/footage or the cheapest pass; creative only for an artistic reinterpretation; `interpolate` for frame rate or slow motion). Regenerate or edit when the subject, text, framing, continuity, or motion is wrong. Upscale a low-quality avatar portrait before Fabric; do not render a new avatar at 480p just to upscale the result.
 - **Timeouts on the one-shot create**: if `create` times out at the transport layer, the project was still created server-side — `videodraft projects list`, take the most recent, and resume with its id. Don't start a duplicate.
 
 ## User-attached media: classify roles first

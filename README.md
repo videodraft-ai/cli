@@ -1,6 +1,6 @@
 # videodraft
 
-The official [VideoDraft](https://videodraft.ai) CLI — create AI videos, images and audio from your terminal. Built for humans **and** coding agents: every command supports `--json`, exit codes are stable, async jobs are first-class.
+The official [VideoDraft](https://videodraft.ai) CLI creates AI videos, images, audio and 3D assets from your terminal. Built for humans **and** coding agents: every command supports `--json`, exit codes are stable, async jobs are first-class.
 
 ```bash
 npx videodraft login
@@ -32,7 +32,7 @@ Credentials are stored in `~/.config/videodraft/config.json` (0600). `videodraft
 
 ## Asset generation first
 
-Standalone images, clips and audio are complete deliverables. They do not need a VideoDraft project unless you want to attach them to an existing project or turn them into a multi-scene production.
+Standalone images, clips, audio and 3D models are complete deliverables. They do not need a VideoDraft project unless you want to attach them to an existing project or turn them into a multi-scene production.
 
 ```bash
 videodraft generate image "isometric workspace, warm light" --num 4 --download "./out/{job_id}_{index}.{ext}"
@@ -52,6 +52,8 @@ videodraft generate dialogue --line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Ready?" --l
 videodraft generate voice-changer ./speech.wav --voice elevenlabs-kPzsL2i3teMYv0FxEYQ6 --duration 12 --download changed.mp3
 videodraft generate dub ./clip.mp4 --to es --duration 30 --download dubbed.mp4
 videodraft upscale image ./photo.png --scale 4x --download ./photo-4x.png
+videodraft upscale video ./clip.mp4 --resolution 1080p --mode generative --download ./clip-1080p.mp4
+videodraft interpolate ./clip.mp4 --fps 60 --download ./clip-60fps.mp4
 videodraft avatar create ./founder.jpg --script "$(videodraft avatar script 'our launch' --json | jq -r .script)"
 videodraft edit video ./clip.mp4 "Add falling snow" --model grok-imagine-video-edit --download ./clip-snow.mp4
 videodraft edit motion ./character.png "Apply the reference dance" --motion-video ./dance.mp4 --download ./character-dance.mp4
@@ -87,6 +89,32 @@ videodraft models audio
 
 Asset I/O is part of the asset workflow: `videodraft upload`, `videodraft download`, generation `--download`, and local refs like `--ref ./image.png` make files usable by agents and visible in local workspaces.
 
+### 3D model generation and rigging
+
+Meshy 7 and Tripo H3.1 support text, image, and multi-image inputs through Fal. Saved 3D assets are independent of AI Studio sessions. Inspect the live catalog for each endpoint's exact options, view order, limits, default settings, output formats, and pricing:
+
+```bash
+videodraft models 3d --json
+videodraft generate 3d "a weathered brass telescope" --model meshy-7 --estimate
+videodraft generate 3d --model meshy-7 --ref ./character.png --download
+videodraft generate 3d --model tripo-h3.1 --input-mode multi_image --ref ./front.png --ref ./left.png --ref ./back.png --ref ./right.png --options @model-options.json --no-wait --json
+videodraft wait JOB_ID --download ./media/3d --json
+videodraft assets 3d list --status completed --json
+videodraft assets 3d get ASSET_ID --download
+videodraft rig 3d --asset ASSET_ID --estimate
+videodraft rig 3d ./character.glb --download
+```
+
+The positional prompt is for text mode. Image modes do not accept a geometry prompt; Meshy has a separate `texture_prompt` option for texture guidance. `--input-mode` defaults to text without references, image with one reference, and multi-image with two or more. Meshy multi-image accepts 1-4 views; use explicit `--input-mode multi_image` for a single view. Tripo accepts 2-4 views in front, left, back, right order. Rigging accepts a compatible textured humanoid GLB as a saved asset, public URL, or local file. It does not promise a facial/dialogue rig. Local GLBs use the separate 3D upload lane.
+
+`--options '{...}'` or `--options @file.json` passes exact provider fields. Repeat `--option key=value` to override individual fields; values preserve JSON objects, arrays, numbers, and booleans. Read the live schemas instead of assuming both models share option names. `--estimate` uses the same server pricing calculation as submission and does not upload local inputs. Charges are whole VideoDraft credits at 100 credits per dollar. Fal BYOK uses your connected Fal account and zero VideoDraft credits.
+
+3D `--download` saves **all returned model files, textures, materials, animations, and previews**, plus `manifest.json`, under `media/3d/<asset_id>/`. A custom directory receives a per-asset subdirectory; `{job_id}` or `{asset_id}` can specify the directory layout. A single `.glb` filename or image/video `{index}.{ext}` template is rejected because it would discard the rest of the package. Existing downloads are preserved by adding a directory suffix. GLB/FBX/ZIP bytes are retained; glTF/OBJ/MTL dependency links are adjusted to their downloaded filenames. Provider-supplied dependency aliases restore texture paths required by original FBX files. Inspect `package_warnings` and the manifest's `complete` field before treating packages as self-contained. A failed download leaves no completed manifest.
+
+Each submission includes a UUID `request_id`. Retry interrupted submissions with the **same arguments and `--request-id UUID`**. A local request journal in the CLI config directory reuses the originally uploaded references. Reusing a UUID with changed inputs fails. The journal contains the submitted prompt/options and public asset URLs and is stored with owner-only permissions. If a wait times out, use `status` or `wait` with the existing job ID; do not submit a new request.
+
+Machine output preserves `artifacts` and adds `output_files`, `downloaded_files`, `manifest_path`, and `package_warnings`. Only rendered previews appear in `output_media`; meshes and texture maps never masquerade as playable images or videos. Use external 3D software to view/edit the meshes. This release does not add an AI Studio 3D viewer.
+
 ## The project pipeline
 
 Use projects when the user asks for a story, storyboard, editable web project, timeline, production flow, or exported MP4.
@@ -112,18 +140,19 @@ late Byteplus output refusals are refunded but cannot be rerouted.
 
 ## Commands
 
-| Group           | Commands                                                                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Auth            | `login` `logout` `whoami`                                                                                                                                                            |
-| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                    |
-| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                            |
-| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                        |
-| Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub` `edit video/motion` `upscale image/video` `avatar script/create/render/get/list/fabric/lipsync` |
-| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                            |
-| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                 |
-| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                                 |
-| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                       |
-| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                      |
+| Group           | Commands                                                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth            | `login` `logout` `whoami`                                                                                                                                                                          |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                                  |
+| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                                          |
+| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                      |
+| Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync` |
+| 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download` |
+| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                          |
+| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                               |
+| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                                               |
+| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                                     |
+| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                                    |
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
 
@@ -150,7 +179,7 @@ npx videodraft skills install                  # zero-install: npx fetches the C
 videodraft skills install                      # if the CLI is on PATH — auto-detects your installed agents
 videodraft skills install --agent claude,codex # target specific agents (repeatable/comma; --all for every agent)
 videodraft skills install --project            # into ./.claude/skills for just this repo (else global)
-videodraft skills show                         # print the skill (also: skills show editor|models|examples|pipeline|--all)
+videodraft skills show                         # print the skill (also: skills show editor|models|3d|examples|pipeline|--all)
 
 # Or install straight from the repo — no CLI on PATH needed first:
 npx -y skills add videodraft-ai/cli -g         # vercel-labs skills tool; npx -y skips npx's install prompt; -g = user scope
