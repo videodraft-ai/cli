@@ -111,6 +111,18 @@ Kling O3 is also exposed for reference generation. `videodraft generate video --
 - **Music**: use `lyria-3-clip-preview` for a short instrumental/background score, `lyria-3-pro-preview` for a longer or higher-quality instrumental score, and `elevenlabs-music` when vocals/lyrics or a specified 10-120 second length matter.
 - Voice Changer and Dubbing require the source media duration and currently accept source media up to 300 seconds.
 
+**User-supplied ElevenLabs voice IDs:** voiceover, dialogue, and voice changing accept raw IDs (16-64 alphanumeric characters) or `elevenlabs-<id>`. `videodraft models voices` / MCP `list_available_voices` is for discovery, not an allowlist. Pass a supplied ID directly even when it is absent from the catalog; do not reject it or substitute a catalog voice. The voice must be accessible to the provider account used for generation. Private or cloned voices may require the user's connected ElevenLabs key. A failed voice listing does not prove that a supplied ID cannot generate; a connected key with generation access may still work. If the provider rejects generation access, report that error rather than silently changing the voice.
+
+Use `--voice <id>` for voiceover and voice changing, and repeat `--line "<id>:Text"` for dialogue. These examples show both ID forms; replace the sample IDs with the user's supplied IDs:
+
+```bash
+videodraft generate voiceover "Hello there." --voice kPzsL2i3teMYv0FxEYQ6 --download ./media/voiceover.mp3
+videodraft generate dialogue --line "kPzsL2i3teMYv0FxEYQ6:Hello." --line "elevenlabs-kmSVBPu7loj4ayNinwWM:Welcome back." --download ./media/dialogue.mp3
+videodraft generate voice-changer ./media/source.wav --voice elevenlabs-kPzsL2i3teMYv0FxEYQ6 --duration 12 --download ./media/changed-voice.mp3
+```
+
+For MCP, use `generate_voiceover.voice_id`, `generate_dialogue.lines[].voice_id`, or `change_voice.voice_id` with either form. ElevenLabs IDs are separate from Kling video-control voice IDs and MiniMax `custom-*` cloned-voice IDs. Do not convert IDs from those systems into ElevenLabs IDs.
+
 ### Avatar / talking head
 
 **First decide the framing, not just "someone talks".** This lane animates a PORTRAIT facing the lens. A character delivering a line inside a real scene, with blocking, framing or camera movement, belongs to `generate video` instead: use `kling-2.6-pro` (one or two voices cited as `<<<voice_1>>>` / `<<<voice_2>>>`), `kling-3.0` (a voice bound per element, so several characters can speak in one shot), or `happy-horse` (strong character identity from a frontal image, native audio, multilingual lip-sync). Sending a cinematic shot to Fabric returns a head-on talking headshot, not the shot that was asked for. `videodraft models video --json` lists these under `recommended.in_scene_dialogue`.
@@ -138,9 +150,10 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 
 ### Upscaling / enhancement
 
-- **Images**: Topaz via `videodraft upscale image <url-or-file> --scale 1x|2x|4x`. Use 1x for light enhancement without enlargement, 2x as the general default, and 4x only when the source quality and target size justify it. The result is synchronous.
-- **Videos**: Topaz via `videodraft upscale video <url-or-file> --scale 2x`. Use 2x by default. The job is asynchronous; the CLI waits by default, while MCP callers poll `check_generation_status`. MCP video input must be VideoDraft-hosted, so upload local or external sources first.
-- Use upscaling to preserve the image/video while improving detail, resolution, or cleanup. It cannot fix the wrong subject, misspelled text, bad framing, unwanted objects, broken continuity, or incorrect motion. Use an edit or regeneration for those problems.
+- **Images**: Topaz via `videodraft upscale image <url-or-file> --scale 1x|2x|4x [--mode precision|generative|creative] [--model <name>]`. Modes: `generative` (default; Wonder 3.5, Topaz's recommended model for AI-generated images; `Redefine` takes `--prompt`, `--creativity 1-6`, `--texture 1-5`), `precision` (faithful and cheapest; Standard V2, High Fidelity V3, Low Resolution V2, CGI, Text Refine; use for clean real photos), `creative` (Bloom 2; artistic, `--prompt`, `--creativity 1-9`). Extra knobs: `--no-face-enhance`, `--face-strength`, `--sharpen`, `--denoise`, `--fix-compression`, `--format png`. Use 1x for light enhancement without enlargement, 2x as the general default, and 4x only when the source quality and target size justify it. The server must verify dimensions from a readable image of at most 50 MB; `--width` and `--height` are compatibility hints and cannot bypass a failed probe. The result is synchronous. Cost: 8 credits per started 24 MP of output in precision, per 8 MP (Wonder 3/3.5) or 4 MP in generative, per 2 MP in creative.
+- **Videos**: Topaz via `videodraft upscale video <url-or-file> --resolution 720p|1080p|4k` (preferred) or `--scale 2x`, plus `--mode precision|generative|creative` and `--model <name>`. `generative` (default; Starlight Precise 2.6, Topaz's recommended model for AI-generated footage; Starlight Fast 2 at half price) costs 12 credits/s up to 1080p and 26 at 4K. `precision` (Proteus, Proteus Natural, Iris, Gaia 2 for animation, Rhea, Theia, Artemis, Dione) is 6x cheaper at 1 / 2 / 6 credits per second for 720p / 1080p / 4K output; use it for real footage or when cost matters. `creative` (Astra 2, `--prompt`, `--creativity`, `--realism`, `--sharp`) always renders 4K at 50 credits/s. `--fps 60` delivers 60fps on the same pass; any output above 30fps (including a 50/60fps source) doubles every rate; the server must verify duration, dimensions, and frame rate from an MP4/MOV source of at most 100 MB. `--duration`, `--width`, `--height`, and `--source-fps` are compatibility hints and cannot override billing or bypass a failed probe. The same source-verification requirement applies to frame interpolation. `--scale` also accepts intermediate factors such as `1.5x`. Max source length 5 minutes. The job is asynchronous; the CLI waits by default, while MCP callers poll `check_generation_status`. MCP video input must be VideoDraft-hosted, so upload local or external sources first.
+- **Frame interpolation / slow motion**: `videodraft interpolate <url-or-file> --fps 60 [--model Apollo|Chronos|Aion] [--slowdown 1-8]` (MCP `interpolate_video`). Resolution is unchanged. Apollo (default) for smooth general conversion, Chronos for natural slow motion, Aion for extreme slow motion. Apollo/Chronos cost 3 credits per output second up to 1080p (6 at 4K); Aion 5 / 17. These rates cover targets up to 60fps; above 60fps multiply by target FPS / 60 (120fps doubles the rate). Output seconds = source seconds × slowdown. The final charge rounds up to a whole credit.
+- Use upscaling to preserve the image/video while improving detail, resolution, or cleanup. It cannot fix the wrong subject, misspelled text, bad framing, unwanted objects, broken continuity, or incorrect motion. Use an edit or regeneration for those problems. Keep `generative` for AI-generated sources; switch to `precision` for clean real photos/footage or a cheap pass, and `creative` only when the user wants an artistic reinterpretation.
 - For a new Fabric avatar, render directly at 720p instead of rendering at 480p and then upscaling. Upscale the source portrait first only when the portrait itself is low quality.
 
 ## Capability gotchas
@@ -175,12 +188,15 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - Seedance 2.0 / 2.5 real people: every listed Seedance 2.x rate assumes `--allow-real-people` is OFF, which uses the Byteplus-priced path (2.0 Mini 4/8 cr/s, Fast 6/13, Standard 7/16/38/78, 2.5 11/24/57 for 480p/720p/1080p). Byteplus refuses real-person likenesses, so a likeness-policy failure does not fall back by default. Passing `--allow-real-people` keeps Byteplus first but permits a submit-time Fal fallback, which allows them, and prices at Fal's rate for that tier: 2.0 Mini 8/16, Fast 11/25, Standard 14/31/69/156, 2.5 23/48/114. That is roughly 2x but not exactly 2x: the Seedance 2.0 1080p pair is 38/69, or about 1.82x. If Byteplus accepts the task and later rejects the generated output, VideoDraft refunds the failure but does not resubmit it to Fal. Pass the option proactively only when supplied visual input media visibly contains a real identifiable person. Otherwise retry once only after the exact opt-in code.
 - Grok Imagine images: `grok-imagine` is a flat 2 cr (3 with a reference). `grok-imagine-2.0` is a separate, newer model priced by resolution and quality: 1K 4 (low) / 6 (medium), 2K 6 / 8, plus 1 cr per reference image (up to 3). v1 is NOT superseded — pick it when cost matters more than 2K.
 - xAI bills refused requests, so failed Grok generations are not refunded.
-- Upscales: priced by scale and source size.
+- Upscales: priced by output size, mode, and (video) duration/fps; see the Upscaling section above.
 
 Quote before spending:
 
 ```bash
 videodraft costs gemini-omni-1.1-flash --type video --duration 8 --resolution 720p --audio
+videodraft costs topaz-upscale-video --type video --duration 10 --width 1920 --height 1080 --resolution 4k --mode generative
+videodraft costs topaz-upscale --type image --width 2048 --height 2048 --scale 2x
+videodraft costs topaz-interpolate-video --type video --duration 10 --width 1920 --height 1080 --fps 60 --topaz-model Apollo
 videodraft costs minimax-h3 --type video --duration 10 --resolution 2K --ref-images 7
 videodraft costs minimax-h3-max --type video --duration 10 --resolution 768p --ref-images 2
 videodraft costs grok-imagine-video-1.5 --type video --duration 8 --resolution 720p --ref-images 4

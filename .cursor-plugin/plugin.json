@@ -1,7 +1,7 @@
 {
   "name": "videodraft",
-  "version": "0.20.0",
-  "description": "AI video, image and audio generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
+  "version": "0.21.0",
+  "description": "AI video, image, audio and 3D asset generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
   "author": {
     "name": "VideoDraft",
     "email": "contact@videodraft.ai"
@@ -18,7 +18,8 @@
     "voiceover",
     "music",
     "storyboard",
-    "avatar"
+    "avatar",
+    "3d"
   ],
   "skills": "./skills/"
 }

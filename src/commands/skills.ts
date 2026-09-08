@@ -161,6 +161,7 @@ const SECTION_ALIASES: Record<string, string> = {
   editor: "references/editor.md",
   examples: "references/examples.md",
   models: "references/models.md",
+  "3d": "references/3d.md",
   pipeline: "references/pipeline.md",
 };
 
@@ -300,7 +301,7 @@ export function registerSkillCommands(program: Command): void {
       const content = rel === undefined ? undefined : files[rel];
       if (content === undefined) {
         throw new CliError(
-          `Unknown skill section "${section}". Try: skill | editor | examples | models | pipeline (or --all).`,
+          `Unknown skill section "${section}". Try: skill | editor | examples | models | 3d | pipeline (or --all).`,
           EXIT.USAGE,
         );
       }

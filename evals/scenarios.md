@@ -134,6 +134,12 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** run `videodraft upscale video <source> --scale 2x`, allowing the CLI to upload the local source and wait for the async result.
 - **Must NOT:** use `generate video`, change the motion, or create a project.
 
+## 17b. Frame rate and slow motion use interpolation, not upscaling
+
+- **Query:** "Make this 30fps clip play at 60fps, same resolution."
+- **Must:** run `videodraft interpolate <source> --fps 60` and wait for the async result.
+- **Must NOT:** run `upscale video`, regenerate the clip, or change its resolution.
+
 ## 18. Explicit video model overrides the task default
 
 - **Query:** "Make a 6-second misty-lake clip using Veo 3.1."

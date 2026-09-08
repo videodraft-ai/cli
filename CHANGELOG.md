@@ -5,6 +5,46 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-09
+
+### Added
+
+- Standalone 3D generation with Meshy 7 and Tripo H3.1 through Fal:
+  `generate 3d`, `models 3d`, `rig 3d`, and `assets 3d list/get`.
+  Text, image and multi-image inputs support provider options through
+  `--options` and repeatable `--option`; `--estimate` quotes without uploads.
+- Complete 3D package downloads through generation, rigging, asset lookup,
+  `status` and `wait`, including models, textures, materials, previews and
+  a manifest with dependency warnings. Local GLB uploads use the 3D lane.
+- Safe 3D submission retries through `--request-id`, a private local request
+  journal and reuse of previously uploaded references. History includes job
+  IDs for unfinished requests.
+- Topaz Precision, Generative and Creative modes for image/video upscaling,
+  with mode-specific model and quality controls. `interpolate` adds frame-rate
+  conversion and slow motion with Apollo, Chronos and Aion.
+
+### Changed
+
+- Updated agent skills, examples and model guidance for 3D packages, Topaz
+  enhancement/interpolation and asset-first workflows. Supplied ElevenLabs
+  voice IDs can be used directly without treating catalog lookup as an allowlist.
+- Plugin descriptions include 3D assets, and all plugin manifest versions
+  match the npm package version.
+
+### Fixed
+
+- MiniMax H3 Max estimates with reference images are marked as a lower bound
+  because the server measures their pixel area for the final charge.
+- Topaz only forwards explicitly supplied face-enhancement options, avoiding
+  incompatible hidden controls when another mode is selected.
+
+### Compatibility
+
+- The new 3D tools and Topaz modes require the corresponding VideoDraft MCP
+  backend update. Publishing or installing the CLI alone does not deploy it.
+- The npm release does not replace the CLI bundled inside an installed
+  VideoDraft macOS app; that binary updates with the desktop app.
+
 ## [0.20.0] - 2026-09-01
 
 ### Added

@@ -13,6 +13,8 @@ import {
   type DownloadedFile,
 } from "../core/download.js";
 import { CliError, EXIT, seedanceRealPersonRetryHint } from "../core/errors.js";
+import { isModel3DResult, downloadModel3DPackage, model3DOutputFields, type Model3DDownload } from "../core/model3d.js";
+import { emit3DResult } from "./model3d.js";
 
 export function registerJobCommands(program: Command): void {
   program
@@ -31,6 +33,10 @@ export function registerJobCommands(program: Command): void {
           scene_id: opts.sceneId,
         }),
       );
+      if (isModel3DResult(result)) {
+        await emit3DResult(ctx, result);
+        return;
+      }
       const media = buildMediaDescriptors(
         extractOutputUrls(result),
         result?.type,
@@ -53,8 +59,8 @@ export function registerJobCommands(program: Command): void {
       "Block until generation job(s) finish. Multiple ids poll in ONE process with ONE batched request per tick — prefer this over parallel `wait` processes",
     )
     .option(
-      "--download <path>",
-      "download outputs (template: {job_id} {index} {ext})",
+      "--download [path]",
+      "download outputs (default media/; 3D packages media/3d/). 3D accepts a directory or {job_id} directory template",
     )
     .action(async function (this: Command, jobIds: string[]) {
       const ctx = buildContext(this);
@@ -90,16 +96,22 @@ export function registerJobCommands(program: Command): void {
         for (const jobId of jobIds) {
           const result = results.get(jobId)!;
           let downloaded: DownloadedFile[] | undefined;
+          let packageResult: Model3DDownload | undefined;
+          const model3d = isModel3DResult(result.payload);
           if (result.status === "failed") {
             failures++;
+          } else if (opts.download && model3d) {
+            packageResult = await downloadModel3DPackage({ ...result.payload, job_id: jobId }, opts.download);
+            downloaded = packageResult.downloaded_files;
           } else if (opts.download && result.outputUrls.length > 0) {
             downloaded = await downloadOutputs(
               result.outputUrls,
-              opts.download,
+              opts.download === true ? "media" : opts.download,
               { job_id: jobId },
             );
           }
           rows.push({
+            ...(model3d ? result.payload : {}),
             job_id: jobId,
             status: result.status,
             outputs: result.outputUrls,
@@ -108,6 +120,8 @@ export function registerJobCommands(program: Command): void {
               result.outputUrls,
               result.payload?.type,
             ),
+            ...(model3d ? model3DOutputFields(result.payload) : {}),
+            ...packageResult,
             ...(result.status === "failed"
               ? {
                   error: result.payload?.error,
@@ -133,6 +147,7 @@ export function registerJobCommands(program: Command): void {
 
         emit(ctx.out, jobIds.length === 1 ? rows[0] : rows, (o) => {
           for (const row of rows) {
+            for (const warning of row.package_warnings ?? []) note(o, fmt.yellow(o, warning));
             if (row.status === "failed") {
               note(
                 o,
@@ -145,6 +160,7 @@ export function registerJobCommands(program: Command): void {
             for (const url of row.outputs) process.stdout.write(`${url}\n`);
             for (const f of row.downloaded_files ?? [])
               note(o, fmt.dim(o, savedLine(f)));
+            if (row.manifest_path) note(o, fmt.dim(o, `Manifest: ${row.manifest_path}`));
           }
         });
         if (failures > 0) process.exitCode = 1;

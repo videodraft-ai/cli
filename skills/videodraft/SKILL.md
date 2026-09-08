@@ -1,6 +1,6 @@
 ---
 name: videodraft
-description: Create and edit AI videos, images, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers the cloud `videodraft` CLI/MCP and local headless `videodraft_editor` MCP. When the editor MCP is exposed, prefer it for production, timeline assembly, and export; use cloud production/export only when explicitly requested or the editor is unavailable.
+description: Create and edit AI videos, images, 3D meshes, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, 3D asset, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers the cloud `videodraft` CLI/MCP and local headless `videodraft_editor` MCP. When the editor MCP is exposed, prefer it for production, timeline assembly, and export; use cloud production/export only when explicitly requested or the editor is unavailable.
 ---
 
 # VideoDraft
@@ -9,6 +9,7 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 
 - **Asset generation**: standalone images, video clips, Seed Audio, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
 - **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
+- **3D assets**: standalone Meshy 7 and Tripo H3.1 meshes, multi-view generation, complete artifact downloads, and Meshy humanoid rigging through MCP/CLI. Read [references/3d.md](references/3d.md), or `videodraft skills show 3d`. These assets have their own saved library and do not require an AI Studio session or web viewer.
 - **Native editing**: local `.vdproject` timelines, cuts, layouts, captions, effects, audio, and exports through the headless VideoDraft Editor. Inside VideoDraft ADE, this is the default production and export lane whenever `videodraft_editor` is available.
 - **Hosted project production**: idea → script → storyboard → hosted production timeline → exported MP4. Use the early stages for scripts, storyboards, and generated assets when useful. Treat hosted production and export as a fallback when the native editor is unavailable, or as an explicit destination when the user asks for an editable web project or hosted workflow.
 
@@ -23,7 +24,7 @@ Cloud generation has two equivalent surfaces (same backend, credits, and hosted 
      • SECURITY: never ask the user to paste a `vd_mcp_...` token into the chat — use browser `login` or the env var so the token never lands in the transcript.
    - Every command accepts `--json` (parse this, don't scrape text). Exit codes: 0 ok, 1 error, 2 usage, 3 auth (see Auth above), 4 insufficient credits (→ tell the user, don't retry).
    - Tool discovery: start with `videodraft tools list` for the grouped catalog, then narrow with `videodraft tools list --lane assets`, `--lane asset_io`, `--lane project_data`, or `--lane production`.
-   - Asset lane: `videodraft generate ...`, `videodraft edit video|motion`, `videodraft avatar ...`, `videodraft upscale ...`, `videodraft upload`, and `videodraft download`.
+   - Asset lane: `videodraft generate ...`, `videodraft edit video|motion`, `videodraft avatar ...`, `videodraft upscale ...`, `videodraft interpolate ...`, `videodraft upload`, and `videodraft download`.
    - Full API access: `videodraft tools schema <name>`, `videodraft call <tool> --args '<json>'`.
 2. **MCP connector**: if VideoDraft MCP tools (e.g. `generate_storyboard_from_idea`) are available, call them directly — the CLI's curated commands map 1:1 onto these tools.
 3. **Native editor MCP** (`videodraft_editor`): prefer this for project production, timeline assembly, cutting, layouts, transitions, captions, audio placement, and final export. Inside VideoDraft ADE on a supported Mac, Claude and Codex receive it automatically in both Code and VideoDraft modes. It runs headlessly, so an Open Editor click is not required. Start with `project_control` (`list`, `open`, or `create`); standalone asset generation remains in the cloud CLI or MCP.
@@ -89,6 +90,7 @@ Every `videodraft models image|video|audio --json` response carries a top-level 
 
 - Use Seed Audio 1.0 for open-ended text-to-audio, speech/music/sound synthesis, voice conditioning, or prompt-driven editing with up to three audio references or one image. Use `videodraft generate audio`. Reference clips are `@Audio1`, `@Audio2`, and `@Audio3` in array order. There is no duration input. Output is up to two minutes and settles at 19 credits per actual minute, with up to 38 credits reserved during generation. The CLI automatically retries transient responses with one operation key. To recover after the CLI process itself is interrupted, set `--idempotency-key <uuid>` on the original command and reuse it.
 - Prefer ElevenLabs for voiceover, dialogue, voice changing, dubbing, and sound effects. Honor an explicitly selected supported TTS voice/provider. Use Lyria for instrumental music and ElevenLabs Music for vocals, lyrics, or exact timing.
+- For ElevenLabs voiceover, dialogue, and voice changing, accept a supplied raw voice ID (16-64 alphanumeric characters) or `elevenlabs-<id>`. The voice catalog is for discovery, not an allowlist. Do not reject or substitute a supplied ID because it is absent from `videodraft models voices` / `list_available_voices`. Use `--voice <id>` for voiceover and voice changing, or repeat `--line "<id>:Text"` for dialogue; for example, `--voice kPzsL2i3teMYv0FxEYQ6` and `--line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Hello."` use the same voice. The voice must be accessible to the provider account used for generation. Private or cloned voices may require the user's connected ElevenLabs key. Kling video-control IDs and MiniMax `custom-*` IDs are separate voice systems.
 - A character who needs to TALK, when you have an image of them, splits by FRAMING:
   - **Talking to camera** (presenter, spokesperson, explainer): the avatar lane, and VEED Fabric is preferred. Use managed `avatar create` then `avatar render` for a reusable avatar record with bundled speech, `avatar fabric` for a one-off portrait plus text or existing audio, and `avatar lipsync` when both the source video and replacement audio already exist.
   - **Speaking inside a scene** (real blocking, framing, camera movement): not Fabric. It animates a portrait facing the lens, so a cinematic request comes back as a head-on talking headshot. Use `generate video` with `kling-2.6-pro` (one or two voices cited as `<<<voice_1>>>` / `<<<voice_2>>>`), `kling-3.0` (a voice bound per element, so several characters can speak in one shot), or `happy-horse` (strong character identity from a frontal image, native audio, multilingual lip-sync).
@@ -120,7 +122,7 @@ Wan 3.0 costs 7 / 14 / 28 credits per output second at 480p / 720p / 1080p. Auto
 
 Grok Imagine Video 1.5 costs 8 credits per output second at 480p, 14 at 720p, or 25 at 1080p, plus 1 credit for each first-frame or reference image. Native audio is always generated.
 
-`videodraft models image|video` lists the live image and video catalogs with supported inputs. Video entries are grouped as `generation`, `video_edit`, `motion_control`, `avatar_lipsync`, and `upscale`, and each reports the exact tool. Use `videodraft models video --category video_edit` to narrow the list. `videodraft models audio` lists Seed Audio, Google Lyria, and ElevenLabs audio/media tools, while `videodraft models voices` lists TTS voices. Consult them instead of guessing capabilities.
+`videodraft models image|video` lists the live image and video catalogs with supported inputs. Video entries are grouped as `generation`, `video_edit`, `motion_control`, `avatar_lipsync`, and `upscale`, and each reports the exact tool. Use `videodraft models video --category video_edit` to narrow the list. `videodraft models audio` lists Seed Audio, Google Lyria, and ElevenLabs audio/media tools, while `videodraft models voices` helps discover TTS voices. Consult them for capabilities; a supplied ElevenLabs voice ID does not need to appear in the voice catalog.
 
 ## Async jobs
 
@@ -139,7 +141,7 @@ For completed Wan 3.0 jobs, MCP `check_generation_status` and CLI `status`/`wait
 
 ## AI Studio sessions
 
-Every standalone (project-less) generation is filed into an AI Studio session in the web app. You do not have to create one:
+Standalone image/video/audio generations are filed into an AI Studio session in the web app. 3D assets use `assets 3d list/get` separately. You do not have to create an AI Studio session:
 
 - **MCP hosts** (Claude Code, claude.ai, Codex, VideoDraft ADE): the server mints an `Mcp-Session-Id` on `initialize`; your host echoes it, and this conversation's generations land in their own session. Tool results echo it as `ai_studio_session_id`.
 - **CLI**: the same handshake runs once per (profile, server, working directory) and is cached for 12 idle hours, so everything generated from one directory shares one session. `videodraft sessions current` shows it; `videodraft sessions reset` starts a new one.

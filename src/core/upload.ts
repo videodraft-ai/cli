@@ -15,6 +15,7 @@ const MIME_BY_EXT: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   webp: "image/webp",
+  avif: "image/avif",
   gif: "image/gif",
   heic: "image/heic",
   mp4: "video/mp4",
@@ -47,10 +48,41 @@ export async function uploadFile(
   localPath: string,
   options: { contentType?: string; fetchImpl?: typeof fetch } = {},
 ): Promise<UploadResult> {
+  return upload(client, localPath, options, false);
+}
+
+/** 3D uploads use their own server validation and artifact storage lane. */
+export async function upload3DFile(
+  client: VideoDraftClient,
+  localPath: string,
+  options: { fetchImpl?: typeof fetch } = {},
+): Promise<UploadResult> {
+  if (path.extname(localPath).toLowerCase() !== ".glb") {
+    throw new CliError(
+      "3D rigging uploads require a self-contained .glb file.",
+    );
+  }
+  return upload(
+    client,
+    localPath,
+    { ...options, contentType: "model/gltf-binary" },
+    true,
+  );
+}
+
+async function upload(
+  client: VideoDraftClient,
+  localPath: string,
+  options: { contentType?: string; fetchImpl?: typeof fetch },
+  model3d: boolean,
+): Promise<UploadResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const resolved = path.resolve(localPath);
   if (!fs.existsSync(resolved)) {
     throw new CliError(`File not found: ${resolved}`);
+  }
+  if (!fs.statSync(resolved).isFile()) {
+    throw new CliError(`Expected a file: ${resolved}`);
   }
   const filename = path.basename(resolved);
   const contentType = options.contentType ?? guessContentType(filename);
@@ -60,25 +92,69 @@ export async function uploadFile(
     );
   }
 
-  const created: any = await client.callTool("create_media_upload", {
+  const createTool = model3d ? "create_3d_upload" : "create_media_upload";
+  const finalizeTool = model3d ? "finalize_3d_upload" : "finalize_media_upload";
+  const created: any = await client.callTool(createTool, {
     filename,
     content_type: contentType,
   });
   const uploadUrl: string | undefined = created?.upload_url;
   const filePath: string | undefined = created?.file_path;
   if (!uploadUrl || !filePath) {
-    throw new CliError(
-      "create_media_upload did not return upload_url/file_path.",
-    );
+    throw new CliError(`${createTool} did not return upload_url/file_path.`);
   }
 
   // Stream the file to GCS rather than buffering it — a few-hundred-MB video
   // (a supported --ref-video / upscale-video input) would otherwise OOM. The
   // presigned PUT needs an exact Content-Length, so read it from the file size.
   const { size } = fs.statSync(resolved);
+  const headers: Record<string, string> = {
+    "content-type": contentType,
+    "content-length": String(size),
+  };
+  if (model3d) {
+    const maxBytes = created?.max_bytes;
+    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+      throw new CliError(
+        "create_3d_upload did not return a valid max_bytes limit.",
+      );
+    }
+    if (size > maxBytes) {
+      throw new CliError(
+        `3D upload is ${size} bytes; the server allows at most ${maxBytes} bytes.`,
+      );
+    }
+    if (
+      !created.headers ||
+      typeof created.headers !== "object" ||
+      Array.isArray(created.headers)
+    ) {
+      throw new CliError(
+        "create_3d_upload did not return the required signed PUT headers.",
+      );
+    }
+    for (const [name, value] of Object.entries(created.headers)) {
+      if (typeof value !== "string")
+        throw new CliError(
+          `create_3d_upload returned an invalid ${name} header.`,
+        );
+      headers[name.toLowerCase()] = value;
+    }
+    // Keep every signed header, including GCS size/write-once constraints.
+    // Content-Length always describes the bytes we will actually stream.
+    headers["content-length"] = String(size);
+    const range = /^(\d+),(\d+)$/.exec(
+      headers["x-goog-content-length-range"] ?? "",
+    );
+    if (range && (size < Number(range[1]) || size > Number(range[2]))) {
+      throw new CliError(
+        `3D upload must contain between ${range[1]} and ${range[2]} bytes.`,
+      );
+    }
+  }
   const putRes = await fetchImpl(uploadUrl, {
     method: "PUT",
-    headers: { "content-type": contentType, "content-length": String(size) },
+    headers,
     body: Readable.toWeb(
       fs.createReadStream(resolved),
     ) as unknown as ReadableStream,
@@ -92,13 +168,13 @@ export async function uploadFile(
     );
   }
 
-  const finalized: any = await client.callTool("finalize_media_upload", {
+  const finalized: any = await client.callTool(finalizeTool, {
     file_path: filePath,
     original_filename: filename,
   });
   const url: string | undefined = finalized?.url ?? finalized?.cdn_url;
   if (!url) {
-    throw new CliError("finalize_media_upload did not return a public url.");
+    throw new CliError(`${finalizeTool} did not return a public url.`);
   }
   return { ...finalized, url, file_path: filePath };
 }

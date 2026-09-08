@@ -4,7 +4,7 @@
 
 import type { Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
-import { emit, kv, table } from "../cli/output.js";
+import { emit, kv, note, table } from "../cli/output.js";
 import { UsageError } from "../core/errors.js";
 import { resetAllConnectionSessions } from "../core/session.js";
 
@@ -66,6 +66,26 @@ export function registerAccountCommands(program: Command): void {
       "MiniMax H3 / H3 Max combined reference-video duration",
     )
     .option("--num <n>", "image batch size")
+    .option(
+      "--width <px>",
+      "Topaz: source width (with --height gives an exact quote)",
+    )
+    .option("--height <px>", "Topaz: source height")
+    .option(
+      "--source-fps <n>",
+      "Topaz video upscale: source frame rate (>30 bills the 60fps rate)",
+    )
+    .option("--scale <factor>", 'Topaz: "1x" | "2x" | "4x" or a factor 1-4')
+    .option("--fps <n>", "Topaz: delivered / target frame rate")
+    .option(
+      "--mode <mode>",
+      "Topaz upscale mode: generative | precision | creative",
+    )
+    .option(
+      "--topaz-model <name>",
+      'Topaz model inside the mode, or "Apollo" | "Chronos" | "Aion" for interpolation',
+    )
+    .option("--slowdown <1-8>", "Topaz interpolate: slow-motion factor")
     .action(async function (this: Command, model?: string) {
       const ctx = buildContext(this);
       const opts = this.opts<{
@@ -82,6 +102,14 @@ export function registerAccountCommands(program: Command): void {
         num?: string;
         refImages?: string;
         refVideoSeconds?: string;
+        width?: string;
+        height?: string;
+        sourceFps?: string;
+        scale?: string;
+        fps?: string;
+        mode?: string;
+        topazModel?: string;
+        slowdown?: string;
       }>();
       const result: any = await ctx.client.callTool(
         "get_model_costs",
@@ -104,6 +132,18 @@ export function registerAccountCommands(program: Command): void {
             ? Number(opts.refVideoSeconds)
             : undefined,
           num_images: opts.num ? Number(opts.num) : undefined,
+          source_width: opts.width ? Number(opts.width) : undefined,
+          source_height: opts.height ? Number(opts.height) : undefined,
+          source_fps: opts.sourceFps ? Number(opts.sourceFps) : undefined,
+          scale: opts.scale,
+          target_resolution:
+            opts.resolution && /^(720p|1080p|4k)$/i.test(opts.resolution)
+              ? opts.resolution.toLowerCase()
+              : undefined,
+          target_fps: opts.fps ? Number(opts.fps) : undefined,
+          mode: opts.mode,
+          topaz_model: opts.topazModel,
+          slowdown_factor: opts.slowdown ? Number(opts.slowdown) : undefined,
         }),
       );
       emit(ctx.out, result);
@@ -112,7 +152,7 @@ export function registerAccountCommands(program: Command): void {
   program
     .command("models [kind]")
     .description(
-      "List available models: image | video | audio | voices | styles (default: image + video + audio)",
+      "List available models: image | video | audio | 3d | voices | styles (default: image + video + audio)",
     )
     .option(
       "--category <name>",
@@ -122,6 +162,9 @@ export function registerAccountCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<{ category?: string }>();
       const wanted = kind ?? "all";
+      if (!["all", "image", "video", "audio", "3d", "voices", "styles"].includes(wanted)) {
+        throw new UsageError(`Unknown model kind "${wanted}". Use image, video, audio, 3d, voices, or styles.`);
+      }
       const videoCategories = new Set([
         "generation",
         "video_edit",
@@ -167,6 +210,9 @@ export function registerAccountCommands(program: Command): void {
       if (wanted === "audio" || wanted === "all") {
         result.audio = await ctx.client.callTool("list_available_audio_models");
       }
+      if (wanted === "3d") {
+        result["3d"] = await ctx.client.callTool("get_3d_models");
+      }
       if (wanted === "voices") {
         result.voices = await ctx.client.callTool("list_available_voices");
       }
@@ -185,6 +231,15 @@ export function registerAccountCommands(program: Command): void {
           process.stdout.write(`\n${section.toUpperCase()}\n`);
           if (!Array.isArray(models) || models.length === 0) {
             process.stdout.write(JSON.stringify(payload, null, 2) + "\n");
+            continue;
+          }
+          if (section === "3d") {
+            table(o, ["model", "input", "default credits", "Fal endpoint"], models.flatMap((model: any) =>
+              (model.inputs ?? []).map((input: any) => [String(model.id ?? ""), String(input.input_mode ?? ""), String(input.default_credits ?? ""), String(input.endpoint_id ?? "")])),
+            );
+            const rig = (payload as any)?.rigging;
+            if (rig) note(o, `Humanoid rigging: ${rig.credits} credits; preset animation adds ${rig.animation_addon_credits} credits.`);
+            note(o, "Use --json for exact options, defaults, input limits, and pricing notes. Use generate 3d --estimate for your selected recipe and BYOK status.");
             continue;
           }
           const rows: string[][] = models.map((m: any) => [

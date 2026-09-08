@@ -1,7 +1,7 @@
 {
   "name": "videodraft",
-  "version": "0.20.0",
-  "description": "Create AI videos, images, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar and product/ad videos with VideoDraft.",
+  "version": "0.21.0",
+  "description": "AI video, image, audio and 3D asset generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
   "author": {
     "name": "VideoDraft",
     "url": "https://videodraft.ai"
@@ -24,6 +24,7 @@
     "product-video",
     "cli",
     "agent",
-    "mcp"
+    "mcp",
+    "3d"
   ]
 }

@@ -5,10 +5,11 @@ import { bundledSkillFiles } from "../src/commands/skills.js";
 // bundledSkillFiles() exercises the on-disk fallback (reading skills/videodraft/).
 // The baked-blob path is covered by the compiled-binary smoke in CI.
 describe("bundledSkillFiles", () => {
-  it("returns SKILL.md and the four references, each non-empty", () => {
+  it("returns SKILL.md and its references, each non-empty", () => {
     const files = bundledSkillFiles();
     expect(Object.keys(files).sort()).toEqual([
       "SKILL.md",
+      "references/3d.md",
       "references/editor.md",
       "references/examples.md",
       "references/models.md",
