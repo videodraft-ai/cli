@@ -5,6 +5,31 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-09
+
+### Added
+
+- `shots --resolution` and `shots --quality` for normal and grid image
+  generation. `costs --ar` selects the image aspect ratio for credit quotes.
+- GPT Image 2.5 Flare and Sunburst guidance in the bundled skill, including
+  `xhigh` and `max` quality, up to 16 references, and 1-4 output images.
+
+### Changed
+
+- Image estimates forward aspect ratio, resolution and quality. Shot estimates
+  use the project's image model and aspect ratio when overrides are omitted.
+- Flare replaces the previous GPT Image 2 recommendation. Other preferred
+  models and explicit GPT Image 2 selections remain supported.
+- GPT Image 2.5 uses the existing basic image controls. The skill documents
+  direct OpenAI generation, Fal BYOK routing, and Auto pricing at the Max tier.
+
+### Compatibility
+
+- GPT Image 2.5 generation and its tier-aware pricing require the corresponding
+  VideoDraft MCP/backend deployment. The CLI release alone does not deploy it.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.21.0] - 2026-09-09
 
 ### Added

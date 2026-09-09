@@ -40,6 +40,66 @@ async function runPipeline(args: string[]): Promise<void> {
   await buildPipelineProgram().parseAsync(args, { from: "user" });
 }
 
+describe("GPT Image 2.5 shot estimates", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    mocks.callTool.mockResolvedValueOnce({
+      storyboard: {
+        settings: {
+          defaultImageModel: "gpt-image-2.5-sunburst",
+          aspectRatio: "4:5",
+        },
+        scenes: [{}, {}],
+      },
+    });
+    mocks.callTool.mockResolvedValueOnce({ cost: 10 });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("uses the project's actual defaults for omitted model and aspect", async () => {
+    await runPipeline([
+      "shots",
+      "project-1",
+      "--quality",
+      "xhigh",
+      "--resolution",
+      "2K",
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenNthCalledWith(2, "get_model_costs", {
+      model_id: "gpt-image-2.5-sunburst",
+      aspect_ratio: "4:5",
+      type: "image",
+      quality: "xhigh",
+      resolution: "2K",
+    });
+  });
+
+  it("keeps explicit caller choices above project defaults", async () => {
+    await runPipeline([
+      "shots",
+      "project-1",
+      "--model",
+      "gpt-image-2.5-flare",
+      "--ar",
+      "1:1",
+      "--quality",
+      "high",
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenNthCalledWith(2, "get_model_costs", {
+      model_id: "gpt-image-2.5-flare",
+      aspect_ratio: "1:1",
+      type: "image",
+      quality: "high",
+    });
+  });
+});
+
 describe("produce --allow-real-people", () => {
   beforeEach(() => {
     mocks.callTool.mockReset();
@@ -146,7 +206,9 @@ describe("partial-run guidance hints", () => {
   });
 
   it("tolerates a result with no failed_segments", () => {
-    expect(seedanceRetryPreservedHint({ status: "production" })).toBeUndefined();
+    expect(
+      seedanceRetryPreservedHint({ status: "production" }),
+    ).toBeUndefined();
     expect(
       seedanceUnresolvedSubmissionHint({ status: "production" }),
     ).toBeUndefined();

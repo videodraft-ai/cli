@@ -158,6 +158,11 @@ export function registerPipelineCommands(program: Command): void {
       "image model id or display name; run `videodraft models image`",
     )
     .option("--ar <ratio>", "aspect ratio override")
+    .option("--resolution <res>", "image resolution, such as 1K, 2K, 4K")
+    .option(
+      "--quality <tier>",
+      "image quality; GPT Image 2.5 adds xhigh and max",
+    )
     .option("--grid", "grid mode (stronger cross-shot consistency)")
     .option("--regenerate-all", "replace existing shot images too")
     .option("--no-wait", "submit and return job ids immediately")
@@ -173,7 +178,19 @@ export function registerPipelineCommands(program: Command): void {
         });
         const costs = await ctx.client.callTool(
           "get_model_costs",
-          compact({ model_id: opts.model, type: "image" }),
+          compact({
+            model_id:
+              opts.model ??
+              project?.storyboard?.settings?.defaultImageModel ??
+              "nano-banana-2",
+            type: "image",
+            aspect_ratio:
+              opts.ar ??
+              project?.storyboard?.settings?.aspectRatio ??
+              "landscape",
+            resolution: opts.resolution,
+            quality: opts.quality,
+          }),
         );
         emit(ctx.out, {
           project_scenes:
@@ -193,6 +210,8 @@ export function registerPipelineCommands(program: Command): void {
             opts.scene !== undefined ? Number(opts.scene) : undefined,
           model: opts.model,
           aspect_ratio: opts.ar,
+          resolution: opts.resolution,
+          quality: opts.quality,
           grid: opts.grid || undefined,
           regenerate_all: opts.regenerateAll || undefined,
         }),

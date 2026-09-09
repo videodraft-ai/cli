@@ -438,6 +438,7 @@ async function printEstimate(
     autoDuration?: boolean;
     resolution?: string;
     quality?: string;
+    aspectRatio?: string;
     renderingSpeed?: string;
     audio?: boolean;
     num?: number;
@@ -459,6 +460,7 @@ async function printEstimate(
       auto_duration: params.autoDuration ? true : undefined,
       resolution: params.resolution,
       quality: params.quality,
+      aspect_ratio: params.aspectRatio,
       rendering_speed: params.renderingSpeed,
       generate_audio: params.audio,
       reference_image_count: params.referenceImageCount,
@@ -620,7 +622,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9"')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
-    .option("--quality <tier>", "model-specific quality tier")
+    .option(
+      "--quality <tier>",
+      "model-specific quality; GPT Image 2.5: auto, low, medium, high, xhigh, max",
+    )
     .option(
       "--rendering-speed <tier>",
       'Ideogram speed/cost tier, e.g. V4 "Turbo"/"Balanced"/"Quality"',
@@ -669,6 +674,7 @@ export function registerGenerateCommands(program: Command): void {
           // model-less so the server can still make its task-aware choice.
           model: opts.model ?? "nano-banana-2",
           type: "image",
+          aspectRatio: opts.ar,
           resolution: opts.resolution,
           quality: opts.quality,
           renderingSpeed: opts.renderingSpeed,
