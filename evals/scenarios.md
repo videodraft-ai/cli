@@ -104,10 +104,10 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** choose `nano-banana-2-lite` explicitly.
 - **Must NOT:** blindly use the platform default or ask the user to select from the full catalog.
 
-## 13. Poster text selects GPT Image 2
+## 13. Poster text selects GPT Image 2.5 Flare
 
 - **Query:** "Create a movie poster with the exact title THE LAST SIGNAL and the tagline WE WERE NEVER ALONE."
-- **Must:** choose `gpt-image-2` explicitly and preserve the exact requested text in the prompt.
+- **Must:** choose `gpt-image-2.5-flare` explicitly and preserve the exact requested text in the prompt. Choose Sunburst when the request places extra emphasis on precision or intricate detail.
 - **Must NOT:** choose a generic default without considering text-rendering quality.
 
 ## 14. Multi-shot character video uses a reference-first grid
@@ -146,11 +146,11 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** pass `--model google-veo3.1` and use settings supported by Veo 3.1.
 - **Must NOT:** replace it with Gemini Omni 1.1 Flash merely because Gemini is the general default.
 
-## 19. Explicit image model survives the grid workflow
+## 19. Explicit legacy image model survives the grid workflow
 
 - **Query:** "Use GPT Image 2 to make a consistent three-shot storyboard of the same detective."
 - **Must:** preserve `gpt-image-2` for the shot-image/grid generation and use the decoded shots as later video references.
-- **Must NOT:** silently replace the requested image model with Nano Banana 2.
+- **Must NOT:** silently replace the requested image model with GPT Image 2.5 or Nano Banana 2.
 
 ## 20. Incompatible explicit model is explained, not silently replaced
 

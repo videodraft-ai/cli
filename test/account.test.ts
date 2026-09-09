@@ -71,6 +71,25 @@ describe("costs --allow-real-people", () => {
       }),
     );
   });
+
+  it("quotes GPT Image 2.5 with the selected aspect, resolution and quality", async () => {
+    await runAccount([
+      "costs",
+      "gpt-image-2.5-flare",
+      "--ar",
+      "4:5",
+      "--resolution",
+      "2K",
+      "--quality",
+      "xhigh",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "gpt-image-2.5-flare",
+      aspect_ratio: "4:5",
+      resolution: "2K",
+      quality: "xhigh",
+    });
+  });
 });
 
 describe("sessions name", () => {

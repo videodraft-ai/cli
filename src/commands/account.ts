@@ -43,6 +43,7 @@ export function registerAccountCommands(program: Command): void {
     )
     .option("--resolution <res>", 'e.g. "720p", "1080p", "1K", "2K"')
     .option("--quality <tier>", 'e.g. "standard", "pro", "fast"')
+    .option("--ar <ratio>", "image aspect ratio for accurate credit quotes")
     .option(
       "--rendering-speed <tier>",
       'image speed/cost tier, e.g. Ideogram V4 "Turbo"/"Balanced"/"Quality"',
@@ -93,6 +94,7 @@ export function registerAccountCommands(program: Command): void {
         duration?: string;
         resolution?: string;
         quality?: string;
+        ar?: string;
         renderingSpeed?: string;
         audio?: boolean;
         voiceControl?: boolean;
@@ -121,6 +123,7 @@ export function registerAccountCommands(program: Command): void {
           characters: opts.chars ? Number(opts.chars) : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
+          aspect_ratio: opts.ar,
           rendering_speed: opts.renderingSpeed,
           generate_audio: opts.audio,
           voice_control: opts.voiceControl,
@@ -162,8 +165,14 @@ export function registerAccountCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<{ category?: string }>();
       const wanted = kind ?? "all";
-      if (!["all", "image", "video", "audio", "3d", "voices", "styles"].includes(wanted)) {
-        throw new UsageError(`Unknown model kind "${wanted}". Use image, video, audio, 3d, voices, or styles.`);
+      if (
+        !["all", "image", "video", "audio", "3d", "voices", "styles"].includes(
+          wanted,
+        )
+      ) {
+        throw new UsageError(
+          `Unknown model kind "${wanted}". Use image, video, audio, 3d, voices, or styles.`,
+        );
       }
       const videoCategories = new Set([
         "generation",
@@ -234,12 +243,28 @@ export function registerAccountCommands(program: Command): void {
             continue;
           }
           if (section === "3d") {
-            table(o, ["model", "input", "default credits", "Fal endpoint"], models.flatMap((model: any) =>
-              (model.inputs ?? []).map((input: any) => [String(model.id ?? ""), String(input.input_mode ?? ""), String(input.default_credits ?? ""), String(input.endpoint_id ?? "")])),
+            table(
+              o,
+              ["model", "input", "default credits", "Fal endpoint"],
+              models.flatMap((model: any) =>
+                (model.inputs ?? []).map((input: any) => [
+                  String(model.id ?? ""),
+                  String(input.input_mode ?? ""),
+                  String(input.default_credits ?? ""),
+                  String(input.endpoint_id ?? ""),
+                ]),
+              ),
             );
             const rig = (payload as any)?.rigging;
-            if (rig) note(o, `Humanoid rigging: ${rig.credits} credits; preset animation adds ${rig.animation_addon_credits} credits.`);
-            note(o, "Use --json for exact options, defaults, input limits, and pricing notes. Use generate 3d --estimate for your selected recipe and BYOK status.");
+            if (rig)
+              note(
+                o,
+                `Humanoid rigging: ${rig.credits} credits; preset animation adds ${rig.animation_addon_credits} credits.`,
+              );
+            note(
+              o,
+              "Use --json for exact options, defaults, input limits, and pricing notes. Use generate 3d --estimate for your selected recipe and BYOK status.",
+            );
             continue;
           }
           const rows: string[][] = models.map((m: any) => [

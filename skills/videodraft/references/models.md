@@ -14,7 +14,7 @@ videodraft models styles --json    # visual style presets
 
 Honor an explicitly named model when it supports the request. Otherwise choose from the task's inputs, duration, audio, quality, speed, and cost. Pass the chosen model explicitly instead of relying on a blind platform fallback.
 
-The catalogs carry the preference order themselves: every `videodraft models image|video|audio --json` response has a top-level `recommended` array (best first) plus `recommended` / `recommended_for` on each entry. Trust that over this page. Preferred today: images `nano-banana-2`, `nano-banana-pro`, `gpt-image-2`; videos `gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0`, `kling-v3-turbo`, `kling-o3`; video edits `gemini-omni-1.1-flash`; talking heads `veed-fabric`; motion transfer `kling-v3-motion-control`; audio ElevenLabs for voice work and Lyria for instrumental music.
+The catalogs carry the preference order themselves: every `videodraft models image|video|audio --json` response has a top-level `recommended` array (best first) plus `recommended` / `recommended_for` on each entry. Trust that over this page. Preferred today: images `nano-banana-2`, `nano-banana-pro`, `gpt-image-2.5-flare`; videos `gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0`, `kling-v3-turbo`, `kling-o3`; video edits `gemini-omni-1.1-flash`; talking heads `veed-fabric`; motion transfer `kling-v3-motion-control`; audio ElevenLabs for voice work and Lyria for instrumental music.
 
 ### Images
 
@@ -23,12 +23,22 @@ The catalogs carry the preference order themselves: every `videodraft models ima
 | Most generation, editing, character consistency, or reference work                     | `nano-banana-2`      | Best general default; 1K/2K/4K and up to 14 reference images      |
 | Highest-quality complex generation or reasoning                                        | `nano-banana-pro`    | Premium Nano Banana quality and reasoning                         |
 | Fast, inexpensive drafts and iteration                                                 | `nano-banana-2-lite` | Fastest/cheapest Nano Banana option; 1K only, up to 14 references |
-| Posters, title cards, signs, logos, or any image with important readable text          | `gpt-image-2`        | Strong text rendering; up to 16 image inputs and 1K/2K/4K output  |
-| Complex multi-image composition, precise editing, or a strong alternate interpretation | `gpt-image-2`        | Strong non-Nano alternative with multi-image input                |
+| Posters, title cards, signs, logos, or any image with important readable text          | `gpt-image-2.5-flare` | Fast OpenAI option; 16 references, 1K/2K/4K and PNG output |
+| Complex multi-image composition, precise editing, or a strong alternate interpretation | `gpt-image-2.5-sunburst` | More fidelity/detail; 16 references, quality through max |
 | Cheapest usable image, or an xAI look                                                  | `grok-imagine`       | 2 cr flat (3 with a reference); 1 reference image                 |
 | xAI at 2K or with a quality tier, up to 3 edit references                              | `grok-imagine-2.0`   | 1K 4 (low) / 6 (medium), 2K 6 / 8, +1 cr per reference image      |
 
-Use `--num 1..4` for variations of one prompt in a single call. Never loop separate paid calls for variations that fit in one request.
+GPT Image 2.5 has two IDs: `gpt-image-2.5-flare` replaces the former GPT Image 2 recommendation; `gpt-image-2.5-sunburst` is the precision/detail alternative. Other model recommendations are unchanged. Explicit `gpt-image-2` selections continue to use the previous model.
+
+Use the same basic image controls as GPT Image 2: `--ref`, `--ar`, `--resolution 1K|2K|4K`, `--quality`, and `--num 1..4`. GPT Image 2.5 quality supports auto/low/medium/high/xhigh/max. Auto is priced at Max. Generation runs directly on OpenAI, or exclusively on the user's Fal key when active.
+
+```bash
+videodraft generate image 'A blue glass bird' --model gpt-image-2.5-flare --ar 1:1 --resolution 2K --quality high --estimate
+videodraft generate image 'A blue glass bird' --model gpt-image-2.5-flare --ar 1:1 --resolution 2K --quality high --num 2
+```
+
+`videodraft shots` forwards resolution and quality for both normal and grid generation. Estimates use the project's model and aspect when omitted; grid canvas costs may differ from ordinary shot costs. Use `videodraft costs --model <id> --ar <ratio> --resolution <tier> --quality <tier>` for a specific per-image quote.
+
 
 ### Videos
 
@@ -160,7 +170,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 
 - Each model's `inputs` block is authoritative: supported `aspect_ratios`, `resolutions`, `quality_options`, `start_frame`/`end_frame`, `max_reference_images/videos/audio`, `multi_prompt`, `audio_toggle`. Passing an unsupported input fails with a clear error — check first, don't trial-and-error paid calls.
 - Most video models support only 16:9 / 9:16 / 1:1. A 3:4 request hard-fails on most.
-- `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4); everything else ignores it. You do not need a seed for variation — `--num` already varies.
+- `--seed` reproduces a specific output on models that support it (e.g. Flux, Ideogram V4). GPT Image 2.5 rejects any explicit seed; older models may ignore unsupported seeds. You do not need a seed for variation — `--num` already varies.
 - `--rendering-speed` applies to Ideogram (V3: `Default`/`Turbo`/`Quality`; V4: `Turbo`/`Balanced`/`Quality`) and affects image cost — pass it to `videodraft costs ... --rendering-speed <tier>` for an accurate estimate. Always trust `videodraft models image --json` over this list; new models and tiers appear there the moment the platform ships them, with no CLI update.
 - `seedream-v5-pro` supports unified text-to-image and reference-image editing with up to 10 image references. Use `--resolution 1K` for 7 credits/image or `--resolution 2K` for 14 credits/image.
 - Reference inputs: `--ref <img>` (images, including up to 10 total for Gemini Omni 1.1 Flash and Wan 3.0, and 7 for Grok 1.5), `--source-video <v>` (Gemini uploaded edit/extension source), `--ref-video <v>` (up to 3 creative videos <=3s each for Gemini Omni 1.1 Flash; also Wan 3.0, MiniMax H3, MiniMax H3 Max, and Seedance 2), `--ref-audio <a>` (Wan 3.0, MiniMax H3, MiniMax H3 Max, Seedance 2), and `--element '<json>'` or `--element @elements.json` for Kling V3/O3. For an exact Seedance 2.x reference-video `--estimate`, add `--ref-video-seconds <combined-seconds>`; Seedance bills input seconds alongside output. Wan 3.0 and MiniMax H3 do not bill input reference seconds; MiniMax H3 Max bills them as pooled reference tokens. The CLI uploads local media references and every structured element without flattening the source/reference roles. `--segment "<prompt>:<seconds>"` (repeatable) drives Kling 3.0, Kling 3.0 Turbo, and O3 multi-prompt generation. Use 1-6 segments of 1-15 whole seconds each, with 3-15 seconds total. `generate image --video-ref` is the nano-banana-2 video reference.

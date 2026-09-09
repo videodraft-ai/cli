@@ -71,6 +71,68 @@ describe("generate --estimate model selection", () => {
     });
   });
 
+  it.each([
+    ["gpt-image-2.5-flare", "max"],
+    ["gpt-image-2.5-sunburst", "xhigh"],
+  ])("keeps %s pricing inputs in the estimate", async (model, quality) => {
+    await runGenerate([
+      "generate",
+      "image",
+      "a glass bird",
+      "--estimate",
+      "--model",
+      model,
+      "--ar",
+      "4:5",
+      "--resolution",
+      "2K",
+      "--quality",
+      quality,
+      "--num",
+      "2",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledOnce();
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: model,
+      type: "image",
+      aspect_ratio: "4:5",
+      resolution: "2K",
+      quality,
+      num_images: 2,
+    });
+  });
+
+  it("preserves the 2.5 variant, exact ratio, high-detail tier on submission", async () => {
+    mocks.callTool.mockResolvedValueOnce({
+      job_id: "image_25",
+      status: "submitted",
+    });
+    await runGenerate([
+      "generate",
+      "image",
+      "a glass bird",
+      "--model",
+      "gpt-image-2.5-sunburst",
+      "--ar",
+      "4:5",
+      "--resolution",
+      "2K",
+      "--quality",
+      "xhigh",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledOnce();
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_image", {
+      prompt: "a glass bird",
+      model: "gpt-image-2.5-sunburst",
+      aspect_ratio: "4:5",
+      resolution: "2K",
+      quality: "xhigh",
+    });
+  });
+
   it("estimates videos with the documented default when --model is omitted", async () => {
     await runGenerate(["generate", "video", "a tracking shot", "--estimate"]);
 
