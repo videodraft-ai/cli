@@ -235,3 +235,9 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "Write a one-minute pop song: a 10-second intro, a verse with these lyrics, then a big chorus. Match the feel of this reference clip."
 - **Must:** build the song with repeatable `--section` (or `--plan`), which picks `elevenlabs-music-v2.5` without `--model`; add the clip with `--ref-audio`; quote the plan's total with `--estimate` before generating. Keep each section within 3-120 seconds and the song within 300 seconds.
 - **Must NOT:** send a prompt, `--length` or `--instrumental` together with a plan, use `elevenlabs-music-v1` for sections, or keep the style reference while the user's own ElevenLabs key is connected.
+
+## 32. A stateless MCP host passes back the session handle
+
+- **Query:** (over an MCP host that sends no conversation id) "Make three product shots of this watch on marble."
+- **Must:** call `name_current_ai_studio_session` once with a short task title before the first generation. When the result has `pass_session_id: true`, pass its `session_id` to all three `generate_image` calls.
+- **Must NOT:** drop the returned `session_id` (the images would land in the shared "Agent (MCP)" session), call `name_current_ai_studio_session` again for each image, or pass a `session_id` when the result does not say `pass_session_id: true`.
