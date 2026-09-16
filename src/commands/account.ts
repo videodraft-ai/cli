@@ -36,7 +36,10 @@ export function registerAccountCommands(program: Command): void {
     )
     .option("--type <type>", "image | video | audio")
     .option("--duration <seconds>", "video/audio duration in seconds")
-    .option("--length <seconds>", "ElevenLabs Music output length in seconds")
+    .option(
+      "--length <seconds>",
+      "ElevenLabs Music output length in seconds (for a composition plan, the sum of its sections)",
+    )
     .option(
       "--chars <n>",
       'character count (ElevenLabs Dialogue, or voiceover TTS via model id "voiceover")',

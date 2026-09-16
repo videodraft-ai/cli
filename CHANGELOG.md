@@ -5,6 +5,36 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-16
+
+### Added
+
+- ElevenLabs Music v2.5 in `generate music`: `--model elevenlabs-music-v2.5`
+  (the new default ElevenLabs model; `elevenlabs-music` is an alias for it).
+  Composition plans via `--plan <file|json>` or repeatable
+  `--section "<seconds>|<styles>|<text>"`, style reference audio via
+  `--ref-audio` with `--ref-start`, `--ref-end` and `--ref-strength`, plus
+  `--seed`, `--format`, `--idempotency-key` and `--estimate`. Local reference
+  files, including relative paths inside a plan file, are uploaded first.
+- `--model elevenlabs-music-v1` keeps the previous ElevenLabs model available
+  when asked for by name.
+
+### Changed
+
+- ElevenLabs Music `--length` now accepts 3-300 seconds (was 10-120), and
+  ElevenLabs calls retry transient responses with one idempotency key.
+- `generate music` rejects unknown models and the new ElevenLabs-only flags
+  on Lyria. `--length` and `--instrumental` are still ignored by Lyria, now
+  with a warning.
+- `--plan` and `--section` use `elevenlabs-music-v2.5` when `--model` is
+  omitted, and empty `--section` parts default to 20 seconds and an
+  instrumental part.
+
+### Compatibility
+
+- ElevenLabs Music v2.5, composition plans and the new length range require
+  the matching VideoDraft MCP/backend deployment.
+
 ## [0.22.0] - 2026-09-09
 
 ### Added

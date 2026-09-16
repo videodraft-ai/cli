@@ -223,3 +223,15 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "Make this character image perform the movement in this dance clip."
 - **Must:** use `videodraft edit motion <image> "..." --motion-video <video>` with Kling V3 Motion Control unless 2.6 is explicitly requested or lower cost is the priority.
 - **Must NOT:** treat the motion video as general creative inspiration or omit the subject image.
+
+## 30. A sung track uses ElevenLabs Music v2.5
+
+- **Query:** "Make a 45-second synthwave song with a female singer and lyrics about neon rain."
+- **Must:** run `videodraft generate music "..." --model elevenlabs-music-v2.5 --length 45` and quote the cost with that model first.
+- **Must NOT:** use Lyria for a track with vocals, or choose `elevenlabs-music-v1` unless the user asks for v1 by name.
+
+## 31. A song built section by section uses a composition plan
+
+- **Query:** "Write a one-minute pop song: a 10-second intro, a verse with these lyrics, then a big chorus. Match the feel of this reference clip."
+- **Must:** build the song with repeatable `--section` (or `--plan`), which picks `elevenlabs-music-v2.5` without `--model`; add the clip with `--ref-audio`; quote the plan's total with `--estimate` before generating. Keep each section within 3-120 seconds and the song within 300 seconds.
+- **Must NOT:** send a prompt, `--length` or `--instrumental` together with a plan, use `elevenlabs-music-v1` for sections, or keep the style reference while the user's own ElevenLabs key is connected.
