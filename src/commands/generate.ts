@@ -11,6 +11,7 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
 import {
@@ -46,6 +47,15 @@ const SEED_AUDIO_SAMPLE_RATES = [
 ] as const;
 const SEED_AUDIO_PROMPT_MAX_CHARS = 2048;
 const SEED_AUDIO_MAX_REFERENCES = 3;
+const LYRIA_MUSIC_MODELS = ["lyria-3-clip-preview", "lyria-3-pro-preview"];
+/** "elevenlabs-music" is the pre-versioning alias for v2.5. */
+const ELEVENLABS_MUSIC_MODELS = [
+  "elevenlabs-music-v2.5",
+  "elevenlabs-music-v1",
+  "elevenlabs-music",
+];
+const ELEVENLABS_MUSIC_V1 = "elevenlabs-music-v1";
+const MUSIC_REFERENCE_STRENGTHS = ["low", "medium", "high", "xhigh"];
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -94,6 +104,176 @@ export async function resolveRefs(
     note(ctx.out, fmt.dim(ctx.out, `Uploading ${ref}…`));
     const uploaded = await uploadFile(ctx.client, ref);
     resolved.push(uploaded.url);
+  }
+  return resolved;
+}
+
+/** A composition plan chunk as the generate_music tool takes it. */
+export interface MusicPlanChunk {
+  text: string;
+  /** Left out, the server uses 20000. */
+  duration_ms?: number;
+  positive_styles: string[];
+  negative_styles?: string[];
+  context_adherence?: string;
+  audio_reference?: {
+    audio_url: string;
+    start_ms?: number;
+    end_ms?: number;
+    strength?: string;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Parse repeatable `--section "<seconds>|<styles>|<text>"` into composition
+ * plan chunks. Styles are comma-separated; a literal "\n" in the text becomes
+ * a line break. Only the first two "|" split, so lyrics may contain more.
+ * An empty length means 20 seconds and empty text means an instrumental part.
+ */
+export function parseMusicSections(values: string[]): MusicPlanChunk[] {
+  return values.map((value) => {
+    const first = value.indexOf("|");
+    const second = first < 0 ? -1 : value.indexOf("|", first + 1);
+    if (first < 0 || second < 0) {
+      throw new CliError(
+        `--section expects "<seconds>|<styles>|<text>", got: ${value}`,
+        EXIT.USAGE,
+      );
+    }
+    const rawSeconds = value.slice(0, first).trim();
+    const seconds = rawSeconds ? Number(rawSeconds) : 20;
+    if (!Number.isFinite(seconds) || seconds < 3 || seconds > 120) {
+      throw new CliError(
+        `--section "${value}" needs a length from 3 to 120 seconds.`,
+        EXIT.USAGE,
+      );
+    }
+    const styles = value
+      .slice(first + 1, second)
+      .split(",")
+      .map((style) => style.trim())
+      .filter(Boolean);
+    const text =
+      value
+        .slice(second + 1)
+        .replace(/\\n/g, "\n")
+        .trim() || "{instrumental}";
+    return {
+      text,
+      duration_ms: Math.round(seconds * 1000),
+      positive_styles: styles,
+    };
+  });
+}
+
+/** The server's composition plan limits (app/config/elevenlabs-audio.ts). */
+const MUSIC_PLAN_LIMITS = {
+  maxChunks: 30,
+  chunkMinMs: 3_000,
+  chunkMaxMs: 120_000,
+  defaultChunkMs: 20_000,
+  totalMaxMs: 300_000,
+};
+
+/**
+ * Seconds a composition plan runs, checked the way the server checks it: a
+ * chunk without duration_ms runs 20 seconds, each chunk runs 3 to 120
+ * seconds, and a plan has 1 to 30 chunks totaling at most 300 seconds.
+ */
+export function musicPlanSeconds(chunks: MusicPlanChunk[]): number {
+  if (chunks.length < 1 || chunks.length > MUSIC_PLAN_LIMITS.maxChunks) {
+    throw new CliError(
+      `A composition plan needs 1 to ${MUSIC_PLAN_LIMITS.maxChunks} chunks.`,
+      EXIT.USAGE,
+    );
+  }
+  let totalMs = 0;
+  chunks.forEach((chunk, index) => {
+    const durationMs = chunk?.duration_ms ?? MUSIC_PLAN_LIMITS.defaultChunkMs;
+    if (
+      !Number.isInteger(durationMs) ||
+      durationMs < MUSIC_PLAN_LIMITS.chunkMinMs ||
+      durationMs > MUSIC_PLAN_LIMITS.chunkMaxMs
+    ) {
+      throw new CliError(
+        `Plan chunk ${index + 1}: duration_ms must be a whole number from ${MUSIC_PLAN_LIMITS.chunkMinMs} to ${MUSIC_PLAN_LIMITS.chunkMaxMs}.`,
+        EXIT.USAGE,
+      );
+    }
+    totalMs += durationMs;
+  });
+  if (totalMs > MUSIC_PLAN_LIMITS.totalMaxMs) {
+    throw new CliError(
+      `The plan adds up to ${totalMs / 1000}s. A track can be up to ${MUSIC_PLAN_LIMITS.totalMaxMs / 1000}s.`,
+      EXIT.USAGE,
+    );
+  }
+  return totalMs / 1000;
+}
+
+/**
+ * Load `--plan` from a JSON file path or inline JSON. Accepts
+ * `{"chunks": [...]}` or a bare chunk array. Returns the plan plus the
+ * directory that relative audio_reference paths resolve against.
+ */
+export function loadMusicPlan(value: string): {
+  plan: { chunks: MusicPlanChunk[] };
+  baseDir: string;
+} {
+  const trimmed = value.trim();
+  const inline = trimmed.startsWith("{") || trimmed.startsWith("[");
+  if (!inline && !fs.existsSync(value)) {
+    throw new CliError(
+      `--plan "${value}" is neither inline JSON nor an existing file.`,
+      EXIT.USAGE,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(inline ? trimmed : fs.readFileSync(value, "utf8"));
+  } catch (error) {
+    throw new CliError(
+      `--plan is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      EXIT.USAGE,
+    );
+  }
+  const chunks = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object"
+      ? (parsed as { chunks?: unknown }).chunks
+      : undefined;
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    throw new CliError(
+      '--plan needs a "chunks" list with at least one chunk.',
+      EXIT.USAGE,
+    );
+  }
+  return {
+    plan: { chunks: chunks as MusicPlanChunk[] },
+    baseDir: inline ? process.cwd() : path.dirname(path.resolve(value)),
+  };
+}
+
+/** Upload any local audio_reference files in a plan and swap in their URLs. */
+async function resolveMusicPlanReferences(
+  ctx: CommandContext,
+  chunks: MusicPlanChunk[],
+  baseDir: string,
+): Promise<MusicPlanChunk[]> {
+  const resolved: MusicPlanChunk[] = [];
+  for (const chunk of chunks) {
+    const source = chunk?.audio_reference?.audio_url;
+    if (typeof source !== "string" || URI_SCHEME.test(source)) {
+      resolved.push(chunk);
+      continue;
+    }
+    const localPath = path.resolve(baseDir, source);
+    const uploaded = await resolveRefs(ctx, [localPath]);
+    resolved.push({
+      ...chunk,
+      audio_reference: { ...chunk.audio_reference!, audio_url: uploaded[0]! },
+    });
   }
   return resolved;
 }
@@ -2242,19 +2422,53 @@ export function registerGenerateCommands(program: Command): void {
     });
 
   generate
-    .command("music <prompt...>")
-    .description("Generate background music")
+    .command("music [prompt...]")
+    .description(
+      "Generate music (Lyria 3, or ElevenLabs Music v2.5 with vocals, lyrics and composition plans)",
+    )
     .option(
       "--model <id>",
-      "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music",
+      "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
     )
     .option(
       "--length <seconds>",
-      "for --model elevenlabs-music: length 10–120s (default 30)",
+      "ElevenLabs prompt mode: length 3-300s (default 30)",
     )
     .option(
       "--instrumental",
-      "for --model elevenlabs-music: force instrumental (no vocals)",
+      "ElevenLabs prompt mode: force instrumental (no vocals)",
+    )
+    .option(
+      "--plan <file|json>",
+      'ElevenLabs v2.5: composition plan JSON ({"chunks":[...]}) as a file or inline; replaces the prompt. Local audio_reference paths are uploaded. Picks elevenlabs-music-v2.5 when --model is omitted',
+    )
+    .option(
+      "--section <spec>",
+      'ElevenLabs v2.5: add a plan chunk "<seconds>|<style, style>|<text>" (repeatable; \\n for line breaks; empty seconds = 20, empty text = instrumental), e.g. "20|synthwave,female vocals|[Verse 1]\\nNeon rain". Picks elevenlabs-music-v2.5 when --model is omitted',
+      collect,
+      [],
+    )
+    .option(
+      "--ref-audio <url|file>",
+      "ElevenLabs v2.5 plan: style reference audio for the first chunk (local files uploaded)",
+    )
+    .option("--ref-start <ms>", "reference window start in ms (default 0)")
+    .option(
+      "--ref-end <ms>",
+      "reference window end in ms (window up to 30000 ms)",
+    )
+    .option(
+      "--ref-strength <level>",
+      "how closely to follow the reference: low | medium | high | xhigh",
+    )
+    .option("--seed <n>", "ElevenLabs v2.5 plan: random seed (0-4294967295)")
+    .option(
+      "--format <output_format>",
+      "ElevenLabs output format, e.g. mp3_48000_192 (v2.5 default), mp3_44100_128 (v1 default), opus_48000_128, pcm_44100 (WAV)",
+    )
+    .option(
+      "--idempotency-key <uuid>",
+      "ElevenLabs: stable UUID for recovery after an interruption",
     )
     .option(
       "--ref <url|file>",
@@ -2281,30 +2495,250 @@ export function registerGenerateCommands(program: Command): void {
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the audio file")
+    .option("--estimate", "show the credit quote and exit without generating")
     .action(async function (this: Command, promptWords: string[]) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
-      const musicModel = opts.model ?? "lyria-3-clip-preview";
-      const refs =
-        musicModel === "elevenlabs-music"
-          ? []
-          : await resolveRefs(ctx, opts.ref ?? []);
-      capture("cli_generate", { kind: "music", model: musicModel });
-      const result: any = await ctx.client.callTool(
-        "generate_music",
-        compact({
-          prompt: promptWords.join(" "),
-          model: musicModel,
-          length_seconds: opts.length ? Number(opts.length) : undefined,
-          force_instrumental: opts.instrumental ? true : undefined,
-          image_urls: refs.length > 0 ? refs : undefined,
-          project_id: opts.project,
-          attach_to_project_id: opts.attach,
-          volume: opts.volume ? Number(opts.volume) : undefined,
-          enabled: opts.bgmDisabled ? false : undefined,
-          session_id: sessionArg(this, opts),
-        }),
+      const sections = (opts.section ?? []) as string[];
+      const usesPlan = Boolean(opts.plan) || sections.length > 0;
+      // A song plan only runs on ElevenLabs Music v2.5, so it picks that model
+      // when --model is left out. Everything else keeps the Lyria default.
+      const musicModel: string =
+        opts.model ??
+        (usesPlan ? "elevenlabs-music-v2.5" : "lyria-3-clip-preview");
+      const isElevenMusic = ELEVENLABS_MUSIC_MODELS.includes(musicModel);
+      const prompt = (promptWords ?? []).join(" ").trim();
+      const elevenOnlyFlags = [
+        ["--plan", opts.plan],
+        ["--section", sections.length > 0 ? true : undefined],
+        ["--ref-audio", opts.refAudio],
+        ["--seed", opts.seed],
+        ["--format", opts.format],
+        ["--idempotency-key", opts.idempotencyKey],
+      ].filter(([, value]) => value !== undefined && value !== false);
+
+      if (!isElevenMusic) {
+        if (!LYRIA_MUSIC_MODELS.includes(musicModel)) {
+          throw new CliError(
+            `Unknown music model "${musicModel}". Use ${[...LYRIA_MUSIC_MODELS, ...ELEVENLABS_MUSIC_MODELS].join(", ")}.`,
+            EXIT.USAGE,
+          );
+        }
+        if (elevenOnlyFlags.length > 0) {
+          throw new CliError(
+            `${elevenOnlyFlags.map(([flag]) => flag).join(", ")} only work with ElevenLabs Music. Add --model elevenlabs-music-v2.5.`,
+            EXIT.USAGE,
+          );
+        }
+        if (!prompt && (opts.ref ?? []).length === 0) {
+          throw new CliError(
+            "A prompt or at least one --ref image is required.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.length !== undefined || opts.instrumental) {
+          // Lyria has always ignored these; keep that, but say so.
+          note(
+            ctx.out,
+            fmt.dim(
+              ctx.out,
+              "--length and --instrumental only apply to ElevenLabs Music, so Lyria ignores them. Add --model elevenlabs-music-v2.5 to use them.",
+            ),
+          );
+        }
+      } else {
+        if (usesPlan && musicModel === ELEVENLABS_MUSIC_V1) {
+          throw new CliError(
+            "Composition plans need elevenlabs-music-v2.5; v1 only takes a prompt.",
+            EXIT.USAGE,
+          );
+        }
+        if (opts.plan && sections.length > 0) {
+          throw new CliError("Use --plan or --section, not both.", EXIT.USAGE);
+        }
+        if (usesPlan && (prompt || opts.length || opts.instrumental)) {
+          throw new CliError(
+            "A composition plan replaces the prompt, --length and --instrumental; its length is the sum of its sections.",
+            EXIT.USAGE,
+          );
+        }
+        if (!usesPlan && !prompt) {
+          throw new CliError(
+            "A prompt is required (or pass --plan / --section).",
+            EXIT.USAGE,
+          );
+        }
+        if (!usesPlan && (opts.seed !== undefined || opts.refAudio)) {
+          throw new CliError(
+            "--seed and --ref-audio need a composition plan (--plan or --section).",
+            EXIT.USAGE,
+          );
+        }
+        if ((opts.ref ?? []).length > 0) {
+          throw new CliError(
+            "--ref images only work with Lyria. For ElevenLabs, use --ref-audio with a composition plan.",
+            EXIT.USAGE,
+          );
+        }
+      }
+      if (
+        !opts.refAudio &&
+        (opts.refStart !== undefined ||
+          opts.refEnd !== undefined ||
+          opts.refStrength !== undefined)
+      ) {
+        throw new CliError(
+          "--ref-start, --ref-end and --ref-strength need --ref-audio.",
+          EXIT.USAGE,
+        );
+      }
+      if (
+        opts.refStrength !== undefined &&
+        !MUSIC_REFERENCE_STRENGTHS.includes(opts.refStrength)
+      ) {
+        throw new CliError(
+          `--ref-strength must be one of: ${MUSIC_REFERENCE_STRENGTHS.join(", ")}.`,
+          EXIT.USAGE,
+        );
+      }
+      const lengthSeconds = isElevenMusic
+        ? optionalRangedNumber(opts.length, "--length", 3, 300)
+        : undefined;
+      const seed = optionalRangedNumber(
+        opts.seed,
+        "--seed",
+        0,
+        4_294_967_295,
+        true,
       );
+      const refStart = optionalRangedNumber(
+        opts.refStart,
+        "--ref-start",
+        0,
+        Number.MAX_SAFE_INTEGER,
+        true,
+      );
+      const refEnd = optionalRangedNumber(
+        opts.refEnd,
+        "--ref-end",
+        1,
+        Number.MAX_SAFE_INTEGER,
+        true,
+      );
+      const idempotencyKey: string | undefined = isElevenMusic
+        ? (opts.idempotencyKey ?? randomUUID())
+        : undefined;
+      if (idempotencyKey && !UUID_RE.test(idempotencyKey)) {
+        throw new CliError(
+          "--idempotency-key must be a valid UUID.",
+          EXIT.USAGE,
+        );
+      }
+
+      let planChunks: MusicPlanChunk[] | undefined;
+      let planBaseDir = process.cwd();
+      if (opts.plan) {
+        const loaded = loadMusicPlan(opts.plan);
+        planChunks = loaded.plan.chunks;
+        planBaseDir = loaded.baseDir;
+      } else if (sections.length > 0) {
+        planChunks = parseMusicSections(sections);
+      }
+      if (planChunks && opts.refAudio) {
+        const firstChunk = planChunks[0]!;
+        if (firstChunk.audio_reference) {
+          throw new CliError(
+            "The plan's first chunk already has an audio_reference; drop --ref-audio or edit the plan.",
+            EXIT.USAGE,
+          );
+        }
+        planChunks = [
+          {
+            ...firstChunk,
+            audio_reference: compact({
+              // A --ref-audio path is relative to where the command runs, not
+              // to the plan file, so pin it before the plan's base dir applies.
+              audio_url: URI_SCHEME.test(opts.refAudio)
+                ? opts.refAudio
+                : path.resolve(opts.refAudio),
+              start_ms: refStart,
+              end_ms: refEnd,
+              strength: opts.refStrength,
+            }) as MusicPlanChunk["audio_reference"],
+          },
+          ...planChunks.slice(1),
+        ];
+      }
+
+      if (opts.estimate) {
+        const planSeconds = planChunks
+          ? musicPlanSeconds(planChunks)
+          : undefined;
+        await printEstimate(ctx, {
+          model: musicModel,
+          type: "audio",
+          duration: isElevenMusic ? (planSeconds ?? lengthSeconds) : undefined,
+        });
+        return;
+      }
+
+      const refs = isElevenMusic ? [] : await resolveRefs(ctx, opts.ref ?? []);
+      const compositionPlan = planChunks
+        ? {
+            chunks: await resolveMusicPlanReferences(
+              ctx,
+              planChunks,
+              planBaseDir,
+            ),
+          }
+        : undefined;
+      capture("cli_generate", {
+        kind: "music",
+        model: musicModel,
+        mode: compositionPlan ? "composition_plan" : "prompt",
+      });
+      const toolArgs = compact({
+        prompt: prompt || undefined,
+        model: musicModel,
+        length_seconds: lengthSeconds,
+        force_instrumental:
+          isElevenMusic && opts.instrumental ? true : undefined,
+        composition_plan: compositionPlan,
+        seed,
+        output_format: opts.format,
+        idempotency_key: idempotencyKey,
+        image_urls: refs.length > 0 ? refs : undefined,
+        project_id: opts.project,
+        attach_to_project_id: opts.attach,
+        volume: opts.volume ? Number(opts.volume) : undefined,
+        enabled: opts.bgmDisabled ? false : undefined,
+        session_id: sessionArg(this, opts),
+      });
+      let result: any;
+      if (isElevenMusic) {
+        // Long tracks can outlast one request. The idempotency key lets a
+        // retry pick up the same generation instead of paying twice.
+        try {
+          result = await callAudioWithRetry(() =>
+            ctx.client.callTool("generate_music", toolArgs),
+          );
+        } catch (error) {
+          const hint = isRetryableAudioError(error)
+            ? `Retry this exact request with --idempotency-key ${idempotencyKey}`
+            : undefined;
+          if (error instanceof CliError) {
+            if (hint) error.hint = hint;
+            throw error;
+          }
+          throw new CliError(
+            error instanceof Error ? error.message : "Music generation failed",
+            EXIT.ERROR,
+            hint,
+          );
+        }
+      } else {
+        result = await ctx.client.callTool("generate_music", toolArgs);
+      }
       const urls = extractOutputUrls(result);
       let downloaded: DownloadedFile[] | undefined;
       if (opts.download && urls.length > 0) {
