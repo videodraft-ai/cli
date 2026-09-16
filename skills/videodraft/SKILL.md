@@ -143,7 +143,7 @@ For completed Wan 3.0 jobs, MCP `check_generation_status` and CLI `status`/`wait
 
 Standalone image/video/audio generations are filed into an AI Studio session in the web app. 3D assets use `assets 3d list/get` separately. You do not have to create an AI Studio session:
 
-- **MCP hosts** (Claude Code, claude.ai, Codex, VideoDraft ADE): the server mints an `Mcp-Session-Id` on `initialize`; your host echoes it, and this conversation's generations land in their own session. Tool results echo it as `ai_studio_session_id`.
+- **MCP hosts** (Claude Code, claude.ai, Codex, VideoDraft ADE): on 2025-era MCP the server mints an `Mcp-Session-Id` on `initialize`; your host echoes it, and this conversation's generations land in their own session. On stateless MCP (2026-07-28) hosts that send a conversation id (ChatGPT) get the same. Otherwise `name_current_ai_studio_session` returns `pass_session_id: true` with a `session_id`: pass that `session_id` to every later standalone generation in the conversation. Tool results echo the session as `ai_studio_session_id`.
 - **CLI**: the same handshake runs once per (profile, server, working directory) and is cached for 12 idle hours, so everything generated from one directory shares one session. `videodraft sessions current` shows it; `videodraft sessions reset` starts a new one.
 - Project generations (`--project <id>` / `project_id`) always go to that project's session.
 
@@ -155,7 +155,7 @@ videodraft sessions name "Purple Seal Rescue Short"
 
 Choose a concise, specific 3-6 word title for the intended work. Do not copy the client name, date, or exact chat title. Name it once: the operation creates the session with that title. If generation, a user, or an earlier agent created the session first, its existing name is preserved.
 
-Pass `--session <id>` / `session_id` only to **continue earlier work** or create an explicit separate group:
+Apart from the `pass_session_id: true` case above, pass `--session <id>` / `session_id` only to **continue earlier work** or create an explicit separate group:
 
 ```bash
 SESSION=$(videodraft sessions create "Fox brand explorations" --json | jq -r '.session.id')

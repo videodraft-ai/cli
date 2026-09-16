@@ -5,6 +5,25 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-09-17
+
+### Changed
+
+- Agent skill: the AI Studio sessions guidance now covers hosts on stateless
+  MCP (protocol 2026-07-28). When `name_current_ai_studio_session` returns
+  `pass_session_id: true`, pass its `session_id` to every later standalone
+  generation in that conversation. The CLI itself still uses the 2025-era
+  handshake, so its commands behave exactly as in 0.23.0.
+
+### Compatibility
+
+- `pass_session_id` is returned only by the matching VideoDraft MCP/backend
+  deployment, and only to stateless (2026-07-28) MCP hosts. The CLI release
+  alone does not deploy it. Every earlier CLI version keeps working against
+  that deployment.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.23.0] - 2026-09-16
 
 ### Added
@@ -33,7 +52,10 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 ### Compatibility
 
 - ElevenLabs Music v2.5, composition plans and the new length range require
-  the matching VideoDraft MCP/backend deployment.
+  the matching VideoDraft MCP/backend deployment. The CLI release alone does
+  not deploy it.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
 
 ## [0.22.0] - 2026-09-09
 
