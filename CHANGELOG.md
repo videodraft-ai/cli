@@ -5,6 +5,30 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-19
+
+### Added
+
+- `videodraft avatar h3-lipsync <portrait> --audio <file>` runs MiniMax H3 Max
+  Lip Sync: the portrait lip-syncs to existing speech or music and the video
+  keeps that soundtrack. Supports `--resolution 480P|768P|1080P|2K` (default
+  768P, 5 / 8 / 16 / 32 credits per second), `--seed`, `--no-transcription`
+  (sync without transcribing the audio), `--safety-checker`,
+  `--audio-duration` (estimate hint), `--estimate`, `--download`, and
+  `--no-wait`. Audio (MP3, WAV, M4A, or AAC) must be at least 5 seconds; only
+  the first 14.8 seconds are used. Maps to the new
+  `generate_minimax_h3_lipsync_video` MCP tool.
+- Agent skill: the avatar/lip-sync routing now covers the MiniMax H3 Max Lip
+  Sync lane.
+
+### Compatibility
+
+- `generate_minimax_h3_lipsync_video` requires the matching VideoDraft
+  MCP/backend deployment (with its credit-reservation migration applied). The
+  CLI release alone does not deploy it.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.23.1] - 2026-09-17
 
 ### Changed

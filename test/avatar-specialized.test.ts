@@ -140,6 +140,123 @@ describe("specialized avatar commands", () => {
     });
   });
 
+  it("maps a portrait and audio to MiniMax H3 Max Lip Sync", async () => {
+    await runAvatar([
+      "avatar",
+      "h3-lipsync",
+      "https://cdn.example.test/portrait.png",
+      "--audio",
+      "https://cdn.example.test/song.mp3",
+      "--resolution",
+      "2k",
+      "--seed",
+      "42",
+      "--no-transcription",
+      "--safety-checker",
+      "--audio-duration",
+      "9.5",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "generate_minimax_h3_lipsync_video",
+      {
+        image_url: "https://cdn.example.test/portrait.png",
+        audio_url: "https://cdn.example.test/song.mp3",
+        resolution: "2K",
+        seed: 42,
+        enable_transcription: false,
+        enable_safety_checker: true,
+        audio_duration_seconds: 9.5,
+      },
+    );
+  });
+
+  it("defaults MiniMax H3 Max Lip Sync to 768P with the safety checker off", async () => {
+    await runAvatar([
+      "avatar",
+      "h3-lipsync",
+      "https://cdn.example.test/portrait.png",
+      "--audio",
+      "https://cdn.example.test/voice.wav",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "generate_minimax_h3_lipsync_video",
+      {
+        image_url: "https://cdn.example.test/portrait.png",
+        audio_url: "https://cdn.example.test/voice.wav",
+        resolution: "768P",
+      },
+    );
+  });
+
+  it("estimates MiniMax H3 Max Lip Sync without submitting a generation", async () => {
+    mocks.callTool.mockResolvedValueOnce({ cost: 96 });
+
+    await runAvatar([
+      "avatar",
+      "h3-lipsync",
+      "https://cdn.example.test/portrait.png",
+      "--audio",
+      "https://cdn.example.test/voice.mp3",
+      "--resolution",
+      "1080P",
+      "--audio-duration",
+      "6",
+      "--estimate",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledOnce();
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "minimax-h3-max-lipsync",
+      type: "video",
+      duration_seconds: 6,
+      resolution: "1080P",
+    });
+  });
+
+  it("rejects invalid MiniMax H3 Max Lip Sync options before submission", async () => {
+    await expect(
+      runAvatar([
+        "avatar",
+        "h3-lipsync",
+        "https://cdn.example.test/portrait.png",
+        "--audio",
+        "https://cdn.example.test/voice.mp3",
+        "--resolution",
+        "720p",
+        "--no-wait",
+      ]),
+    ).rejects.toThrow("--resolution must be 480P, 768P, 1080P, or 2K.");
+    await expect(
+      runAvatar([
+        "avatar",
+        "h3-lipsync",
+        "https://cdn.example.test/portrait.png",
+        "--audio",
+        "https://cdn.example.test/voice.mp3",
+        "--seed",
+        "2147483648",
+        "--no-wait",
+      ]),
+    ).rejects.toThrow("--seed must be an integer from 0 to 2147483647.");
+    await expect(
+      runAvatar([
+        "avatar",
+        "h3-lipsync",
+        "https://cdn.example.test/portrait.png",
+        "--audio",
+        "https://cdn.example.test/voice.mp3",
+        "--audio-duration",
+        "3",
+        "--estimate",
+      ]),
+    ).rejects.toThrow("--audio-duration must be at least 5 seconds");
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
   it("requires exactly one Fabric content source", async () => {
     await expect(
       runAvatar([

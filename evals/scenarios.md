@@ -241,3 +241,15 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (over an MCP host that sends no conversation id) "Make three product shots of this watch on marble."
 - **Must:** call `name_current_ai_studio_session` once with a short task title before the first generation. When the result has `pass_session_id: true`, pass its `session_id` to all three `generate_image` calls.
 - **Must NOT:** drop the returned `session_id` (the images would land in the shared "Agent (MCP)" session), call `name_current_ai_studio_session` again for each image, or pass a `session_id` when the result does not say `pass_session_id: true`.
+
+## 33. A short high-resolution lip sync from existing audio uses H3 Max Lip Sync
+
+- **Query:** "Make this portrait sing the first 12 seconds of this song at 1080p. Use MiniMax."
+- **Must:** use `videodraft avatar h3-lipsync <portrait> --audio <song> --resolution 1080P`, quote the cost with `--estimate` (16 credits per second, billed on the audio length clipped at 14.8s), and say that only the first 14.8 seconds of audio are used.
+- **Must NOT:** send a prompt or duration (the model takes neither), use generic `generate video`, create a managed avatar record, or turn on `--safety-checker` unless the user asked for it.
+
+## 34. Lip sync without transcription only when the user asks
+
+- **Query:** "Lip-sync this headshot to my voice memo, and don't transcribe the audio."
+- **Must:** use `videodraft avatar h3-lipsync <portrait> --audio <memo> --no-transcription`, keeping the default 768P unless the user asks otherwise.
+- **Must NOT:** pass `--no-transcription` when the user did not ask for it (transcription is on by default), or add a prompt.
