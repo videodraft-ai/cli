@@ -146,7 +146,7 @@ late Byteplus output refusals are refunded but cannot be rerouted.
 | Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                                  |
 | Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                                          |
 | Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                      |
-| Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync` |
+| Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync/h3-lipsync` |
 | 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download` |
 | Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                          |
 | Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                               |

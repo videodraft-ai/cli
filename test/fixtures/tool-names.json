@@ -34,6 +34,7 @@
   "generate_avatar_script",
   "generate_dialogue",
   "generate_image",
+  "generate_minimax_h3_lipsync_video",
   "generate_motion_control_video",
   "generate_music",
   "generate_script",

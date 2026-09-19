@@ -145,9 +145,10 @@ For a presenter, spokesperson or explainer speaking to camera, VEED Fabric is th
 | Portrait + script, reusable avatar record | `videodraft avatar create <portrait> --script "..."` then `avatar render` | Managed avatar flow with bundled speech preparation |
 | Portrait + text                           | `videodraft avatar fabric <portrait> --text "..."`                        | One-off direct VEED Fabric text mode                |
 | Portrait + existing audio                 | `videodraft avatar fabric <portrait> --audio <audio>`                     | One-off direct VEED Fabric audio lip sync           |
+| Portrait + existing audio, short and sharp | `videodraft avatar h3-lipsync <portrait> --audio <audio>`                | MiniMax H3 Max Lip Sync, 5-14.8s at up to 2K        |
 | Existing video + existing audio           | `videodraft avatar lipsync <video> --audio <audio>`                       | Sync Labs Lipsync 2                                 |
 
-The managed renderer is VEED Fabric Fast (`veed/fabric-1.0/fast`). Direct Fabric and Sync Labs are paid AI Studio generations and return async job IDs.
+The managed renderer is VEED Fabric Fast (`veed/fabric-1.0/fast`). Direct Fabric, MiniMax H3 Max Lip Sync, and Sync Labs are paid AI Studio generations and return async job IDs.
 
 1. Obtain the avatar image. Prefer the user's supplied portrait or an existing character. If none exists, use the user's explicitly requested compatible image model, otherwise generate a front-facing head-and-shoulders portrait with `nano-banana-2`, direct eye contact, a natural expression, and a clean background. Match the intended video aspect ratio when practical.
 2. If the portrait is visibly soft or too small, run Topaz image enhancement/upscaling before animation.
@@ -157,7 +158,7 @@ The managed renderer is VEED Fabric Fast (`veed/fabric-1.0/fast`). Direct Fabric
 
 The portrait is passed as the avatar's character image, not as a generic video's start frame. Prefer rendering directly at 720p. Use 480p only when the user prioritizes lower cost. Avatar script generation and `avatar create` (including speech) are bundled/free. Confirm the Fabric render cost, plus portrait generation or upscaling when needed.
 
-Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The CLI uploads local portrait, video, and audio files automatically. `avatar fabric --speed fast` applies only to audio mode. Sync costs 5 credits per verified audio second; under Fal BYOK, `sync_mode` remains available but `temperature` and `active_speaker` are ignored by the provider.
+Direct Fabric text/audio, H3 Max Lip Sync, and Sync Labs do not use the managed avatar record. The CLI uploads local portrait, video, and audio files automatically. `avatar fabric --speed fast` applies only to audio mode. `avatar h3-lipsync` takes no prompt: pick `--resolution 480P|768P|1080P|2K` (default 768P), an optional `--seed`, `--no-transcription` to sync without transcribing the audio (transcription is on by default), and `--safety-checker` only when the user asks for Fal's checker. The portrait's width / height must be 0.4-2.5, and audio shorter than 5 seconds is refused before any charge. Sync costs 5 credits per verified audio second; under Fal BYOK, `sync_mode` remains available but `temperature` and `active_speaker` are ignored by the provider.
 
 ### Upscaling / enhancement
 
@@ -191,6 +192,7 @@ Direct Fabric text/audio and Sync Labs do not use the managed avatar record. The
 - Shot-image batches: one image per shot (+1 grid image per scene in `--grid` mode) — the largest single spend in the pipeline.
 - VEED Fabric avatar renders: ~10 credits/sec at 480p, ~20/sec at 720p. Avatar creation and its speech are bundled/free; only optional portrait generation/upscaling adds cost before the render.
 - Direct VEED Fabric: text or normal audio is 8 credits/sec at 480p and 15/sec at 720p; fast audio is 10/sec at 480p and 20/sec at 720p.
+- MiniMax H3 Max Lip Sync: 5 / 8 / 16 / 32 credits per output second at 480P / 768P (default) / 1080P / 2K. The video runs as long as the audio (at least 5s; only the first 14.8s is used), billed on the server-measured length rounded up, so at most 15 seconds. Use MP3, WAV, M4A (AAC), or AAC audio; other formats run only on the user's own Fal key.
 - Sync Labs Lipsync 2: 5 credits per verified audio second.
 - Voiceover TTS: 10 credits per 1000 characters for standard voices, 30 per 1000 for cloned `custom-*` voices (min 1, pro-rated); applies to standalone voiceovers AND per-scene narration during `produce`. Silent tracks are free. Voice cloning itself is a flat 150 credits per clone.
 - Lyria music: flat per track, 4 credits (clip) / 8 credits (pro).

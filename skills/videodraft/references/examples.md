@@ -102,6 +102,15 @@ videodraft avatar fabric ./founder.jpg \
   --resolution 720p --download ./media/presenter.mp4
 ```
 
+For a short, sharp clip from speech or a song the user already has (5-14.8s of audio is used):
+
+```bash
+videodraft avatar h3-lipsync ./singer.png --audio ./chorus.mp3 \
+  --resolution 1080P --audio-duration 12 --estimate
+videodraft avatar h3-lipsync ./singer.png --audio ./chorus.mp3 \
+  --resolution 1080P --download ./media/singer-lipsync.mp4
+```
+
 When the user already has both the video and replacement speech:
 
 ```bash

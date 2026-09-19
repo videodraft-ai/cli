@@ -1,5 +1,6 @@
 /**
- * `videodraft avatar ...` — talking-head videos (script → create → render → poll).
+ * `videodraft avatar ...` — talking-head videos (script → create → render →
+ * poll), plus direct VEED Fabric, MiniMax H3 Max Lip Sync, and Sync Labs runs.
  */
 
 import type { Command } from "commander";
@@ -10,6 +11,9 @@ import { extractOutputUrls } from "../core/poll.js";
 import { TimeoutError, UsageError } from "../core/errors.js";
 import { capture } from "../cli/telemetry.js";
 import { handleAsyncJob, resolveRefs } from "./generate.js";
+
+/** Fal's resolution enum for minimax/h3-max/lip-sync/image-to-video. */
+const H3_LIPSYNC_RESOLUTIONS = ["480P", "768P", "1080P", "2K"];
 
 function positiveNumber(value: unknown, label: string): number | undefined {
   if (value === undefined) return undefined;
@@ -23,7 +27,9 @@ function positiveNumber(value: unknown, label: string): number | undefined {
 export function registerAvatarCommands(program: Command): void {
   const avatar = program
     .command("avatar")
-    .description("Avatar / talking-head videos with VEED Fabric");
+    .description(
+      "Avatar / talking-head and lip-sync videos (VEED Fabric, MiniMax H3 Max, Sync Labs)",
+    );
 
   avatar
     .command("script <idea...>")
@@ -287,6 +293,112 @@ export function registerAvatarCommands(program: Command): void {
         wait: opts.wait !== false,
         download: opts.download,
         label: "Lip-syncing video",
+      });
+    });
+
+  avatar
+    .command("h3-lipsync <image_url_or_file>")
+    .description(
+      "Lip-sync a portrait to existing audio with MiniMax H3 Max (5-14.8s, up to 2K)",
+    )
+    .requiredOption(
+      "--audio <url|file>",
+      "MP3, WAV, M4A, or AAC speech or song (at least 5s; only the first 14.8s is used)",
+    )
+    .option(
+      "--resolution <res>",
+      '"480P" | "768P" | "1080P" | "2K" (default 768P)',
+    )
+    .option("--seed <n>", "integer seed from 0 to 2147483647")
+    .option(
+      "--no-transcription",
+      "sync to the audio without transcribing it (transcription guides lip sync by default)",
+    )
+    .option(
+      "--safety-checker",
+      "opt into Fal's provider safety checker (off by default)",
+    )
+    .option(
+      "--audio-duration <seconds>",
+      "optional estimate hint; the server measures the audio it bills",
+    )
+    .option("--project <id>", "group in a project's AI Studio session")
+    .option(
+      "--session <id>",
+      "pin an AI Studio session id (default: the current connection scope; env VIDEODRAFT_SESSION)",
+      process.env.VIDEODRAFT_SESSION,
+    )
+    .option("--download <path>", "download the finished video")
+    .option("--no-wait", "submit and return the job id immediately")
+    .option("--estimate", "print the cost estimate and exit")
+    .action(async function (this: Command, imageSource: string) {
+      const ctx = buildContext(this);
+      const opts = this.opts<any>();
+      const resolution = String(opts.resolution ?? "768P")
+        .trim()
+        .toUpperCase();
+      if (!H3_LIPSYNC_RESOLUTIONS.includes(resolution)) {
+        throw new UsageError("--resolution must be 480P, 768P, 1080P, or 2K.");
+      }
+      let seed: number | undefined;
+      if (opts.seed !== undefined) {
+        seed = Number(opts.seed);
+        if (!Number.isInteger(seed) || seed < 0 || seed > 2147483647) {
+          throw new UsageError(
+            "--seed must be an integer from 0 to 2147483647.",
+          );
+        }
+      }
+      const audioDuration = positiveNumber(
+        opts.audioDuration,
+        "--audio-duration",
+      );
+      if (audioDuration !== undefined && audioDuration < 5) {
+        throw new UsageError(
+          "--audio-duration must be at least 5 seconds (the model's minimum audio length).",
+        );
+      }
+      if (opts.estimate) {
+        const estimate = await ctx.client.callTool(
+          "get_model_costs",
+          compact({
+            model_id: "minimax-h3-max-lipsync",
+            type: "video",
+            duration_seconds: audioDuration,
+            resolution,
+          }),
+        );
+        emit(ctx.out, {
+          estimate,
+          note: "No credits were spent (--estimate).",
+        });
+        return;
+      }
+
+      const [[imageUrl], [audioUrl]] = await Promise.all([
+        resolveRefs(ctx, [imageSource]),
+        resolveRefs(ctx, [opts.audio]),
+      ]);
+      capture("cli_avatar", { step: "h3_lipsync", resolution });
+      const submitted = await ctx.client.callTool(
+        "generate_minimax_h3_lipsync_video",
+        compact({
+          image_url: imageUrl,
+          audio_url: audioUrl,
+          resolution,
+          seed,
+          enable_transcription:
+            opts.transcription === false ? false : undefined,
+          enable_safety_checker: opts.safetyChecker ? true : undefined,
+          audio_duration_seconds: audioDuration,
+          project_id: opts.project,
+          session_id: sessionArg(this, opts),
+        }),
+      );
+      await handleAsyncJob(ctx, submitted, {
+        wait: opts.wait !== false,
+        download: opts.download,
+        label: "Lip-syncing portrait with MiniMax H3 Max",
       });
     });
 
