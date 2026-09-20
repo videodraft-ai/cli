@@ -105,7 +105,7 @@ export function seedanceRealPersonRetryHint(
   ) {
     return undefined;
   }
-  return "Retry this Seedance request once with --allow-real-people. This uses higher Fal-tier pricing.";
+  return "Retry this Seedance request once with --allow-real-people (or simply without --no-allow-real-people). This uses higher Fal-tier pricing.";
 }
 
 /**
@@ -114,9 +114,7 @@ export function seedanceRealPersonRetryHint(
  * real-person retry. Without saying so, a user who sees "failed" assumes their
  * one attempt is gone and stops.
  */
-export function seedanceRetryPreservedHint(
-  value: unknown,
-): string | undefined {
+export function seedanceRetryPreservedHint(value: unknown): string | undefined {
   const segments = (value as any)?.failed_segments;
   if (!Array.isArray(segments)) return undefined;
   if (!segments.some((segment: any) => segment?.retry_preserved === true)) {

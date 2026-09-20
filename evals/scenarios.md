@@ -224,11 +224,11 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** use `videodraft edit motion <image> "..." --motion-video <video>` with Kling V3 Motion Control unless 2.6 is explicitly requested or lower cost is the priority.
 - **Must NOT:** treat the motion video as general creative inspiration or omit the subject image.
 
-## 30. A sung track uses ElevenLabs Music v2.5
+## 30. An exact-length sung track uses ElevenLabs Music v2.5
 
 - **Query:** "Make a 45-second synthwave song with a female singer and lyrics about neon rain."
 - **Must:** run `videodraft generate music "..." --model elevenlabs-music-v2.5 --length 45` and quote the cost with that model first.
-- **Must NOT:** use Lyria for a track with vocals, or choose `elevenlabs-music-v1` unless the user asks for v1 by name.
+- **Must NOT:** promise exact duration from Lyria, or choose `elevenlabs-music-v1` unless the user asks for v1 by name. Lyria 3.5 supports vocals and is preferred for longer songs when exact timing is not required.
 
 ## 31. A song built section by section uses a composition plan
 
@@ -253,3 +253,38 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "Lip-sync this headshot to my voice memo, and don't transcribe the audio."
 - **Must:** use `videodraft avatar h3-lipsync <portrait> --audio <memo> --no-transcription`, keeping the default 768P unless the user asks otherwise.
 - **Must NOT:** pass `--no-transcription` when the user did not ask for it (transcription is on by default), or add a prompt.
+
+## Lyria 3.5 full-song preference
+
+- **Query:** "Make a full cinematic song, roughly two minutes, with Hindi vocals."
+- **Must:** select `lyria-3.5`, quote 10 credits (zero VideoDraft credits on Fal BYOK), and put the desired duration, language and vocal style in the prompt.
+- **Must NOT:** substitute legacy Lyria 3 Pro or insist Lyria cannot sing.
+- **Companion query:** "Make a quick 30-second piano loop, no vocals." Still use `lyria-3.5`, and put "about 30 seconds, instrumental only, no vocals" in the prompt. Use `lyria-3-clip-preview` only when the user names it.
+
+## Free stock b-roll is searched before it is generated
+
+- **Query:** "I need a few seconds of a busy highway at night for the intro."
+- **Must:** run `videodraft stock search "busy highway at night"`, pick a result, import it with `videodraft stock import <ref>` (free, zero credits), and use the returned CDN URL as the media.
+- **Must NOT:** spend credits on `generate video` for ordinary b-roll without offering stock first, place a `preview_url` thumbnail as media, or hotlink the provider URL instead of importing.
+- **Companion query:** "Who do I credit for that clip?" Read the creator and provider page back from the search or import result.
+
+## An unnamed video model comes from Tier 1
+
+- **Query:** "Make a 20-second single take of a drone flying through a canyon."
+- **Must:** pick `seedance-2.5` (the Tier 1 model for anything past 15 seconds) and pass it explicitly with `--model`.
+- **Must NOT:** pick `wan-3.0`, `flux-3` or another Tier 2 model because it also reaches 20 seconds.
+- **Companion query:** "Same shot, but use Wan 3." Use `wan-3.0`. A model the user names always wins.
+
+## A talking character speaks from the prompt
+
+- **Query:** "Here is my character. Make her walk into the cafe and say 'Sorry I'm late'."
+- **Must:** use `videodraft generate video` with the image as a start frame or reference and the line written in the prompt, in quotes, on a model that speaks natively (`gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0` or `kling-o3`).
+- **Must NOT:** generate a silent clip, run `generate voiceover`, and then `avatar lipsync` them together; or send this in-scene shot to `avatar fabric`.
+- **Companion query:** "Dub this finished clip into Spanish with this audio." That is the one job for `videodraft avatar lipsync`.
+
+## Seedance real people are on by default
+
+- **Query:** "Animate this photo of me with Seedance 2."
+- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, and quote the default (Fal-tier) rate from `--estimate`.
+- **Must NOT:** add `--no-allow-real-people` when a real person is in the input, or warn that Seedance cannot do real people.
+- **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Add `--no-allow-real-people`, since nothing in the job is a real person.

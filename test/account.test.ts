@@ -72,6 +72,33 @@ describe("costs --allow-real-people", () => {
     );
   });
 
+  it("forwards the Byteplus-only opt-out, and nothing by default", async () => {
+    await runAccount([
+      "costs",
+      "seedance-2.5",
+      "--type",
+      "video",
+      "--duration",
+      "10",
+      "--no-allow-real-people",
+    ]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith(
+      "get_model_costs",
+      expect.objectContaining({ allow_real_people: false }),
+    );
+
+    await runAccount([
+      "costs",
+      "seedance-2.5",
+      "--type",
+      "video",
+      "--duration",
+      "10",
+    ]);
+    const [, args] = mocks.callTool.mock.calls.at(-1)!;
+    expect(args.allow_real_people).toBeUndefined();
+  });
+
   it("quotes GPT Image 2.5 with the selected aspect, resolution and quality", async () => {
     await runAccount([
       "costs",

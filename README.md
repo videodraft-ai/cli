@@ -125,34 +125,34 @@ videodraft create "<idea>" --ar 9:16            # idea → script → visual ass
 videodraft shots <project> --grid --estimate    # preview the cost…
 videodraft shots <project> --grid               # …then batch-generate every shot image
 videodraft produce <project>                    # voiceovers + captions + production timeline
-videodraft produce <project> --mode full_video --allow-real-people
+videodraft produce <project> --mode full_video   # one Seedance video per scene
 videodraft export <project> --download final.mp4
 ```
 
-Seedance 2.x uses Byteplus only at the default lower price. If supplied visual
-input media, including a start/end frame or image/video reference, visibly
-contains a real identifiable person, pass
-`--allow-real-people` on the first request. It keeps Byteplus first, permits a
-submit-time Fal fallback, and uses Fal's higher tier-specific rate. If an
-unflagged request returns `SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, estimate the
-higher rate and retry once with the flag. Do not loop if it was already set;
+Seedance 2.x allows real people by default, the same as AI Studio: Byteplus
+first, a submit-time Fal fallback, and Fal's higher tier-specific rate. Pass
+`--no-allow-real-people` for the lower Byteplus-only rate when nothing in the
+job is a real identifiable person. If an opted-out request returns
+`SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, estimate the higher rate and retry once
+with `--allow-real-people`. Do not loop if real people were already allowed;
 late Byteplus output refusals are refunded but cannot be rerouted.
 
 ## Commands
 
-| Group           | Commands                                                                                                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth            | `login` `logout` `whoami`                                                                                                                                                                          |
-| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                                  |
-| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                                          |
-| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                      |
+| Group           | Commands                                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth            | `login` `logout` `whoami`                                                                                                                                                                                                 |
+| Account         | `credits` `costs [model]` `models [image\|video\|audio\|voices\|styles]` `workspaces` `sessions list/create/current/name/reset` `kling-voices list/create/delete`                                                         |
+| Projects        | `projects list/get/delete/favorite/open` `checkpoint create/list/restore`                                                                                                                                                 |
+| Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                                             |
 | Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync/h3-lipsync` |
-| 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download` |
-| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                          |
-| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                               |
-| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                                               |
-| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                                     |
-| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                                    |
+| 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download`                                                                                                                                                              |
+| Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                                                 |
+| Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                                                      |
+| Stock media     | `stock search "<query>"` `stock import <ref>` (free, no credits)                                                                                                                                                          |
+| Everything else | `tools list [--lane assets\|asset_io\|project_data\|production]` `tools schema <name>` `call <tool> --args '<json>'`                                                                                                      |
+| Agents          | `skills install [--agent claude\|codex\|cursor]` `skills path`                                                                                                                                                            |
+| Utility         | `config get/set/path` `completion bash\|zsh` `docs` `--version`                                                                                                                                                           |
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
 

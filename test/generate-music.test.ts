@@ -394,6 +394,60 @@ describe("generate music", () => {
     });
   });
 
+  it("sends Lyria 3.5 and project attachment through generate_music", async () => {
+    await runGenerate([
+      "generate",
+      "music",
+      "A two-minute song with Hindi vocals",
+      "--model",
+      "lyria-3.5",
+      "--attach",
+      "project-35",
+      "--ref",
+      "https://example.com/image.png",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_music", {
+      prompt: "A two-minute song with Hindi vocals",
+      model: "lyria-3.5",
+      attach_to_project_id: "project-35",
+      image_urls: ["https://example.com/image.png"],
+    });
+  });
+
+  it("accepts image-only Lyria 3.5 requests", async () => {
+    await runGenerate([
+      "generate",
+      "music",
+      "--model",
+      "lyria-3.5",
+      "--ref",
+      "https://example.com/ref.png",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_music", {
+      model: "lyria-3.5",
+      image_urls: ["https://example.com/ref.png"],
+    });
+  });
+
+  it("rejects excessive Lyria references before uploading or calling MCP", async () => {
+    const refs = Array.from({ length: 11 }, () => [
+      "--ref",
+      "photo.png",
+    ]).flat();
+    await expect(
+      runGenerate([
+        "generate",
+        "music",
+        "song",
+        "--model",
+        "lyria-3.5",
+        ...refs,
+      ]),
+    ).rejects.toThrow(/at most 10/);
+    expect(mocks.uploadFile).not.toHaveBeenCalled();
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
   it("keeps Lyria calls unchanged", async () => {
     await runGenerate(["generate", "music", "calm", "piano"]);
 

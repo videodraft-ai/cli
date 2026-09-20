@@ -5,6 +5,56 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-09-20
+
+### Added
+
+- Free stock footage and photos: `stock search "<query>"` and `stock import <ref>`
+  pull watermark-free media from Pexels and Pixabay for zero credits. Import
+  copies the file onto the VideoDraft CDN, so the URL works with shots,
+  timelines, references and the native editor. Results carry the creator and
+  provider page for attribution. Video comes from both libraries; photos come
+  from Pexels, because Pixabay's full-size image host refuses server-side
+  downloads. `--quality` selects a video rendition, stills import at full size.
+- Lyria 3.5 music generation via `generate music --model lyria-3.5`: vocals or
+  instrumental tracks up to about three minutes, 10 VideoDraft credits per track,
+  or zero credits on the user's Fal key. Use 3.5 for music at any length; Lyria 3
+  Clip (fixed 30 seconds) and legacy Pro remain available when requested.
+- `--no-allow-real-people` on `generate video`, `costs` and `produce`: pins a
+  Seedance 2.x job to the lower Byteplus-only rate.
+
+### Changed
+
+- Seedance 2.0 / 2.5 allow real people by default, the same as AI Studio:
+  Byteplus first, a submit-time Fal fallback, and Fal's higher tier-specific
+  rate. `--allow-real-people` still works and is what retries failed scene
+  videos after `SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`.
+- `generate video --estimate` with `--no-audio` and no `--model` now quotes
+  `gemini-omni-1.1-flash` instead of Veo 3.1, matching the server's routing.
+  Omni always generates an audio track; the result carries an `audio_note`.
+- Agent skill: models are picked by tier. A model the user names always wins;
+  otherwise agents choose a Tier 1 model, and every other model only when no
+  Tier 1 model supports the request. Catalog entries carry `tier`.
+- Agent skill: a character's dialogue is written into the video prompt of a
+  model that speaks it natively. Lip-sync tools are for a portrait presenter or
+  for re-syncing footage that already exists. Off-screen voiceover is unchanged.
+- Agent skill: `lyria-3.5` is the music default at every length, and Seedance 2
+  moves from Mini to Standard when the user asks for high quality.
+- Agent skill: downloading from YouTube, Instagram, TikTok and other sites uses
+  `yt-dlp` on the user's machine, with a pinned MP4 format the editor accepts.
+- Updated music model help, catalog guidance and the bundled skill for Lyria's
+  prompt-guided duration, vocals and provider-specific reference-image limits.
+
+### Compatibility
+
+- The `stock` commands, the real-people default, the `tier` catalog field and
+  the Omni routing for silent requests require the matching VideoDraft
+  MCP/backend deployment. The CLI release alone does not deploy them. Until
+  then the server still treats an omitted `allow_real_people` as false, and
+  `--no-allow-real-people` behaves exactly as omitting the flag did before.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.24.0] - 2026-09-19
 
 ### Added
@@ -216,7 +266,6 @@ All notable changes to the `videodraft` CLI. Format loosely follows
   music is now 4 credits for the clip model and 8 for pro, matching Google's
   per-song price. The skill previously stated 10 / 15.
 
-
 ## [0.19.1] - 2026-08-28
 
 ### Fixed
@@ -387,7 +436,7 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 - `--ref-video-seconds` was capped at 15 for every model, so a valid Seedance
   2.5 command (`--model seedance-2.5 --ref-video clip.mp4 --ref-video-seconds
-  20 --estimate`) exited with a usage error before it was ever priced. Seedance
+20 --estimate`) exited with a usage error before it was ever priced. Seedance
   2.5 accepts a 30-second combined reference window; 2.0 and Wan 2.7 accept 15.
   The flag now parses against the widest window and applies the exact limit
   once the model is resolved.
@@ -457,17 +506,18 @@ All notable changes to the `videodraft` CLI. Format loosely follows
   flat 2x — Fal is about 2x on most tiers but 1.82x at both 1080p rows.
   Current per-second rates, Byteplus / Fal:
 
-  | tier | 480p | 720p | 1080p | 4K |
-  | --- | --- | --- | --- | --- |
-  | 2.0 Mini | 4 / 8 | 8 / 16 | – | – |
-  | 2.0 Fast | 6 / 11 | 13 / 25 | – | – |
-  | 2.0 Standard | 7 / 14 | 16 / 31 | 38 / 69 | 78 / 156 |
-  | 2.5 | 11 / 23 | 24 / 48 | 57 / 114 | – |
+  | tier         | 480p    | 720p    | 1080p    | 4K       |
+  | ------------ | ------- | ------- | -------- | -------- |
+  | 2.0 Mini     | 4 / 8   | 8 / 16  | –        | –        |
+  | 2.0 Fast     | 6 / 11  | 13 / 25 | –        | –        |
+  | 2.0 Standard | 7 / 14  | 16 / 31 | 38 / 69  | 78 / 156 |
+  | 2.5          | 11 / 23 | 24 / 48 | 57 / 114 | –        |
 
   Rates are pegged to Byteplus LIST prices, deliberately NOT to its
   limited-time promos (2.5 1080p is 28% off through 2026-09-17; 2.0 Mini and
   Fast through 2026-09-07), because pricing against a promo goes underwater
   the day it expires.
+
 - **MiniMax H3 is priced at exact Fal cost and is no longer 2K-only:** 5 / 6 /
   13 / 16 cr/s at 480p / 768p / 2K / 4K, against a previous flat 26 (exactly
   2x cost). The first 5 reference images stay free with 8 credits each after,
