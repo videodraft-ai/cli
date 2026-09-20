@@ -5,6 +5,30 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-09-20
+
+### Fixed
+
+- `generate music` without `--model` no longer names a model. The server
+  default applies, so a backend that knows Lyria 3.5 runs it (10 credits) and an
+  older one keeps running Lyria 3 Clip instead of rejecting an unknown id.
+  0.25.0 always sent Lyria 3 Clip here. `--estimate` reads the catalog and
+  quotes whichever model the server will run. Explicit model choices are
+  unchanged, and a composition plan without a model still selects ElevenLabs
+  Music v2.5.
+- Agent skill: when the server reports `lyria-3.5` as an unknown model, agents
+  rerun without `--model`, or use `lyria-3-pro-preview` for a longer track,
+  instead of failing the music request. 0.25.0 told agents to always pass
+  `--model lyria-3.5`, which a backend without Lyria 3.5 rejects.
+
+### Compatibility
+
+- Works against both the current VideoDraft backend and the one that adds
+  Lyria 3.5; nothing here waits for a deployment. The 0.25.0 notes about the
+  `stock` commands and the Seedance real-people default still apply.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.25.0] - 2026-09-20
 
 ### Added

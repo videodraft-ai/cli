@@ -388,9 +388,9 @@ describe("generate music", () => {
       "--instrumental",
     ]);
 
+    // No --model: the server default applies, so no model id is sent.
     expect(mocks.callTool).toHaveBeenCalledWith("generate_music", {
       prompt: "calm piano",
-      model: "lyria-3-clip-preview",
     });
   });
 
@@ -448,9 +448,47 @@ describe("generate music", () => {
     expect(mocks.callTool).not.toHaveBeenCalled();
   });
 
-  it("keeps Lyria calls unchanged", async () => {
+  it("sends no model when --model is omitted, so the server default applies", async () => {
     await runGenerate(["generate", "music", "calm", "piano"]);
 
+    // Naming lyria-3.5 here would be rejected by a backend that predates it;
+    // omitting the model runs Lyria 3.5 where it exists and Clip where not.
+    expect(mocks.callTool).toHaveBeenCalledWith("generate_music", {
+      prompt: "calm piano",
+    });
+  });
+
+  it.each([
+    [["lyria-3-clip-preview", "lyria-3.5"], "lyria-3.5"],
+    [["lyria-3-clip-preview", "lyria-3-pro-preview"], "lyria-3-clip-preview"],
+  ])(
+    "prices a no-model estimate at the default the server will run (%j)",
+    async (catalogIds, expected) => {
+      mocks.callTool.mockImplementation(async (name: string) =>
+        name === "list_available_audio_models"
+          ? { models: (catalogIds as string[]).map((id) => ({ id })) }
+          : { credits: 1 },
+      );
+      await runGenerate(["generate", "music", "calm piano", "--estimate"]);
+      expect(mocks.callTool).toHaveBeenCalledWith(
+        "get_model_costs",
+        expect.objectContaining({ model_id: expected, type: "audio" }),
+      );
+      expect(mocks.callTool).not.toHaveBeenCalledWith(
+        "generate_music",
+        expect.anything(),
+      );
+    },
+  );
+
+  it("preserves an explicit Lyria Clip choice", async () => {
+    await runGenerate([
+      "generate",
+      "music",
+      "calm piano",
+      "--model",
+      "lyria-3-clip-preview",
+    ]);
     expect(mocks.callTool).toHaveBeenCalledWith("generate_music", {
       prompt: "calm piano",
       model: "lyria-3-clip-preview",

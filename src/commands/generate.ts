@@ -615,6 +615,26 @@ function estimateVideoModel(
   return "gemini-omni-1.1-flash";
 }
 
+/**
+ * The Lyria model a server runs when `generate_music` gets no model: Lyria 3.5
+ * where the catalog lists it, otherwise the older Lyria 3 Clip default. Only
+ * used to price an estimate, so a catalog failure falls back to Lyria 3.5.
+ */
+async function serverDefaultMusicModel(ctx: CommandContext): Promise<string> {
+  try {
+    const catalog: any = await ctx.client.callTool(
+      "list_available_audio_models",
+      {},
+    );
+    const ids: string[] = (catalog?.models ?? []).map((m: any) =>
+      String(m?.id),
+    );
+    return ids.includes("lyria-3.5") ? "lyria-3.5" : "lyria-3-clip-preview";
+  } catch {
+    return "lyria-3.5";
+  }
+}
+
 async function printEstimate(
   ctx: CommandContext,
   params: {
@@ -2438,7 +2458,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--model <id>",
-      "lyria-3.5 (use for all music, short or long, 10 credits) | lyria-3-clip-preview (fixed 30s, 4 credits; runs when --model is omitted) | lyria-3-pro-preview (legacy) | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
+      "omit for the server default (lyria-3.5 where the backend supports it) | lyria-3.5 (short or long, 10 credits) | lyria-3-clip-preview (fixed 30s, 4 credits) | lyria-3-pro-preview (legacy) | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
     )
     .option(
       "--length <seconds>",
@@ -2512,10 +2532,13 @@ export function registerGenerateCommands(program: Command): void {
       const sections = (opts.section ?? []) as string[];
       const usesPlan = Boolean(opts.plan) || sections.length > 0;
       // A song plan only runs on ElevenLabs Music v2.5, so it picks that model
-      // when --model is left out. Everything else keeps the Lyria default.
+      // when --model is left out. Everything else is a Lyria request.
       const musicModel: string =
-        opts.model ??
-        (usesPlan ? "elevenlabs-music-v2.5" : "lyria-3-clip-preview");
+        opts.model ?? (usesPlan ? "elevenlabs-music-v2.5" : "lyria-3.5");
+      // With no --model and no plan, send NO model and let the server apply its
+      // own default. A backend that knows Lyria 3.5 runs it; an older one still
+      // runs Lyria 3 Clip instead of rejecting an id it has never heard of.
+      const usesServerDefault = !opts.model && !usesPlan;
       const isElevenMusic = ELEVENLABS_MUSIC_MODELS.includes(musicModel);
       const prompt = (promptWords ?? []).join(" ").trim();
       const elevenOnlyFlags = [
@@ -2691,7 +2714,10 @@ export function registerGenerateCommands(program: Command): void {
           ? musicPlanSeconds(planChunks)
           : undefined;
         await printEstimate(ctx, {
-          model: musicModel,
+          // Quote the model the server will actually default to.
+          model: usesServerDefault
+            ? await serverDefaultMusicModel(ctx)
+            : musicModel,
           type: "audio",
           duration: isElevenMusic ? (planSeconds ?? lengthSeconds) : undefined,
         });
@@ -2710,12 +2736,12 @@ export function registerGenerateCommands(program: Command): void {
         : undefined;
       capture("cli_generate", {
         kind: "music",
-        model: musicModel,
+        model: usesServerDefault ? "server-default" : musicModel,
         mode: compositionPlan ? "composition_plan" : "prompt",
       });
       const toolArgs = compact({
         prompt: prompt || undefined,
-        model: musicModel,
+        model: usesServerDefault ? undefined : musicModel,
         length_seconds: lengthSeconds,
         force_instrumental:
           isElevenMusic && opts.instrumental ? true : undefined,

@@ -259,7 +259,7 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "Make a full cinematic song, roughly two minutes, with Hindi vocals."
 - **Must:** select `lyria-3.5`, quote 10 credits (zero VideoDraft credits on Fal BYOK), and put the desired duration, language and vocal style in the prompt.
 - **Must NOT:** substitute legacy Lyria 3 Pro or insist Lyria cannot sing.
-- **Companion query:** "Make a quick 30-second piano loop, no vocals." Still use `lyria-3.5`, and put "about 30 seconds, instrumental only, no vocals" in the prompt. Use `lyria-3-clip-preview` only when the user names it.
+- **Companion query:** "Make a quick 30-second piano loop, no vocals." Still use `lyria-3.5`, and put "about 30 seconds, instrumental only, no vocals" in the prompt. Use `lyria-3-clip-preview` only when the user names it. Omitting `--model` lets the server default apply. If the server reports `lyria-3.5` as unknown, rerun without `--model` instead of giving up.
 
 ## Free stock b-roll is searched before it is generated
 
