@@ -43,7 +43,9 @@ Do not substitute a hosted project ID for a native project. A hosted project can
 
 ## Bring generated or local media into the editor
 
-Use cloud generation for new assets, save or download the outputs, then call native `media_import`:
+For b-roll and establishing shots, search free stock first (`videodraft stock search "<query>"`), import the pick with `videodraft stock import <ref>`, and feed the returned CDN URL to `media_import` as `source.url`. It costs no credits.
+
+Otherwise use cloud generation for new assets, save or download the outputs, then call native `media_import`:
 
 - `source.path`: absolute local file or directory. A directory imports recursively and preserves its folder structure.
 - `source.url`: HTTPS asset URL. Set `mimeType` when a signed URL has no usable extension.

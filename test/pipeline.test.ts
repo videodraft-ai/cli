@@ -144,11 +144,30 @@ describe("produce --allow-real-people", () => {
     );
   });
 
-  it("omits allow_real_people unless the user opts in", async () => {
+  it("omits allow_real_people by default so the server default (true) applies", async () => {
     await runPipeline(["produce", "project_1", "--mode", "full_video"]);
 
     const [, args] = mocks.callTool.mock.calls[0]!;
-    expect(args).not.toHaveProperty("allow_real_people");
+    expect(args.allow_real_people).toBeUndefined();
+  });
+
+  it("forwards an explicit opt-out to produce_project", async () => {
+    await runPipeline([
+      "produce",
+      "project_1",
+      "--mode",
+      "full_video",
+      "--no-allow-real-people",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "produce_project",
+      expect.objectContaining({
+        project_id: "project_1",
+        mode: "full_video",
+        allow_real_people: false,
+      }),
+    );
   });
 
   it("marks a partial hosted submission as unsuccessful for automation", async () => {

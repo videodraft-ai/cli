@@ -59,7 +59,11 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--allow-real-people",
-      "Seedance 2.x: estimate the higher tier-specific Fal rate used by the real-person opt-in",
+      "Seedance 2.x: estimate the higher tier-specific Fal rate (the default, matching AI Studio)",
+    )
+    .option(
+      "--no-allow-real-people",
+      "Seedance 2.x: estimate the lower Byteplus-only rate",
     )
     .option(
       "--ref-images <n>",
@@ -130,7 +134,7 @@ export function registerAccountCommands(program: Command): void {
           rendering_speed: opts.renderingSpeed,
           generate_audio: opts.audio,
           voice_control: opts.voiceControl,
-          allow_real_people: opts.allowRealPeople ? true : undefined,
+          allow_real_people: opts.allowRealPeople,
           reference_image_count: opts.refImages
             ? Number(opts.refImages)
             : undefined,

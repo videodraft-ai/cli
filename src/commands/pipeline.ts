@@ -292,7 +292,11 @@ export function registerPipelineCommands(program: Command): void {
     )
     .option(
       "--allow-real-people",
-      "full_video only: use when scene-grid visual inputs contain a real identifiable person, or retry once after SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED (higher Fal-tier pricing)",
+      "full_video only, and already the default: Fal fallback at higher Fal-tier pricing. Pass it explicitly to retry failed scene videos once after SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED",
+    )
+    .option(
+      "--no-allow-real-people",
+      "full_video only: pin every scene video to Byteplus at the lower rate; Byteplus refuses real-person likenesses",
     )
     .option("--no-voiceover", "skip per-scene voiceovers + captions")
     .option("--no-video-prompts", "skip advisory per-shot motion prompts")
@@ -325,7 +329,7 @@ export function registerPipelineCommands(program: Command): void {
             mode: opts.mode,
             // negatable flags default true; only forward an explicit opt-out.
             auto_generate_videos: opts.autoVideos === false ? false : undefined,
-            allow_real_people: opts.allowRealPeople ? true : undefined,
+            allow_real_people: opts.allowRealPeople,
             include_voiceover: opts.voiceover === false ? false : undefined,
             generate_video_prompts:
               opts.videoPrompts === false ? false : undefined,

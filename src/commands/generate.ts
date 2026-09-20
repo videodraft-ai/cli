@@ -47,7 +47,11 @@ const SEED_AUDIO_SAMPLE_RATES = [
 ] as const;
 const SEED_AUDIO_PROMPT_MAX_CHARS = 2048;
 const SEED_AUDIO_MAX_REFERENCES = 3;
-const LYRIA_MUSIC_MODELS = ["lyria-3-clip-preview", "lyria-3-pro-preview"];
+const LYRIA_MUSIC_MODELS = [
+  "lyria-3-clip-preview",
+  "lyria-3.5",
+  "lyria-3-pro-preview",
+];
 /** "elevenlabs-music" is the pre-versioning alias for v2.5. */
 const ELEVENLABS_MUSIC_MODELS = [
   "elevenlabs-music-v2.5",
@@ -597,8 +601,10 @@ function estimateVideoModel(
     opts.quality === "standard";
   if (seedanceTask) return "seedance-2";
 
+  // Mirrors the server: a silent request alone stays on Gemini Omni (its audio
+  // is always on); Veo is only for its own fast/quality modes or a resolution
+  // Gemini cannot render.
   const veoTask =
-    opts.audio === false ||
     opts.quality === "fast" ||
     opts.quality === "quality" ||
     (typeof opts.resolution === "string" &&
@@ -647,7 +653,7 @@ async function printEstimate(
       reference_video_duration_seconds: params.referenceVideoDurationSeconds,
       reference_audio_duration_seconds: params.referenceAudioDurationSeconds,
       voice_control: params.voiceControl ? true : undefined,
-      allow_real_people: params.allowRealPeople ? true : undefined,
+      allow_real_people: params.allowRealPeople,
       num_images: params.num,
     }),
   );
@@ -934,7 +940,11 @@ export function registerGenerateCommands(program: Command): void {
     .option("--no-audio", "disable native model audio")
     .option(
       "--allow-real-people",
-      "Seedance 2.x only: use initially when supplied start/end frames or image/video references visibly contain a real identifiable person. Keep the Byteplus default for text-only, non-person, anime, or clearly synthetic/stylized inputs. Otherwise retry once only after SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED. This permits Fal fallback at its higher tier-specific rate. Use --estimate first.",
+      "Seedance 2.x only, and already the default (same as AI Studio): Byteplus first with a Fal fallback at Fal's higher tier-specific rate, so real people in a prompt or reference do not hard-fail.",
+    )
+    .option(
+      "--no-allow-real-people",
+      "Seedance 2.x only: pin the job to Byteplus at the lower rate. Use for the cheapest run when nothing in the job is a real identifiable person (text-only, non-person, anime, clearly synthetic/stylized). Byteplus refuses real-person likenesses and does not fall back. Use --estimate first.",
     )
     .option("--start-image <url|file>", "start frame (image-to-video)")
     .option("--end-image <url|file>", "end frame (supported models only)")
@@ -1731,10 +1741,10 @@ export function registerGenerateCommands(program: Command): void {
           opts.quality ||
           opts.cameraFixed ||
           (opts.keyframe?.length ?? 0) > 0 ||
-          opts.allowRealPeople
+          opts.allowRealPeople !== undefined
         ) {
           throw new CliError(
-            "minimax-h3-max does not support --negative, --quality, --camera-fixed, --keyframe, or --allow-real-people.",
+            "minimax-h3-max does not support --negative, --quality, --camera-fixed, --keyframe, or --allow-real-people / --no-allow-real-people.",
             EXIT.USAGE,
           );
         }
@@ -2166,7 +2176,7 @@ export function registerGenerateCommands(program: Command): void {
           resolution: opts.resolution,
           quality: opts.quality,
           generate_audio: opts.audio,
-          allow_real_people: opts.allowRealPeople ? true : undefined,
+          allow_real_people: opts.allowRealPeople,
           start_image_url: startImage,
           end_image_url: endImage,
           reference_images: refs.length > 0 ? refs : undefined,
@@ -2424,11 +2434,11 @@ export function registerGenerateCommands(program: Command): void {
   generate
     .command("music [prompt...]")
     .description(
-      "Generate music (Lyria 3, or ElevenLabs Music v2.5 with vocals, lyrics and composition plans)",
+      "Generate music (Lyria 3.5 for any length, vocals or instrumental; ElevenLabs for exact timing and composition plans)",
     )
     .option(
       "--model <id>",
-      "lyria-3-clip-preview (default) | lyria-3-pro-preview | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
+      "lyria-3.5 (use for all music, short or long, 10 credits) | lyria-3-clip-preview (fixed 30s, 4 credits; runs when --model is omitted) | lyria-3-pro-preview (legacy) | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
     )
     .option(
       "--length <seconds>",
@@ -2472,7 +2482,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref <url|file>",
-      "reference image to inspire the music (Lyria only, repeatable)",
+      "reference image to inspire the music (Lyria only; max 10 on Google, 1 with Fal BYOK)",
       collect,
       [],
     )
@@ -2530,6 +2540,12 @@ export function registerGenerateCommands(program: Command): void {
             EXIT.USAGE,
           );
         }
+        if ((opts.ref ?? []).length > 10) {
+          throw new CliError(
+            "Lyria accepts at most 10 --ref images on Google, or 1 with Fal BYOK.",
+            EXIT.USAGE,
+          );
+        }
         if (!prompt && (opts.ref ?? []).length === 0) {
           throw new CliError(
             "A prompt or at least one --ref image is required.",
@@ -2542,7 +2558,7 @@ export function registerGenerateCommands(program: Command): void {
             ctx.out,
             fmt.dim(
               ctx.out,
-              "--length and --instrumental only apply to ElevenLabs Music, so Lyria ignores them. Add --model elevenlabs-music-v2.5 to use them.",
+              "--length and --instrumental only apply to ElevenLabs Music. For Lyria, put duration and instrumental/no-vocals instructions in the prompt; timing is approximate.",
             ),
           );
         }

@@ -25,6 +25,7 @@ import { registerGenerateCommands } from "./commands/generate.js";
 import { registerPipelineCommands } from "./commands/pipeline.js";
 import { registerJobCommands } from "./commands/jobs.js";
 import { registerMediaCommands } from "./commands/media.js";
+import { registerStockCommands } from "./commands/stock.js";
 import { registerToolCommands } from "./commands/tools.js";
 import { registerAvatarCommands } from "./commands/avatar.js";
 import { registerSkillCommands } from "./commands/skills.js";
@@ -93,6 +94,7 @@ function buildProgram(): Command {
   register3DAssetCommands(program);
   registerJobCommands(program);
   registerMediaCommands(program);
+  registerStockCommands(program);
   registerAvatarCommands(program);
   registerEditCommands(program);
   registerKlingVoiceCommands(program);

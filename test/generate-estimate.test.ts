@@ -318,16 +318,17 @@ describe("generate --estimate model selection", () => {
     await runGenerate([
       "generate",
       "video",
-      "a silent cinematic shot",
+      "a cinematic shot",
       "--estimate",
-      "--no-audio",
+      "--quality",
+      "quality",
     ]);
 
     expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
       model_id: "google-veo3.1",
       type: "video",
       duration_seconds: 6,
-      generate_audio: false,
+      quality: "quality",
     });
   });
 
@@ -337,7 +338,8 @@ describe("generate --estimate model selection", () => {
       "video",
       "preserve the character",
       "--estimate",
-      "--no-audio",
+      "--quality",
+      "quality",
       "--ref",
       "character.png",
     ]);
@@ -346,8 +348,26 @@ describe("generate --estimate model selection", () => {
       model_id: "google-veo3.1",
       type: "video",
       duration_seconds: 8,
-      generate_audio: false,
+      quality: "quality",
     });
+  });
+
+  it("keeps a silent no-model estimate on Gemini Omni instead of Veo", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "a silent cinematic shot",
+      "--estimate",
+      "--no-audio",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "get_model_costs",
+      expect.objectContaining({
+        model_id: "gemini-omni-1.1-flash",
+        type: "video",
+      }),
+    );
   });
 
   it("includes MiniMax H3 reference inputs in an exact estimate", async () => {

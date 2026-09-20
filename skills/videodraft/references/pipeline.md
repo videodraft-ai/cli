@@ -6,45 +6,47 @@ Use direct asset tools for standalone images, clips, audio, upscales, and descri
 
 ## Stages and their tools
 
-| Stage                                   | CLI                                                                         | Underlying tool                             |
-| --------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
-| Idea → full storyboard project          | `videodraft create "<idea>"`                                                | `generate_storyboard_from_idea`             |
-| Idea → script only (stop there)         | `videodraft create "<idea>" --script-only`                                  | `generate_script_from_idea`                 |
-| Footage IS the video                    | `videodraft call generate_storyboard_from_media`                            | `generate_storyboard_from_media`            |
-| Batch shot images                       | `videodraft shots <project>`                                                | `generate_shot_images`                      |
-| One shot image                          | `videodraft generate image --project <id> --scene N --shot M`               | `generate_image`                            |
-| Produce (voiceover, captions, timeline) | `videodraft produce <project>`                                              | `produce_project`                           |
-| Seedance full-video production          | `videodraft produce <project> --mode full_video`                            | `produce_project` with `mode: "full_video"` |
-| Per-shot motion prompts                 | `videodraft video-prompts <project>`                                        | `generate_video_prompts`                    |
-| Motion clip for a shot                  | `videodraft generate video --project <id>`                                  | `generate_video`                            |
-| Attach a finished clip to the timeline  | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot`                      |
-| Background music                        | `videodraft generate music --attach <project>`                              | `generate_music` / `set_background_music`   |
-| Song with vocals, lyrics or sections    | `videodraft generate music --model elevenlabs-music-v2.5 --section "..."`   | `generate_music` with `composition_plan`    |
-| General or reference-driven audio       | `videodraft generate audio "..."`                                           | `generate_audio`                            |
-| Sound effect                            | `videodraft generate sound-effect "..."`                                    | `generate_sound_effect`                     |
-| Dialogue audio                          | `videodraft generate dialogue --line "voice:text"`                          | `generate_dialogue`                         |
-| Voice changer                           | `videodraft generate voice-changer <audio>`                                 | `change_voice`                              |
-| Dubbing                                 | `videodraft generate dub <audio_or_video>`                                  | `dub_media`                                 |
-| Scene voiceover                         | `videodraft generate voiceover --project <id> --scene N`                    | `generate_voiceover`                        |
-| Avatar script                           | `videodraft avatar script "<idea>"`                                         | `generate_avatar_script`                    |
-| Avatar + speech                         | `videodraft avatar create <portrait> --script "..."`                        | `create_avatar_video`                       |
-| Talking-head render                     | `videodraft avatar render <avatar_video_id>`                                | `render_avatar_video` + `get_avatar_video`  |
-| Direct portrait + text/audio            | `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`      | `generate_veed_fabric_video`                |
+| Stage                                    | CLI                                                                         | Underlying tool                             |
+| ---------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
+| Idea → full storyboard project           | `videodraft create "<idea>"`                                                | `generate_storyboard_from_idea`             |
+| Idea → script only (stop there)          | `videodraft create "<idea>" --script-only`                                  | `generate_script_from_idea`                 |
+| Footage IS the video                     | `videodraft call generate_storyboard_from_media`                            | `generate_storyboard_from_media`            |
+| Batch shot images                        | `videodraft shots <project>`                                                | `generate_shot_images`                      |
+| One shot image                           | `videodraft generate image --project <id> --scene N --shot M`               | `generate_image`                            |
+| Produce (voiceover, captions, timeline)  | `videodraft produce <project>`                                              | `produce_project`                           |
+| Seedance full-video production           | `videodraft produce <project> --mode full_video`                            | `produce_project` with `mode: "full_video"` |
+| Per-shot motion prompts                  | `videodraft video-prompts <project>`                                        | `generate_video_prompts`                    |
+| Motion clip for a shot                   | `videodraft generate video --project <id>`                                  | `generate_video`                            |
+| Attach a finished clip to the timeline   | `videodraft attach <project> --scene N --shot M --media <url> --type video` | `attach_media_to_shot`                      |
+| Find free b-roll (no credits)            | `videodraft stock search "<query>"`                                         | `search_stock_media`                        |
+| Copy stock media onto the CDN            | `videodraft stock import <ref>`                                             | `import_stock_media`                        |
+| Background music                         | `videodraft generate music --attach <project>`                              | `generate_music` / `set_background_music`   |
+| Song with vocals, lyrics or sections     | `videodraft generate music --model elevenlabs-music-v2.5 --section "..."`   | `generate_music` with `composition_plan`    |
+| General or reference-driven audio        | `videodraft generate audio "..."`                                           | `generate_audio`                            |
+| Sound effect                             | `videodraft generate sound-effect "..."`                                    | `generate_sound_effect`                     |
+| Dialogue audio                           | `videodraft generate dialogue --line "voice:text"`                          | `generate_dialogue`                         |
+| Voice changer                            | `videodraft generate voice-changer <audio>`                                 | `change_voice`                              |
+| Dubbing                                  | `videodraft generate dub <audio_or_video>`                                  | `dub_media`                                 |
+| Scene voiceover                          | `videodraft generate voiceover --project <id> --scene N`                    | `generate_voiceover`                        |
+| Avatar script                            | `videodraft avatar script "<idea>"`                                         | `generate_avatar_script`                    |
+| Avatar + speech                          | `videodraft avatar create <portrait> --script "..."`                        | `create_avatar_video`                       |
+| Talking-head render                      | `videodraft avatar render <avatar_video_id>`                                | `render_avatar_video` + `get_avatar_video`  |
+| Direct portrait + text/audio             | `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`      | `generate_veed_fabric_video`                |
 | Short portrait clip from audio, up to 2K | `videodraft avatar h3-lipsync <portrait> --audio <file>`                    | `generate_minimax_h3_lipsync_video`         |
-| Existing video + replacement audio      | `videodraft avatar lipsync <video> --audio <file>`                          | `generate_sync_lipsync_video`               |
-| Existing-video AI edit                  | `videodraft edit video <video> "<change>" --model <video-edit-model>`       | `edit_video`                                |
-| Motion transfer                         | `videodraft edit motion <image> [direction] --motion-video <video>`         | `generate_motion_control_video`             |
-| Image enhancement/upscale               | `videodraft upscale image <image>`                                          | `upscale_image`                             |
-| Video enhancement/upscale               | `videodraft upscale video <video>`                                          | `upscale_video`                             |
-| Frame rate / slow motion                | `videodraft interpolate <video> --fps 60 [--slowdown 4]`                    | `interpolate_video`                         |
-| Final MP4                               | `videodraft export <project>`                                               | `export_video` + `check_export_status`      |
+| Existing video + replacement audio       | `videodraft avatar lipsync <video> --audio <file>`                          | `generate_sync_lipsync_video`               |
+| Existing-video AI edit                   | `videodraft edit video <video> "<change>" --model <video-edit-model>`       | `edit_video`                                |
+| Motion transfer                          | `videodraft edit motion <image> [direction] --motion-video <video>`         | `generate_motion_control_video`             |
+| Image enhancement/upscale                | `videodraft upscale image <image>`                                          | `upscale_image`                             |
+| Video enhancement/upscale                | `videodraft upscale video <video>`                                          | `upscale_video`                             |
+| Frame rate / slow motion                 | `videodraft interpolate <video> --fps 60 [--slowdown 4]`                    | `interpolate_video`                         |
+| Final MP4                                | `videodraft export <project>`                                               | `export_video` + `check_export_status`      |
 
 ## Rules that prevent broken results
 
 - **The storyboard is generated FROM the script**, never from the raw idea. `videodraft create` runs the whole chain correctly. Don't call `generate_storyboard_scenes` with a raw idea as the "script".
 - **Visual consistency**: never generate a storyboard shot in isolation. Shot prompts carry `[[asset:Name]]` / `[[shot:X-Y]]` tags that `generate_shot_images` resolves against the project's visual assets and prior shots. When generating a single shot whose prompt has no tags, pass `--ref` images yourself (the project's visual assets and/or the previous shot's image; `projects get` exposes both). For scenes with multiple shots or recurring characters, prefer `videodraft shots <project> --model <selected-image-model> --grid`: preserve an explicitly requested compatible image model, otherwise use `nano-banana-2`. It creates one coherent scene grid, then decodes it into individual shot images.
 - **Reference-first video**: when identity, styling, or composition matters, do not generate each motion clip from text alone. Generate or select the shot still first, then pass the decoded shot image as `--start-image` or `--ref` to the selected video model. AI Production already composes scene grids and sends them to Seedance as references. If the user explicitly requests another compatible video model, bypass fixed Seedance full-video mode and generate the per-shot clips with the requested model, using the individual decoded shot images as anchors.
-- **Seedance full-video real people**: when a hosted `full_video` scene grid visibly contains a real identifiable person, enable the option before submitting any scene videos. Keep the Byteplus default for non-people, anime, and clearly synthetic or stylized characters that are not identifiable real people. Use `videodraft produce <project> --mode full_video --allow-real-people`, or MCP `produce_project` with `mode: "full_video", allow_real_people: true`. This applies Fal-tier pricing to every submitted segment and permits the Byteplus-to-Fal fallback. If a partial run without the option returns `SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, re-estimate, follow the user's spend-confirmation preference, and rerun the same project once with the option. The server reconciles asynchronous results first, preserves running/completed jobs, and retries only failed placeholders carrying that exact code. Do not loop when it was already enabled. VideoDraft refunds a Byteplus task rejected after asynchronous acceptance, but cannot reroute it; rephrase or change the scene references instead.
+- **Seedance full-video real people**: hosted `full_video` allows real people by default, which applies Fal-tier pricing to every submitted segment and permits the Byteplus-to-Fal fallback. For the lower Byteplus-only rate when no scene grid shows a real identifiable person (non-people, anime, clearly synthetic or stylized characters), use `videodraft produce <project> --mode full_video --no-allow-real-people`, or MCP `produce_project` with `mode: "full_video", allow_real_people: false`. If a partial opted-out run returns `SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, re-estimate, follow the user's spend-confirmation preference, and rerun the same project once with an explicit `--allow-real-people` / `allow_real_people: true`. The server reconciles asynchronous results first, preserves running/completed jobs, and retries only failed placeholders carrying that exact code. Do not loop when it was already on. VideoDraft refunds a Byteplus task rejected after asynchronous acceptance, but cannot reroute it; rephrase or change the scene references instead.
 - **Hold off generating shot images while the user is still iterating** on storyboard structure.
 - **produce → export ordering**: `export` requires a produced project where every production scene has timeline media. If `produce` returns `generating_shot_images`, poll the job ids it returns, then re-run produce.
 - **Do not attach motion clips before production exists**: run `produce` successfully first, then attach finished motion clips to the production timeline. Attaching before `production_data` exists cannot place them in the final timeline.
