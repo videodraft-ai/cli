@@ -59,12 +59,16 @@ describe("bundledSkillFiles", () => {
     expect(editor).toContain("both Code and VideoDraft modes");
     expect(editor).toContain("make it the default surface for production, timeline assembly, and final export");
     expect(editor).toContain("rather than silently switching surfaces");
-    // The editor's concurrency guard renamed expectedRevision → ifRevision
-    // (ToolCatalog exposes ifRevision); the skill follows the shipped surface.
-    expect(editor).toContain("ifRevision");
+    // The skill teaches the editor's workflow tools only; earlier editors'
+    // single-purpose tools are left to their own live catalog.
     expect(editor).not.toContain("expectedRevision");
-    // manage_project became project_control in the shipped tool catalog.
-    expect(editor).toContain("videodraft-editor tool project_control");
+    expect(editor).toContain("videodraft-editor tool project_manage");
+    for (const retired of ["ifRevision", "project_control", "timeline_read", "clips_place", "export_start", "--api v1"]) {
+      expect(editor).not.toContain(retired);
+      expect(skill).not.toContain(retired);
+    }
+    expect(editor).toContain("IDs are short handles");
+    expect(editor).not.toContain("short stable prefixes");
     expect(skill).toContain("Managed script/creation is bundled/free");
     expect(models).toContain(
       "Video supplied as a creative reference: Gemini Omni 1.1 Flash accepts up to 3 videos of at most 3 seconds each, including mixed image and video input.",

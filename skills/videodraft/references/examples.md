@@ -69,7 +69,7 @@ videodraft generate audio "Extend @Audio1 into a 20-second transition" --ref-aud
 videodraft export "$PROJECT" --download solace-launch.mp4
 ```
 
-Use this complete hosted path only when the user requested a web project or the native editor is unavailable. Otherwise stop after the storyboard/assets, import them into the native `.vdproject`, and export with `export_start`. The hosted project stays editable at the URL in `project.json` (`.urls`).
+Use this complete hosted path only when the user requested a web project or the native editor is unavailable. Otherwise stop after the storyboard/assets, import them into the native `.vdproject`, and export with `delivery_manage`. The hosted project stays editable at the URL in `project.json` (`.urls`).
 
 ## 3. Talking-head (avatar) video
 

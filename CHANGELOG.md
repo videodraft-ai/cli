@@ -5,6 +5,40 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-09-28
+
+### Changed
+
+- Agent skill: the native editor reference now teaches the editor's eight
+  workflow tools (`project_manage`, `edit_snapshot`, `edit_apply`, `edit_undo`,
+  `library_manage`, `inspect`, `speech_apply`, `delivery_manage`). Every edit a
+  request needs goes into one recipe that applies as a single undo step, and
+  opening a project already returns the timeline, so editing starts at once.
+  `context` and `requestId` are optional: send `context` to be refused if the
+  project changed, and a `requestId` when a retry must not edit twice. Editor ids
+  are short handles to pass back unchanged, and a refused call is marked
+  `rejected` with nothing changed.
+- Agent skill, editor reference: covers the editor abilities that arrive with
+  the next VideoDraft desktop release. `edit_snapshot` reports what the user
+  selected in the project window and the playhead, so "this clip" and "here"
+  resolve without asking. `library_manage` imports SRT and WebVTT caption
+  files as captions, and `delivery_manage` exports captions as `srt` or `vtt`.
+  The `edit_apply` action `replace` swaps a clip's media while keeping its
+  timing and links. A finished video export gets a background check, and
+  `delivery_manage` `jobs` lists each job's finding count and first three
+  findings, or every finding for one `jobId`.
+- Agent skill, editor reference: after a project closes, editor calls answer
+  `no_project` with how to recover, and the reference says so, including for
+  terminal-bridge calls made without `--project`.
+
+### Compatibility
+
+- Works with earlier VideoDraft Editor builds too: agents follow whichever tool
+  catalog the editor offers, and earlier editors simply lack the new abilities.
+- Text only; no command changes. The CLI bundled inside an installed VideoDraft
+  macOS app updates with the desktop app; publishing this npm package does not
+  replace that binary.
+
 ## [0.25.1] - 2026-09-20
 
 ### Fixed

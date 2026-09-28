@@ -27,13 +27,13 @@ Cloud generation has two equivalent surfaces (same backend, credits, and hosted 
    - Asset lane: `videodraft generate ...`, `videodraft edit video|motion`, `videodraft avatar ...`, `videodraft upscale ...`, `videodraft interpolate ...`, `videodraft upload`, and `videodraft download`.
    - Full API access: `videodraft tools schema <name>`, `videodraft call <tool> --args '<json>'`.
 2. **MCP connector**: if VideoDraft MCP tools (e.g. `generate_storyboard_from_idea`) are available, call them directly — the CLI's curated commands map 1:1 onto these tools.
-3. **Native editor MCP** (`videodraft_editor`): prefer this for project production, timeline assembly, cutting, layouts, transitions, captions, audio placement, and final export. Inside VideoDraft ADE on a supported Mac, Claude and Codex receive it automatically in both Code and VideoDraft modes. It runs headlessly, so an Open Editor click is not required. Start with `project_control` (`list`, `open`, or `create`); standalone asset generation remains in the cloud CLI or MCP.
+3. **Native editor MCP** (`videodraft_editor`): prefer this for project production, timeline assembly, cutting, layouts, transitions, captions, audio placement, and final export. Inside VideoDraft ADE on a supported Mac, Claude, Codex, OpenCode and Grok receive it automatically in both Code and VideoDraft modes. It runs headlessly, so an Open Editor click is not required. Start with `project_manage` (`operation: "project"`, action `list`, `open`, or `create`); standalone asset generation remains in the cloud CLI or MCP.
 
-Native editor mutations are revision-guarded. Send them serially and carry forward each result's fresh revision. See [references/editor.md](references/editor.md) for project selection, media import, timing units, mutation deltas, verification, export, and the `videodraft-editor` terminal bridge.
+Send native editor edits serially, batching everything a request needs into one `edit_apply` recipe. Pass the latest `context` when a person may be editing at the same time, so a stale write is refused. See [references/editor.md](references/editor.md) for project selection, media import, timing units, edit recipes, verification, export, and the `videodraft-editor` terminal bridge.
 
 If you are reading this skill through `videodraft skills show skill`, run `videodraft skills show editor` before native editor work to load that reference.
 
-**VideoDraft ADE routing rule:** the presence of `videodraft_editor` means the native editor is ready, even when no editor window is visible. Use cloud tools to generate or source assets and, when helpful, scripts or storyboards. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` by default. Import the assets into the native project, assemble there, and call native `export_start`. Use hosted production/export only when the user explicitly asks for the web workflow or the native editor tools are unavailable. Do not silently fall back to hosted production after a native tool error.
+**VideoDraft ADE routing rule:** the presence of `videodraft_editor` means the native editor is ready, even when no editor window is visible. Use cloud tools to generate or source assets and, when helpful, scripts or storyboards. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` by default. Import the assets into the native project, assemble there, and export with native `delivery_manage` `submit`. Use hosted production/export only when the user explicitly asks for the web workflow or the native editor tools are unavailable. Do not silently fall back to hosted production after a native tool error.
 
 ## First decision: asset, hosted project, or native edit?
 
@@ -45,7 +45,7 @@ If you are reading this skill through `videodraft skills show skill`, run `video
 - **A generated multi-scene video / ad / explainer**: when the editor is available, use hosted tools only for any needed script, storyboard, shot planning, or generated assets; stop before hosted production, import the assets, and build/export the native timeline. A hosted project is optional unless the user wants the web project or its storyboard workflow.
 - **A hosted web project or hosted export**: use the hosted pipeline only when the user explicitly asks for it or the native editor is unavailable.
 - **Just a script** (no video asked for): A script-only request creates a script-stage project but stops at the script. Use `videodraft create "..." --script-only`; do not build a storyboard the user didn't ask for.
-- **Iterating on existing work**: identify the surface first. Use `project_control` with `action:'list'` for native projects and `videodraft projects list` only for hosted work. Never create a replacement project just to change an existing one.
+- **Iterating on existing work**: identify the surface first. Use `project_manage` `project` with `action: "list"` for native projects and `videodraft projects list` only for hosted work. Never create a replacement project just to change an existing one.
 
 ## Choose the model from the task
 
@@ -192,7 +192,7 @@ videodraft stock search "city skyline night" --min-duration 5 --orientation land
 URL=$(videodraft stock import pexels:video:35379336 --quality hd --json | jq -r .url)
 ```
 
-- Always two steps. A search result's `preview_url` is a thumbnail for judging the shot; never place it on a timeline, attach it to a shot or send it to a model. `import_stock_media` copies the file onto the VideoDraft CDN and returns the URL every other surface accepts, including the native editor's `media_import`.
+- Always two steps. A search result's `preview_url` is a thumbnail for judging the shot; never place it on a timeline, attach it to a shot or send it to a model. `import_stock_media` copies the file onto the VideoDraft CDN and returns the URL every other surface accepts, including the native editor's `library_manage` import.
 - `--quality hd` (default) caps video at 1080p; `4k` caps at 2160p, `best` takes the largest the provider has, `sd` suits rough cuts. Stills ignore quality and import at full size. Use `--orientation portrait` for 9:16, and `--min-resolution 1920` to drop anything below HD on its long edge.
 - Photos come from Pexels. Pixabay contributes video only, because its full-size image host refuses server-side downloads.
 - Credit the creator and link the provider page when you show results or deliver the finished work; both come back on every result. Skip clips that imply a person or brand endorses the product, and avoid recognisable logos in ads.
@@ -202,7 +202,7 @@ URL=$(videodraft stock import pexels:video:35379336 --quality hd --json | jq -r 
 
 VideoDraft ships no downloader. When the user asks to pull a video from YouTube, Instagram, TikTok, X, LinkedIn or anywhere else, `yt-dlp` on the user's own machine does the work. Check for it with `command -v yt-dlp` before promising anything.
 
-**Present:** pin the format. On its defaults yt-dlp takes the best stream, usually VP9 or AV1 in WebM, which `media_import` rejects (mp4, mov and m4v only). This returns one pre-muxed H.264 + AAC MP4 and needs no ffmpeg:
+**Present:** pin the format. On its defaults yt-dlp takes the best stream, usually VP9 or AV1 in WebM, which the native editor's import rejects (mp4, mov and m4v only). This returns one pre-muxed H.264 + AAC MP4 and needs no ffmpeg:
 
 ```bash
 yt-dlp -f "b[ext=mp4]" -o "media/%(title)s.%(ext)s" "<url>"
@@ -246,9 +246,9 @@ Use the path you saved to: a **workspace-relative** path (`./media/clip.mp4`, or
 When `videodraft_editor` is present:
 
 1. Generate or source the script, storyboard, shot images, clips, voiceovers, music, and other assets through the cloud CLI/MCP as needed.
-2. Call native `project_control` to open or create the `.vdproject`.
-3. Call native `media_import`, wait for imports to become ready, then assemble and refine the timeline with editor tools.
-4. Call native `export_start` and use `export_status` for progress and results.
+2. Call native `project_manage` (`project`, action `open` or `create`) to open or create the `.vdproject`.
+3. Call native `library_manage` `import`, wait for imports to become ready, then assemble and refine the timeline with `edit_apply` recipes.
+4. Call native `delivery_manage` `submit` and use its `jobs` operation for progress and results.
 
 Do not run the hosted production or export steps in this path unless the user explicitly asks for a web production.
 
