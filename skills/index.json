@@ -12,13 +12,13 @@
         },
         {
           "path": "references/editor.md",
-          "sha256": "ea5d90bda3e3274d9b575c1525c31905cbb9d8d06bb777ec98ad42e598695f82",
-          "bytes": 9316
+          "sha256": "f5f3280c4d6d2cbf6f4849ebeeb0857052aa7d605fa1c1ff69a6f46d122e8f3e",
+          "bytes": 23734
         },
         {
           "path": "references/examples.md",
-          "sha256": "fb9dc9221f9dd05d507d691b3c5e988f6a93576091bcf31dbccad77f3d2b9367",
-          "bytes": 10100
+          "sha256": "a899b9cbd890cd4645bbb4ffe23edcf18cd188175f1dbc0a47820643a1ce2112",
+          "bytes": 10103
         },
         {
           "path": "references/models.md",
@@ -32,8 +32,8 @@
         },
         {
           "path": "SKILL.md",
-          "sha256": "b3e588af33ec7fe181da6437d06f629829426503015b64d40b9cf4c4af97a1f2",
-          "bytes": 43168
+          "sha256": "c9ce31ecb4cb216108d33e62b2786a9e1cfedef89a399292fc1c3966e3b26903",
+          "bytes": 43425
         }
       ]
     }

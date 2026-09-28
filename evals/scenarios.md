@@ -288,3 +288,33 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, and quote the default (Fal-tier) rate from `--estimate`.
 - **Must NOT:** add `--no-allow-real-people` when a real person is in the input, or warn that Seedance cannot do real people.
 - **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Add `--no-allow-real-people`, since nothing in the job is a real person.
+
+## A native edit request is one recipe
+
+- **Query:** (in VideoDraft ADE, with the editor MCP) "Open my Launch project, put the intro clip at the start, warm it up a little, add a vignette and a 'Day One' title."
+- **Must:** open it with `project_manage` (`operation: "project"`, `action: "open"`), plan from the snapshot the open returns, then send one `edit_apply` recipe: `place` with `as`, then `grade` (`adjustments.temperature` above 6500), `effects` (`finish.vignette` with a positive `strength`) and `title`, with the later actions naming the clip as `@name`.
+- **Must NOT:** call `edit_snapshot` before the first edit, split the request into several recipes, pass a factor like 1.2 where a grade control takes a signed percent, or fall back to hosted `produce` / `export`.
+
+## "This clip" comes from the user's selection
+
+- **Query:** "Speed this clip up to 2x."
+- **Must:** take a fresh `edit_snapshot` (a one-frame window is enough), act on its `selection.clipIds`, and send `edit_apply` `adjust` with `speed: 2`.
+- **Must NOT:** ask which clip when the snapshot names a selection, or guess from the timeline.
+
+## Caption files go in through the library and out through delivery
+
+- **Query:** "Add the captions from subs.srt, then export the video and a WebVTT file."
+- **Must:** `library_manage` `import` with the `.srt` path (its captions land on a new caption track, not in the library), then `delivery_manage` `submit` once with `mode: "video"` and once with `mode: "vtt"`, and follow both with `delivery_manage` `jobs`. Report any export check findings as warnings on a finished export.
+- **Must NOT:** poll the `.srt` import as media, place it as a clip, or call the export failed because the check found something.
+
+## A re-rendered shot is replaced, not rebuilt
+
+- **Query:** "Swap shot 3 for this new render and keep everything else."
+- **Must:** import the new file, poll `library_manage` `list` until its `generationStatus` is gone, then send `edit_apply` `replace` with the clip and the new `mediaRef` (default `trim: "keep"`), so its timing, grade, effects and keyframes stay.
+- **Must NOT:** remove and re-place the clip, or rebuild its grade by hand.
+
+## An earlier editor follows its own catalog
+
+- **Query:** (the editor's tools include no `edit_apply`) "Trim the first two seconds off the opening clip."
+- **Must:** follow the live tool descriptions and schemas that editor offers, keeping the working rules (serial writes, frames on the timeline, seconds in the source).
+- **Must NOT:** call `project_manage`, `edit_apply` or another v2 tool the catalog does not list.
