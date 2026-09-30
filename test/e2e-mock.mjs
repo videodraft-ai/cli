@@ -250,6 +250,7 @@ const server = http.createServer((req, res) => {
           return toolResult({
             speech_url: `${baseUrl}/file.wav`,
             duration: 2.1,
+            received: args,
           });
         default:
           return toolResult(`Error: Unknown tool ${name}`, true);
@@ -419,7 +420,17 @@ const vo = JSON.parse(
   await run(["generate", "voiceover", "hello", "world", "--json"]),
 );
 assert.match(vo.speech_url, /file\.wav$/);
+assert.equal("mode" in vo.received, false);
 ok("generate voiceover returns speech_url");
+
+const voTurbo = JSON.parse(
+  await run(["generate", "voiceover", "hello", "--mode", "turbo", "--json"]),
+);
+assert.equal(voTurbo.received.mode, "turbo");
+await run(["generate", "voiceover", "hello", "--mode", "fast", "--json"], {
+  expectExit: 2,
+});
+ok("generate voiceover: --mode turbo reaches the tool, bad modes exit 2");
 
 const creditsErr = JSON.parse(
   await run(["generate", "video", "x", "--json"], { expectExit: 4 }),
@@ -604,6 +615,8 @@ const prod = JSON.parse(
     "--captions",
     "--voice",
     "v1",
+    "--voice-mode",
+    "turbo",
     "--json",
   ]),
 );
@@ -611,12 +624,14 @@ assert.equal(prod.received.mode, "full_video");
 assert.equal(prod.received.include_voiceover, false);
 assert.equal(prod.received.show_captions, true);
 assert.equal(prod.received.voice_id, "v1");
+assert.equal(prod.received.voice_mode, "turbo");
 ok("produce: --mode full_video + tri-state flags reach the tool");
 
 // Tri-state captions: unspecified must NOT send show_captions (server default applies).
 const prodDefault = JSON.parse(await run(["produce", "proj_1", "--json"]));
 assert.equal("show_captions" in prodDefault.received, false);
-ok("produce: captions omitted when neither flag is passed");
+assert.equal("voice_mode" in prodDefault.received, false);
+ok("produce: captions and voice mode omitted when their flags are not passed");
 
 const fin = JSON.parse(await run(["finalize", "proj_1", "--json"]));
 assert.equal(fin.finalized, 2);

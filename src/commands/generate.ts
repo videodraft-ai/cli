@@ -60,6 +60,13 @@ const ELEVENLABS_MUSIC_MODELS = [
 ];
 const ELEVENLABS_MUSIC_V1 = "elevenlabs-music-v1";
 const MUSIC_REFERENCE_STRENGTHS = ["low", "medium", "high", "xhigh"];
+/**
+ * ElevenLabs TTS modes. Every ElevenLabs voice runs on Eleven v4: standard is
+ * the default (best quality), turbo is Eleven v4 Turbo (faster, half the
+ * price). Google, OpenAI and cloned custom-* voices ignore the mode.
+ */
+export const VOICEOVER_MODES = ["standard", "turbo"] as const;
+export type VoiceoverMode = (typeof VOICEOVER_MODES)[number];
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -74,6 +81,25 @@ export function normalizeGeminiOmniResolutionOption(
     normalized === "4k"
     ? normalized
     : undefined;
+}
+
+/**
+ * Check an ElevenLabs TTS mode flag (`generate voiceover --mode`, `produce
+ * --voice-mode`, `costs voiceover --mode`). Left out, it stays undefined so
+ * nothing is sent and the server default (standard) applies.
+ */
+export function parseVoiceoverMode(
+  value: unknown,
+  flag: string,
+): VoiceoverMode | undefined {
+  if (value === undefined) return undefined;
+  if (!VOICEOVER_MODES.includes(value as VoiceoverMode)) {
+    throw new CliError(
+      `${flag} must be one of: ${VOICEOVER_MODES.join(", ")}.`,
+      EXIT.USAGE,
+    );
+  }
+  return value as VoiceoverMode;
 }
 
 function inferDubMediaType(
@@ -812,6 +838,24 @@ export async function handleAsyncJob(
   }
 }
 
+export function parseImageColor(value: string): {
+  r: number;
+  g: number;
+  b: number;
+} {
+  if (!/^#?[0-9a-f]{6}$/i.test(value))
+    throw new CliError(
+      "Colors must be six hexadecimal digits, e.g. #7f3f98.",
+      EXIT.USAGE,
+    );
+  const hex = value.replace(/^#/, "");
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
 export function registerGenerateCommands(program: Command): void {
   const generate = program
     .command("generate")
@@ -820,7 +864,7 @@ export function registerGenerateCommands(program: Command): void {
   register3DGenerationCommand(generate);
 
   generate
-    .command("image <prompt...>")
+    .command("image [prompt...]")
     .description("Generate an image (async; waits by default)")
     .option(
       "--model <id|name>",
@@ -835,6 +879,24 @@ export function registerGenerateCommands(program: Command): void {
     .option(
       "--rendering-speed <tier>",
       'Ideogram speed/cost tier, e.g. V4 "Turbo"/"Balanced"/"Quality"',
+    )
+    .option("--temperature <n>", "Nano Banana Pro/2 creativity (0-2)")
+    .option(
+      "--google-search-grounding <true|false>",
+      "Nano Banana Pro/2 Google Search grounding",
+    )
+    .option("--horizontal-angle <degrees>", "Qwen horizontal rotation (0-360)")
+    .option("--vertical-angle <degrees>", "Qwen elevation (-30 to 90)")
+    .option("--zoom <n>", "Qwen zoom (0-10)")
+    .option(
+      "--recraft-color <hex>",
+      "Recraft RGB palette color, e.g. #7f3f98 (repeat up to five)",
+      collect,
+      [],
+    )
+    .option(
+      "--recraft-background <hex>",
+      "Recraft background color, e.g. #ffffff",
     )
     .option("--num <n>", "variations of this prompt in one call (1-4)")
     .option(
@@ -873,6 +935,38 @@ export function registerGenerateCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const prompt = promptWords.join(" ");
+      const imageOptions = {
+        temperature: optionalRangedNumber(
+          opts.temperature,
+          "--temperature",
+          0,
+          2,
+        ),
+        google_search_grounding: optionalBooleanChoice(
+          opts.googleSearchGrounding,
+          "--google-search-grounding",
+        ),
+        horizontal_angle: optionalRangedNumber(
+          opts.horizontalAngle,
+          "--horizontal-angle",
+          0,
+          360,
+        ),
+        vertical_angle: optionalRangedNumber(
+          opts.verticalAngle,
+          "--vertical-angle",
+          -30,
+          90,
+        ),
+        zoom: optionalRangedNumber(opts.zoom, "--zoom", 0, 10),
+        recraft_colors: opts.recraftColor?.length
+          ? opts.recraftColor.map(parseImageColor)
+          : undefined,
+        recraft_background_color: opts.recraftBackground
+          ? parseImageColor(opts.recraftBackground)
+          : undefined,
+      };
+      const imageSeed = optionalSeed(opts.seed);
 
       if (opts.estimate) {
         await printEstimate(ctx, {
@@ -911,6 +1005,7 @@ export function registerGenerateCommands(program: Command): void {
       const submitted = await ctx.client.callTool(
         "generate_image",
         compact({
+          ...imageOptions,
           prompt,
           model: opts.model,
           aspect_ratio: opts.ar,
@@ -918,7 +1013,7 @@ export function registerGenerateCommands(program: Command): void {
           quality: opts.quality,
           rendering_speed: opts.renderingSpeed,
           num_images: opts.num ? Number(opts.num) : undefined,
-          seed: opts.seed ? Number(opts.seed) : undefined,
+          seed: imageSeed,
           reference_images: refs.length > 0 ? refs : undefined,
           video_url: videoRef,
           style: opts.style,
@@ -949,7 +1044,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--duration <seconds>", "clip duration in seconds")
     .option(
       "--auto-duration",
-      "Wan 3.0 only: provider selects 2-30s; reserves 30s and reconciles unused credits",
+      "Wan 3.0, Seedance 2/2.5, FLUX 3 or Gemini Omni: automatic duration, reserves the model ceiling and reconciles unused credits",
     )
     .option("--resolution <res>", 'e.g. "360p", "720p", "1080p", "2K", "4K"')
     .option(
@@ -1023,6 +1118,7 @@ export function registerGenerateCommands(program: Command): void {
       collect,
       [],
     )
+    .option("--cfg-scale <n>", "Kling 3.0/2.5 Pro prompt adherence (0-1)")
     .option("--negative <text>", "negative prompt (Kling/Luma; not Wan 3.0)")
     .option("--camera-fixed", "Seedance 1.5 Pro: lock camera motion")
     .option(
@@ -1035,7 +1131,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--safety-checker <true|false>",
-      "MiniMax H3 Max only: opt into provider safety checking (off by default)",
+      "MiniMax H3 Max / Happy Horse: opt into provider safety checking (off by default)",
     )
     .option(
       "--thinking",
@@ -1145,6 +1241,35 @@ export function registerGenerateCommands(program: Command): void {
         );
       }
       const seed = optionalSeed(opts.seed);
+      const cfgScale = optionalRangedNumber(opts.cfgScale, "--cfg-scale", 0, 1);
+      if (
+        cfgScale !== undefined &&
+        !["kling-3.0", "kling-2.5-pro"].includes(opts.model)
+      )
+        throw new CliError(
+          "--cfg-scale requires --model kling-3.0 or kling-2.5-pro.",
+          EXIT.USAGE,
+        );
+      if (opts.autoDuration && duration !== undefined)
+        throw new CliError(
+          "--auto-duration and --duration are mutually exclusive.",
+          EXIT.USAGE,
+        );
+      const isFlux3Request = ["flux-3", "flux3", "flux_3"].includes(opts.model);
+      const flux3FixedFrameMode =
+        isFlux3Request &&
+        (Boolean(opts.startImage && opts.endImage) ||
+          (opts.keyframe?.length ?? 0) > 0);
+      if (
+        isFlux3Request &&
+        opts.autoDuration &&
+        (opts.endImage || (opts.keyframe?.length ?? 0) > 0)
+      )
+        throw new CliError(
+          "FLUX 3 --auto-duration supports only text and first-frame generation.",
+          EXIT.USAGE,
+        );
+
       const rawElements = parseKlingElements(opts.element ?? []);
       const voiceIds = (opts.voiceId ?? []) as string[];
       const segments = parseSegments(opts.segment ?? []);
@@ -1194,7 +1319,17 @@ export function registerGenerateCommands(program: Command): void {
         );
       }
       const hasWan3OnlyControls =
-        opts.autoDuration === true ||
+        (opts.autoDuration === true &&
+          ![
+            "seedance-2",
+            "seedance2",
+            "seedance-2.5",
+            "seedance25",
+            "flux-3",
+            "flux3",
+            "flux_3",
+            "gemini-omni-1.1-flash",
+          ].includes(opts.model)) ||
         promptExpansion !== undefined ||
         opts.thinking === true ||
         Boolean(opts.fileUrl) ||
@@ -1669,9 +1804,13 @@ export function registerGenerateCommands(program: Command): void {
           EXIT.USAGE,
         );
       }
-      if (opts.model !== "minimax-h3-max" && hasH3MaxOnlyControls) {
+      if (
+        opts.model !== "minimax-h3-max" &&
+        (promptExpansionMode !== undefined ||
+          (safetyChecker !== undefined && opts.model !== "happy-horse"))
+      ) {
         throw new CliError(
-          "--prompt-expansion-mode and --safety-checker are supported only by --model minimax-h3-max.",
+          "--prompt-expansion-mode requires --model minimax-h3-max; --safety-checker supports minimax-h3-max and happy-horse.",
           EXIT.USAGE,
         );
       }
@@ -1981,15 +2120,20 @@ export function registerGenerateCommands(program: Command): void {
             : undefined;
         const estimateDuration =
           (segments.length > 0 ? segmentDuration : duration) ??
-          (estimateModel === "grok-imagine-video-1.5"
-            ? Array.isArray(opts.ref) && opts.ref.length > 0
-              ? 8
-              : 6
-            : !opts.model && estimateModel === "google-veo3.1"
+          // The generic FLUX quote assumes text/first-frame auto generation.
+          // Fixed-frame modes instead default to five seconds in the MCP
+          // request builder, and their mode is not sent to get_model_costs.
+          (flux3FixedFrameMode
+            ? 5
+            : estimateModel === "grok-imagine-video-1.5"
               ? Array.isArray(opts.ref) && opts.ref.length > 0
                 ? 8
                 : 6
-              : undefined);
+              : !opts.model && estimateModel === "google-veo3.1"
+                ? Array.isArray(opts.ref) && opts.ref.length > 0
+                  ? 8
+                  : 6
+                : undefined);
         await printEstimate(ctx, {
           model: estimateModel,
           type: "video",
@@ -2223,6 +2367,7 @@ export function registerGenerateCommands(program: Command): void {
           multi_prompt: segments.length > 0 ? segments : undefined,
           keyframes: keyframes.length > 0 ? keyframes : undefined,
           negative_prompt: opts.negative,
+          cfg_scale: cfgScale,
           camera_fixed: opts.cameraFixed ? true : undefined,
           seed,
           project_id: opts.project,
@@ -2400,10 +2545,16 @@ export function registerGenerateCommands(program: Command): void {
 
   generate
     .command("voiceover <text...>")
-    .description("Generate TTS audio (synchronous — returns an audio URL)")
+    .description(
+      "Generate TTS audio (synchronous, returns an audio URL). ElevenLabs voices run on Eleven v4",
+    )
     .option(
       "--voice <id>",
       "TTS voice ID; accepts raw ElevenLabs IDs or elevenlabs-<id>, including voices outside `videodraft models voices`; must be accessible to the provider account",
+    )
+    .option(
+      "--mode <standard|turbo>",
+      "ElevenLabs voices only: standard (default; Eleven v4, best quality, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, faster, 5 credits per 1000 chars). Google, OpenAI and cloned custom-* voices ignore it",
     )
     .option("--language <bcp47>", 'target language, default "en"')
     .option("--project <id>", "attach to a project")
@@ -2420,12 +2571,14 @@ export function registerGenerateCommands(program: Command): void {
     .action(async function (this: Command, textWords: string[]) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
+      const mode = parseVoiceoverMode(opts.mode, "--mode");
       capture("cli_generate", { kind: "voiceover" });
       const result: any = await ctx.client.callTool(
         "generate_voiceover",
         compact({
           text: textWords.join(" "),
           voice_id: opts.voice,
+          mode,
           target_language: opts.language,
           project_id: opts.project,
           session_id: sessionArg(this, opts),
@@ -3045,7 +3198,7 @@ export function registerGenerateCommands(program: Command): void {
   upscale
     .command("image <url|file>")
     .description(
-      "Enhance or upscale an existing image with Topaz (synchronous)",
+      "Enhance or upscale an existing image with Topaz (waits by default)",
     )
     .option("--scale <factor>", '"1x" | "2x" | "4x" (default 2x)')
     .option(
@@ -3085,6 +3238,10 @@ export function registerGenerateCommands(program: Command): void {
       process.env.VIDEODRAFT_SESSION,
     )
     .option("--download <path>", "download the result")
+    .option(
+      "--no-wait",
+      "return a job ID immediately when the server queues the upscale",
+    )
     .action(async function (this: Command, source: string) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
@@ -3114,6 +3271,14 @@ export function registerGenerateCommands(program: Command): void {
           session_id: sessionArg(this, opts),
         }),
       );
+      if (result?.job_id || result?.jobId) {
+        await handleAsyncJob(ctx, result, {
+          wait: opts.wait !== false,
+          download: opts.download,
+          label: "Upscaling image",
+        });
+        return;
+      }
       const urls = extractOutputUrls(result);
       let downloaded: DownloadedFile[] | undefined;
       if (opts.download && urls.length > 0) {

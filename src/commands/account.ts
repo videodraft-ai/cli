@@ -7,6 +7,50 @@ import { buildContext, compact } from "../cli/context.js";
 import { emit, kv, note, table } from "../cli/output.js";
 import { UsageError } from "../core/errors.js";
 import { resetAllConnectionSessions } from "../core/session.js";
+import { parseVoiceoverMode } from "./generate.js";
+
+/** get_model_costs ids for the standard voiceover (TTS) rate. */
+const VOICEOVER_COST_MODELS = ["voiceover", "tts", "speech", "text-to-speech"];
+/** Ids for the cloned custom-* voice rate. Cloned voices have no Turbo mode. */
+const CLONED_VOICEOVER_COST_MODELS = [
+  "voiceover-cloned",
+  "cloned-voice",
+  "custom-voice",
+];
+/** Ids that already quote the ElevenLabs Turbo (Eleven v4 Turbo) rate. */
+const TURBO_VOICEOVER_COST_MODELS = ["voiceover-turbo", "tts-turbo"];
+
+/**
+ * On a voiceover model id, `costs --mode` picks the ElevenLabs TTS mode
+ * instead of a Topaz mode: turbo quotes "voiceover-turbo" and standard keeps
+ * the id as given. Returns undefined for every other model, whose --mode is
+ * forwarded unchanged.
+ */
+export function voiceoverCostModelId(
+  model: string | undefined,
+  mode: string | undefined,
+): string | undefined {
+  if (!model) return undefined;
+  const cloned = CLONED_VOICEOVER_COST_MODELS.includes(model);
+  const turbo = TURBO_VOICEOVER_COST_MODELS.includes(model);
+  if (!cloned && !turbo && !VOICEOVER_COST_MODELS.includes(model)) {
+    return undefined;
+  }
+  const voiceMode = parseVoiceoverMode(mode, "--mode for a voiceover estimate");
+  if (cloned && voiceMode === "turbo") {
+    throw new UsageError(
+      `Cloned custom-* voices have no Turbo mode, so ${model} cannot take --mode turbo.`,
+      'Drop --mode for the cloned rate, or run "costs voiceover --mode turbo" for ElevenLabs Turbo.',
+    );
+  }
+  if (turbo && voiceMode === "standard") {
+    throw new UsageError(
+      `${model} already quotes Turbo, so it cannot take --mode standard.`,
+      'Run "costs voiceover" for the standard rate.',
+    );
+  }
+  return voiceMode === "turbo" && !turbo ? "voiceover-turbo" : model;
+}
 
 export function registerAccountCommands(program: Command): void {
   program
@@ -42,7 +86,7 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--chars <n>",
-      'character count (ElevenLabs Dialogue, or voiceover TTS via model id "voiceover")',
+      'character count (ElevenLabs Dialogue, or voiceover TTS via model id "voiceover", "voiceover-cloned" or "voiceover-turbo")',
     )
     .option("--resolution <res>", 'e.g. "720p", "1080p", "1K", "2K"')
     .option("--quality <tier>", 'e.g. "standard", "pro", "fast"')
@@ -87,7 +131,7 @@ export function registerAccountCommands(program: Command): void {
     .option("--fps <n>", "Topaz: delivered / target frame rate")
     .option(
       "--mode <mode>",
-      "Topaz upscale mode: generative | precision | creative",
+      "Topaz upscale mode: generative | precision | creative. For voiceover, the ElevenLabs TTS mode: standard (Eleven v4, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, 5 credits per 1000 chars)",
     )
     .option(
       "--topaz-model <name>",
@@ -120,10 +164,11 @@ export function registerAccountCommands(program: Command): void {
         topazModel?: string;
         slowdown?: string;
       }>();
+      const voiceoverModelId = voiceoverCostModelId(model, opts.mode);
       const result: any = await ctx.client.callTool(
         "get_model_costs",
         compact({
-          model_id: model,
+          model_id: voiceoverModelId ?? model,
           type: opts.type,
           duration_seconds: opts.duration ? Number(opts.duration) : undefined,
           length_seconds: opts.length ? Number(opts.length) : undefined,
@@ -151,7 +196,8 @@ export function registerAccountCommands(program: Command): void {
               ? opts.resolution.toLowerCase()
               : undefined,
           target_fps: opts.fps ? Number(opts.fps) : undefined,
-          mode: opts.mode,
+          // A voiceover's --mode is already folded into its model id.
+          mode: voiceoverModelId ? undefined : opts.mode,
           topaz_model: opts.topazModel,
           slowdown_factor: opts.slowdown ? Number(opts.slowdown) : undefined,
         }),

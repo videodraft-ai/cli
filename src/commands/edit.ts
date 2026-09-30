@@ -90,6 +90,17 @@ export function registerEditCommands(program: Command): void {
       "--model <id>",
       "gemini-omni-1.1-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
     )
+    .option(
+      "--element <json|@file>",
+      "Kling O3 image-only element (repeatable)",
+      collect,
+      [],
+    )
+    .option("--seed <n>", "Happy Horse Video Edit reproducibility seed")
+    .option(
+      "--safety-checker <true|false>",
+      "Happy Horse Video Edit provider safety checker",
+    )
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
       "--ref-video <url|file>",
@@ -129,6 +140,39 @@ export function registerEditCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const model = validateEditModel(opts.model);
+      const rawElements = parseKlingElements(opts.element ?? []);
+      if (
+        rawElements.length &&
+        (model !== "kling-o3-video-ref-edit" ||
+          rawElements.some((e) => e.video_url || e.voice_id))
+      )
+        throw new UsageError(
+          "--element requires Kling O3 Video Ref/Edit and image-only elements without voice_id.",
+        );
+      if (
+        rawElements.length + (opts.ref?.length ?? 0) > 4 &&
+        model === "kling-o3-video-ref-edit"
+      )
+        throw new UsageError(
+          "Kling O3 accepts at most 4 combined elements and reference images.",
+        );
+      const editSeed = opts.seed === undefined ? undefined : Number(opts.seed);
+      if (
+        editSeed !== undefined &&
+        (model !== "happy-horse-video-edit" || !Number.isSafeInteger(editSeed))
+      )
+        throw new UsageError(
+          "--seed requires Happy Horse Video Edit and a safe integer.",
+        );
+      if (
+        opts.safetyChecker !== undefined &&
+        (model !== "happy-horse-video-edit" ||
+          !["true", "false"].includes(opts.safetyChecker))
+      )
+        throw new UsageError(
+          "--safety-checker requires Happy Horse Video Edit and true or false.",
+        );
+
       const duration = positiveNumber(opts.duration, "--duration");
       const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
       const shotIndex = nonNegativeInteger(opts.shot, "--shot");
@@ -197,10 +241,7 @@ export function registerEditCommands(program: Command): void {
           'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4k".',
         );
       }
-      if (
-        (!model || model === "gemini-omni-1.1-flash") &&
-        opts.resolution
-      ) {
+      if ((!model || model === "gemini-omni-1.1-flash") && opts.resolution) {
         const normalizedResolution = normalizeGeminiOmniResolutionOption(
           opts.resolution,
         );
@@ -208,7 +249,8 @@ export function registerEditCommands(program: Command): void {
       }
       if (
         opts.preserveAudio &&
-        (model === "grok-imagine-video-edit" || model === "gemini-omni-1.1-flash")
+        (model === "grok-imagine-video-edit" ||
+          model === "gemini-omni-1.1-flash")
       ) {
         throw new UsageError(
           `${model} does not expose source-audio preservation.`,
@@ -243,11 +285,13 @@ export function registerEditCommands(program: Command): void {
           "--duration is estimate-only for video edits. Submitted edits follow the source and model duration.",
         );
       }
-      const [[videoUrl], referenceImages, referenceVideos] = await Promise.all([
-        resolveRefs(ctx, [videoSource]),
-        resolveRefs(ctx, opts.ref ?? []),
-        resolveRefs(ctx, opts.refVideo ?? []),
-      ]);
+      const [[videoUrl], referenceImages, referenceVideos, elements] =
+        await Promise.all([
+          resolveRefs(ctx, [videoSource]),
+          resolveRefs(ctx, opts.ref ?? []),
+          resolveRefs(ctx, opts.refVideo ?? []),
+          resolveKlingElements(ctx, rawElements),
+        ]);
       capture("cli_edit", {
         kind: "video",
         model: model ?? "auto",
@@ -256,6 +300,12 @@ export function registerEditCommands(program: Command): void {
       const submitted = await ctx.client.callTool(
         "edit_video",
         compact({
+          ...(elements.length ? { elements } : {}),
+          seed: editSeed,
+          enable_safety_checker:
+            opts.safetyChecker === undefined
+              ? undefined
+              : opts.safetyChecker === "true",
           model,
           prompt: promptWords.join(" ").trim(),
           video_url: videoUrl,

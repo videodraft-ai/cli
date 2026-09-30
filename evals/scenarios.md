@@ -318,3 +318,16 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (the editor's tools include no `edit_apply`) "Trim the first two seconds off the opening clip."
 - **Must:** follow the live tool descriptions and schemas that editor offers, keeping the working rules (serial writes, frames on the timeline, seconds in the source).
 - **Must NOT:** call `project_manage`, `edit_apply` or another v2 tool the catalog does not list.
+
+## A quick or cheap voiceover uses Turbo
+
+- **Query:** "Read this long script as a quick draft voiceover, and keep it cheap."
+- **Must:** keep the ElevenLabs voice and run `videodraft generate voiceover ... --mode turbo`; quote 5 credits per 1000 characters (`videodraft costs voiceover --chars <n> --mode turbo`).
+- **Must NOT:** switch to a Google or OpenAI voice to save credits, or pass `--mode` with a cloned `custom-*` voice.
+- **Companion query:** "Now the final version in the best quality." Run it without `--mode`, so Standard (Eleven v4) applies.
+
+## A personal provider key stays exclusive
+
+- **Query:** (the user's Pika key is selected in Settings) "Make a GPT Image 2.5 poster for my bakery."
+- **Must:** pass an explicit `--quality` (`low`, `medium`, `high`, `xhigh` or `max`), since that connection has no `auto`; if the server still reports the model or a setting as unsupported, tell the user.
+- **Must NOT:** retry on VideoDraft credits or another key, drop a requested control, or switch models just to get the job accepted.

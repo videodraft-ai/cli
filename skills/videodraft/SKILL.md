@@ -15,6 +15,19 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 
 ## How to connect
 
+Generation billing is selected in VideoDraft Settings → API keys. Where enabled,
+**VideoDraft routing** chooses an equivalent provider internally without changing
+the quoted customer credit price. A selected personal key is exclusive: never
+switch to VideoDraft credits or another key after an unsupported-model or
+provider error. Keep the canonical VideoDraft model ID in CLI/MCP calls. Poll
+the original generation after a timeout instead of starting another paid job.
+New provider connections can support only a subset of models and settings;
+follow the server's availability response. ElevenLabs remains audio-only.
+For Pika GPT Image 2.5, supply an explicit quality (`low`, `medium`, `high`,
+`xhigh`, or `max`); `auto` is not supported by that connection. Nano Banana 2
+Lite is 1K only. Never remove requested controls or substitute a different
+model merely to make a personal connection accept the job.
+
 Cloud generation has two equivalent surfaces (same backend, credits, and hosted projects). Native timeline editing is a separate local surface:
 
 1. **CLI** (preferred when you have a shell): run `videodraft` if it's on PATH; otherwise `npx -y videodraft@latest` runs it with no install (needs Node ≥20; the `-y` skips npx's install prompt so it runs non-interactively; the package is fetched on first use and cached). For heavy use, `npm install -g videodraft`. If there's no Node/shell here but the MCP connector below is available, use that instead; if neither works, tell the user how to install (https://videodraft.ai/cli).
@@ -102,6 +115,7 @@ Every `videodraft models image|video|audio --json` entry carries `tier` (1 or 2)
 
 - Use Seed Audio 1.0 for open-ended text-to-audio, speech/music/sound synthesis, voice conditioning, or prompt-driven editing with up to three audio references or one image. Use `videodraft generate audio`. Reference clips are `@Audio1`, `@Audio2`, and `@Audio3` in array order. There is no duration input. Output is up to two minutes and settles at 19 credits per actual minute, with up to 38 credits reserved during generation. The CLI automatically retries transient responses with one operation key. To recover after the CLI process itself is interrupted, set `--idempotency-key <uuid>` on the original command and reuse it.
 - Prefer ElevenLabs for voiceover, dialogue, voice changing, dubbing, and sound effects. Honor an explicitly selected supported TTS voice/provider. Use `lyria-3.5` for all music, short or long (up to ~3 minutes, 10 credits flat), with vocals/lyrics or instrumental arrangements. When `--model` is omitted the CLI sends no model and the server default applies, which is `lyria-3.5` wherever the backend supports it. If the server answers that `lyria-3.5` is an unknown model, that backend predates it: rerun without `--model` (the server default then applies), or use `lyria-3-pro-preview` for a track longer than 30 seconds. Ask for the length in the prompt. Keep `lyria-3-clip-preview` (fixed ~30s, 4 credits) and `lyria-3-pro-preview` (8 credits) for explicit requests. For Lyria, put desired length, lyrics and "instrumental only, no vocals" in the prompt; `--length` and `--instrumental` are ElevenLabs-only. Use ElevenLabs Music for exact timing, composition plans, or a style reference track. Lyria allows 10 reference images on Google, 1 on Fal BYOK; Fal 3.5 prompts are limited to 5000 characters. BYOK uses zero VideoDraft credits. ElevenLabs Music means `elevenlabs-music-v2.5` (`elevenlabs-music` is an alias for it); use `elevenlabs-music-v1` only when the user asks for v1 by name.
+- ElevenLabs voiceover runs on Eleven v4 in two modes. Standard is the default and the best quality, at 10 credits per 1000 characters. Turbo (Eleven v4 Turbo) is faster, at 5 credits per 1000 characters. Keep Standard unless the user wants faster or cheaper speech. Pick it with `generate voiceover --mode standard|turbo`, `produce --voice-mode standard|turbo`, or MCP `generate_voiceover.mode` / `produce_project.voice_mode`, and quote Turbo with `costs voiceover --chars <n> --mode turbo`. Google, OpenAI and cloned `custom-*` voices ignore the mode (cloned voices cost 30 per 1000). v4 has no style or speed settings and no SSML `<break>` tags; audio tags such as `[whispers]` work. Dialogue stays on Eleven v3.
 - For ElevenLabs voiceover, dialogue, and voice changing, accept a supplied raw voice ID (16-64 alphanumeric characters) or `elevenlabs-<id>`. The voice catalog is for discovery, not an allowlist. Do not reject or substitute a supplied ID because it is absent from `videodraft models voices` / `list_available_voices`. Use `--voice <id>` for voiceover and voice changing, or repeat `--line "<id>:Text"` for dialogue; for example, `--voice kPzsL2i3teMYv0FxEYQ6` and `--line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Hello."` use the same voice. The voice must be accessible to the provider account used for generation. Private or cloned voices may require the user's connected ElevenLabs key. Kling video-control IDs and MiniMax `custom-*` IDs are separate voice systems.
 - A character who needs to TALK:
   - **Speaking inside a scene**, or any ordinary clip with dialogue: `generate video` with the line in the prompt, in quotes, with who says it and how. `gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0` and `kling-o3` all voice it natively. For a specific voice use a Seedance `--ref-audio` clip or a Kling voice bound per element. This is the default path; do not generate speech separately and lip-sync it on.
@@ -110,6 +124,18 @@ Every `videodraft models image|video|audio --json` entry carries `tier` (1 or 2)
 - Enhancement: use Topaz image/video upscaling only when the content is already correct. Use image 1x for cleanup, 2x by default, 4x when justified; use video 2x by default. Edit or regenerate creative errors.
 
 See [references/models.md](references/models.md) for the detailed routing table and exact capability limits.
+
+Provider routing uses a maintained local price catalog, with exact setting compatibility and account rules. Platform requests prefer Google's direct image/video APIs and BytePlus for Seedance 2.0/2.5 before comparing public prices. Seedance 1.5 retains its existing Replicate primary; other models remain price-based. Agents should keep using normal model IDs and `get_model_costs` / `--estimate` for customer credits. Do not choose a vendor from a marketing starting price or retry an accepted generation to chase a lower price. Unknown or expired comparable costs retain the existing route; a selected personal provider key stays exclusive and overrides platform-account preferences.
+
+Temporary provider promotions are excluded from routing prices. With an Atlas personal key, H3 Max supports text or first/last-frame generation at 480P/768P only with `prompt_expansion_mode: "disabled"` and no seed. Balanced/quality expansion, reference generation and H3 Max Lip Sync require the existing Fal path. Atlas H3 Max is not selected automatically while its published price units remain inconsistent.
+
+## Matching AI Studio controls
+
+Use `models image --json` / `models video --json` for the accepted options. Nano Banana Pro/2 expose `--temperature 0..2` and `--google-search-grounding true|false`. Qwen uses one `--ref` plus `--horizontal-angle 0..360`, `--vertical-angle -30..90`, and `--zoom 0..10`; its text prompt is optional. Recraft generates SVG and accepts `--quality Normal|Pro`, repeatable `--recraft-color '#RRGGBB'`, and `--recraft-background '#RRGGBB'`. Original Nano Banana and VideoDraft Image use fixed 1K output.
+
+Kling 3.0 / 2.5 Pro accept `--cfg-scale 0..1` and `--negative ""` to clear a negative prompt. Seedance 2/2.5, Wan 3.0, FLUX 3 text/first-frame and Gemini Omni generation accept `--auto-duration`; do not combine it with `--duration`. FLUX 3 auto reserves 20 seconds, so its default estimate includes that ceiling. `--model sora-2 --quality pro --resolution 1080p` selects Sora Pro. Kling O3 reference/edit modes accept image-only `--element` objects, at most four combined with `--ref`. Grok v1 accepts image references for clips up to 10 seconds.
+
+Topaz image results may be immediate or queued. The CLI waits by default and downloads either result with `--download`; `--no-wait` returns a queued job ID. Raw MCP callers must poll `check_generation_status` when `upscale_image` returns `job_id`.
 
 ## Prefer references when continuity matters
 

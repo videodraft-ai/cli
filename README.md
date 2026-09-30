@@ -46,6 +46,7 @@ videodraft generate video --model gemini-omni-1.1-flash --previous-interaction-i
 videodraft generate audio "Read this in a calm documentary voice" --voice vivi_mixed_en_zh_ja_es_id --download narration.mp3
 videodraft generate audio "Extend @Audio1 with soft rain" --ref-audio ./opening.wav --download extended.wav --format wav
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3
+videodraft generate voiceover "Welcome to VideoDraft" --mode turbo --download welcome.mp3 # Eleven v4 Turbo: faster, 5 credits per 1000 chars
 videodraft generate music "minimal ambient, 60 BPM" --download bgm.mp3
 videodraft generate sound-effect "cinematic whoosh, sub hit" --duration 3 --download sfx.mp3
 videodraft generate dialogue --line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Ready?" --line "elevenlabs-s3TPKV1kjDlVtZbl4Ksh:Let's go." --download dialogue.mp3
@@ -125,6 +126,7 @@ videodraft create "<idea>" --ar 9:16            # idea → script → visual ass
 videodraft shots <project> --grid --estimate    # preview the cost…
 videodraft shots <project> --grid               # …then batch-generate every shot image
 videodraft produce <project>                    # voiceovers + captions + production timeline
+videodraft produce <project> --voice-mode turbo  # ElevenLabs narration on Eleven v4 Turbo (faster, cheaper)
 videodraft produce <project> --mode full_video   # one Seedance video per scene
 videodraft export <project> --download final.mp4
 ```
