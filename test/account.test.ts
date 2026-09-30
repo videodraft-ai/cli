@@ -119,6 +119,95 @@ describe("costs --allow-real-people", () => {
   });
 });
 
+describe("costs voiceover --mode", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({ cost: 4 });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  it("quotes ElevenLabs Turbo through the voiceover-turbo model id", async () => {
+    await runAccount([
+      "costs",
+      "voiceover",
+      "--type",
+      "audio",
+      "--chars",
+      "800",
+      "--mode",
+      "turbo",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "voiceover-turbo",
+      type: "audio",
+      characters: 800,
+    });
+  });
+
+  it("keeps the standard, cloned and turbo ids and never forwards the TTS mode", async () => {
+    await runAccount(["costs", "voiceover", "--chars", "800"]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith("get_model_costs", {
+      model_id: "voiceover",
+      characters: 800,
+    });
+
+    await runAccount(["costs", "tts", "--chars", "800", "--mode", "standard"]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith("get_model_costs", {
+      model_id: "tts",
+      characters: 800,
+    });
+
+    await runAccount(["costs", "tts", "--mode", "turbo"]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith("get_model_costs", {
+      model_id: "voiceover-turbo",
+    });
+
+    await runAccount(["costs", "voiceover-cloned", "--mode", "standard"]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith("get_model_costs", {
+      model_id: "voiceover-cloned",
+    });
+
+    await runAccount(["costs", "voiceover-turbo", "--mode", "turbo"]);
+    expect(mocks.callTool).toHaveBeenLastCalledWith("get_model_costs", {
+      model_id: "voiceover-turbo",
+    });
+  });
+
+  it.each<[string[], string]>([
+    [["voiceover-cloned", "--mode", "turbo"], "have no Turbo mode"],
+    [["custom-voice", "--mode", "turbo"], "have no Turbo mode"],
+    [["voiceover-turbo", "--mode", "standard"], "already quotes Turbo"],
+    [
+      ["voiceover", "--mode", "generative"],
+      "--mode for a voiceover estimate must be one of: standard, turbo.",
+    ],
+  ])("refuses costs %j", async (args, message) => {
+    await expect(runAccount(["costs", ...args])).rejects.toMatchObject({
+      exitCode: 2,
+      message: expect.stringContaining(message),
+    });
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("still forwards --mode unchanged for other models", async () => {
+    await runAccount([
+      "costs",
+      "topaz-upscale-video",
+      "--type",
+      "video",
+      "--mode",
+      "generative",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "topaz-upscale-video",
+      type: "video",
+      mode: "generative",
+    });
+  });
+});
+
 describe("sessions name", () => {
   beforeEach(() => {
     mocks.callTool.mockReset();

@@ -5,6 +5,55 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-09-30
+
+### Added
+
+- ElevenLabs voiceover modes. ElevenLabs voices run on Eleven v4, and
+  `generate voiceover --mode standard|turbo` picks the variant: Standard (the
+  default, best quality, 10 credits per 1000 characters) or Turbo (Eleven v4
+  Turbo, faster, 5 credits per 1000 characters). `produce --voice-mode
+  standard|turbo` does the same for production narration, and `costs voiceover
+  --chars <n> --mode turbo` quotes the Turbo rate (model id `voiceover-turbo`).
+  Google, OpenAI and cloned `custom-*` voices ignore the mode, and
+  `costs voiceover-cloned --mode turbo` is refused. Each flag is sent only when
+  given, so the server default applies otherwise.
+- AI Studio controls on `generate image`: `--temperature 0..2` and
+  `--google-search-grounding true|false` for Nano Banana Pro and 2;
+  `--horizontal-angle`, `--vertical-angle` and `--zoom` for Qwen multi-angle,
+  whose text prompt is now optional; `--recraft-color` (up to five) and
+  `--recraft-background` for Recraft.
+- `generate video`: `--cfg-scale 0..1` for Kling 3.0 and 2.5 Pro.
+  `--auto-duration` now also covers Seedance 2 and 2.5, FLUX 3 text and
+  first-frame generation, and Gemini Omni; it reserves the model's maximum and
+  returns unused credits. `--safety-checker` also covers Happy Horse.
+- `edit video`: `--element` for Kling O3 Video Ref/Edit (image-only elements, at
+  most four together with `--ref`), plus `--seed` and `--safety-checker` for
+  Happy Horse Video Edit.
+- `upscale image` waits for a queued result and downloads it with `--download`;
+  `--no-wait` returns the job ID to poll with `status` or `wait`.
+
+### Changed
+
+- Agent skill: generation billing follows VideoDraft Settings, API keys.
+  VideoDraft routing may run an equivalent provider without changing the quoted
+  credit price, and a selected personal key is exclusive, so agents never switch
+  payer or model after a provider error. Pika's GPT Image 2.5 needs an explicit
+  quality, and Nano Banana 2 Lite is 1K only.
+- Agent skill: ElevenLabs voiceover runs on Eleven v4 in Standard or Turbo mode.
+  v4 has no style or speed settings and no SSML, and dialogue stays on
+  Eleven v3.
+- Agent skill: covers the new AI Studio controls and queued Topaz image results.
+
+### Compatibility
+
+- Voiceover modes need the VideoDraft backend deployment with Eleven v4. Until
+  it is live, the server ignores `mode` and `voice_mode` and runs its standard
+  voiceover, and `costs ... --mode turbo` reports `voiceover-turbo` as
+  unsupported. The other additions work against the current backend.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.25.2] - 2026-09-28
 
 ### Changed

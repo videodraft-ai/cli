@@ -27,6 +27,7 @@ import {
   seedanceRetryPreservedHint,
   seedanceUnresolvedSubmissionHint,
 } from "../core/errors.js";
+import { parseVoiceoverMode } from "./generate.js";
 
 /** URL passes through; a bare local path is uploaded to the CDN first. */
 async function resolveMedia(
@@ -305,12 +306,17 @@ export function registerPipelineCommands(program: Command): void {
       "per-shot clip length for silent/no-voiceover scenes (default 3)",
     )
     .option("--voice <id>", "TTS voice id for voiceovers")
+    .option(
+      "--voice-mode <standard|turbo>",
+      "ElevenLabs narration voices only: standard (default; Eleven v4, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, faster, 5 credits per 1000 chars)",
+    )
     .option("--language <bcp47>", "voiceover + caption language")
     .option("--captions", "force burn captions")
     .option("--no-captions", "force no captions (default follows voiceover)")
     .action(async function (this: Command, projectId: string) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
+      const voiceMode = parseVoiceoverMode(opts.voiceMode, "--voice-mode");
       // Tri-state captions: only send when the user explicitly set --captions/--no-captions.
       const captionsSrc = this.getOptionValueSource("captions");
       capture("cli_produce", { mode: opts.mode ?? "animatic" });
@@ -337,6 +343,7 @@ export function registerPipelineCommands(program: Command): void {
               ? Number(opts.shotDuration)
               : undefined,
             voice_id: opts.voice,
+            voice_mode: voiceMode,
             language: opts.language,
             show_captions: captionsSrc === "cli" ? opts.captions : undefined,
           }),

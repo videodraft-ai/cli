@@ -184,6 +184,52 @@ describe("produce --allow-real-people", () => {
   });
 });
 
+describe("produce --voice-mode", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({ status: "production" });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("forwards the ElevenLabs narration mode as voice_mode", async () => {
+    await runPipeline([
+      "produce",
+      "project_1",
+      "--voice",
+      "elevenlabs-kPzsL2i3teMYv0FxEYQ6",
+      "--voice-mode",
+      "turbo",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("produce_project", {
+      project_id: "project_1",
+      voice_id: "elevenlabs-kPzsL2i3teMYv0FxEYQ6",
+      voice_mode: "turbo",
+    });
+  });
+
+  it("omits voice_mode by default so the server default (standard) applies", async () => {
+    await runPipeline(["produce", "project_1"]);
+
+    const [, args] = mocks.callTool.mock.calls[0]!;
+    expect(args).not.toHaveProperty("voice_mode");
+  });
+
+  it("refuses an unknown mode before producing anything", async () => {
+    await expect(
+      runPipeline(["produce", "project_1", "--voice-mode", "fast"]),
+    ).rejects.toMatchObject({
+      exitCode: 2,
+      message: "--voice-mode must be one of: standard, turbo.",
+    });
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+});
+
 describe("partial-run guidance hints", () => {
   it("says the real-person retry survives a rejection that spent nothing", () => {
     expect(
