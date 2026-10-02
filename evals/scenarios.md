@@ -282,12 +282,12 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must NOT:** generate a silent clip, run `generate voiceover`, and then `avatar lipsync` them together; or send this in-scene shot to `avatar fabric`.
 - **Companion query:** "Dub this finished clip into Spanish with this audio." That is the one job for `videodraft avatar lipsync`.
 
-## Seedance real people are on by default
+## Seedance has no real-people option
 
 - **Query:** "Animate this photo of me with Seedance 2."
-- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, and quote the default (Fal-tier) rate from `--estimate`.
-- **Must NOT:** add `--no-allow-real-people` when a real person is in the input, or warn that Seedance cannot do real people.
-- **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Add `--no-allow-real-people`, since nothing in the job is a real person.
+- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, and quote the price from `--estimate` as approximate (for example "about 48 credits").
+- **Must NOT:** add `--allow-real-people` or `--no-allow-real-people`, quote a different price because a real person is in the input, or warn that Seedance cannot do real people.
+- **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Still no real-people flag. Lower the cost with `--quality mini`, a lower resolution or a shorter duration.
 
 ## A native edit request is one recipe
 
@@ -331,3 +331,9 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (the user's Pika key is selected in Settings) "Make a GPT Image 2.5 poster for my bakery."
 - **Must:** pass an explicit `--quality` (`low`, `medium`, `high`, `xhigh` or `max`), since that connection has no `auto`; if the server still reports the model or a setting as unsupported, tell the user.
 - **Must NOT:** retry on VideoDraft credits or another key, drop a requested control, or switch models just to get the job accepted.
+
+## An Ideogram 4.5 edit keeps the source image
+
+- **Query:** "With Ideogram, turn the sky in this photo into a sunset and keep everything else exactly as it is."
+- **Must:** run `videodraft generate image --model ideogram-v4.5 --source-image <photo> --edit-precision high` with Auto size (no `--image-width`/`--image-height`) and a `--quality` of `low`, `medium` or `high`.
+- **Must NOT:** pick the retired `ideogram-v4`, pass `--quality very_low` with `--edit-precision high`, or set a custom size on a precise edit.

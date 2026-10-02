@@ -578,3 +578,65 @@ describe("generate --estimate model selection", () => {
     expect(mocks.callTool).not.toHaveBeenCalled();
   });
 });
+
+describe("retired Seedance real-people flags", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({ job_id: "job_1", status: "submitted" });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+
+  it.each(["--allow-real-people", "--no-allow-real-people"])(
+    "accepts %s on an estimate and a submission, and sends nothing for it",
+    async (flag) => {
+      for (const mode of ["--estimate", "--no-wait"]) {
+        await runGenerate([
+          "generate",
+          "video",
+          "a portrait",
+          "--model",
+          "seedance-2",
+          flag,
+          mode,
+        ]);
+      }
+
+      expect(mocks.callTool.mock.calls.map(([tool]) => tool)).toEqual([
+        "get_model_costs",
+        "generate_video",
+      ]);
+      for (const [, args] of mocks.callTool.mock.calls) {
+        expect(args).not.toHaveProperty("allow_real_people");
+      }
+    },
+  );
+
+  it("no longer refuses them on minimax-h3-max", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "a cyclist",
+      "--model",
+      "minimax-h3-max",
+      "--allow-real-people",
+      "--estimate",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "minimax-h3-max",
+      type: "video",
+    });
+  });
+
+  it("keeps them out of help", () => {
+    const program = new Command();
+    registerGenerateCommands(program);
+    const help = program.commands
+      .find((command) => command.name() === "generate")!
+      .commands.find((command) => command.name() === "video")!
+      .helpInformation();
+
+    expect(help).toContain("--start-image");
+    expect(help).not.toContain("real-people");
+  });
+});

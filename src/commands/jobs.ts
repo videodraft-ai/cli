@@ -12,7 +12,7 @@ import {
   savedLine,
   type DownloadedFile,
 } from "../core/download.js";
-import { CliError, EXIT, seedanceRealPersonRetryHint } from "../core/errors.js";
+import { CliError, EXIT } from "../core/errors.js";
 import { isModel3DResult, downloadModel3DPackage, model3DOutputFields, type Model3DDownload } from "../core/model3d.js";
 import { emit3DResult } from "./model3d.js";
 
@@ -45,8 +45,6 @@ export function registerJobCommands(program: Command): void {
         note(o, `${jobId}: ${result?.status ?? "unknown"}`);
         if (result?.status === "failed" && result?.error) {
           note(o, fmt.red(o, String(result.error)));
-          const retryHint = seedanceRealPersonRetryHint(result);
-          if (retryHint) note(o, fmt.dim(o, retryHint));
         }
         for (const url of extractOutputUrls(result))
           process.stdout.write(`${url}\n`);
@@ -153,8 +151,6 @@ export function registerJobCommands(program: Command): void {
                 o,
                 fmt.red(o, `${row.job_id} failed: ${row.error ?? "unknown"}`),
               );
-              const retryHint = seedanceRealPersonRetryHint(row);
-              if (retryHint) note(o, fmt.dim(o, retryHint));
               continue;
             }
             for (const url of row.outputs) process.stdout.write(`${url}\n`);

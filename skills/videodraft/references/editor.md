@@ -104,6 +104,7 @@ An MCP session can begin without a project selected. Project selection belongs t
 3. Create only when the user wants a new local edit. `action: "create"` accepts optional `name`, `fps`, `aspectRatio`, and `quality`.
 4. Treat `isActive` as this session's target and `isVisible` as the project shown in the UI. Headless editing only needs the session target.
 5. Use `action: "close"` only when closing is part of the task. It saves first and never deletes the project. Afterwards other calls answer `no_project` until you open or create a project again.
+6. Your session edits its own project even while another project's window is in front. If the user says "this clip" or "here" and `edit_snapshot` has no `selection`, or `selection.visible` is false, they are looking at something else: ask before editing. An older editor may instead refuse the write because another project is in front; tell the user rather than taking the front yourself. Never change which project is in front with Computer Use or other UI automation.
 
 Other `project_manage` operations: `create_timeline` and `select_timeline` for additional timelines, and `configure` for project settings (a frame-rate change applies to every timeline).
 
@@ -119,7 +120,7 @@ Do not substitute a hosted project ID for a native project. A hosted project can
 - Send writes serially. Parallel writes against one project race each other's context.
 - A refused call answers `status: "rejected"`: nothing changed, so fix what the message names and send it again. A service write that answers `failed` may have applied before a save or connection failed; inspect before repeating it.
 - Use `inspect` for detail and verification: `timeline` for exact clip and track properties, `frame` for rendered frames of the composited result, `media` before describing source content, `color` for scopes, and `transcript` to locate spoken words.
-- Volume values, including volume keyframes, are linear from `0` to `1`.
+- Clip `volume` is linear gain: `0` is silent, `1` plays the clip as recorded, and up to `5.62` (+15 dB) boosts it. Volume keyframes stay `0` to `1`. Boost sparingly and read the export check, which reports clipping.
 
 ## Edit with recipes
 

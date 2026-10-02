@@ -5,6 +5,42 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-02
+
+### Added
+
+- Ideogram 4.5 (`ideogram-v4.5`) in `generate image`, replacing the visible
+  Ideogram 4.0 entry: `--quality low|medium|high` (`very_low` for regular
+  edits), `--num 1-8`, `--seed`, `--source-image` with up to four `--ref`
+  references (three with `--mask`), `--edit-precision regular|high`,
+  `--prompt-expansion true|false`, and `--image-width`/`--image-height`.
+  Precise and masked edits need Auto size.
+- Provider key notes. `videodraft models` says when your selected Pika, Atlas
+  or Higgsfield key shortens the list, and `generate` keeps the server's
+  `key_note` (for example, a key that runs GPT Image at High instead of Auto)
+  in its output, including `--json`.
+
+### Changed
+
+- The `videodraft models` table shows each model's tier and lists the
+  recommended (Tier 1) models first. `--json` output is unchanged.
+- Seedance no longer has a real-people option. Prices are approximate: each
+  video runs on the best available provider. `--allow-real-people` and
+  `--no-allow-real-people` are still accepted and ignored.
+
+### Removed
+
+- The nightly schema-drift CI job and its tool-name snapshot. It needed a
+  stored production key; the tools the CLI calls are now checked against the
+  server's tool list before each release instead.
+
+### Compatibility
+
+- Ideogram 4.5, provider key notes and the single Seedance price need the
+  matching VideoDraft backend release, which ships separately.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.26.0] - 2026-09-30
 
 ### Added
@@ -13,8 +49,8 @@ All notable changes to the `videodraft` CLI. Format loosely follows
   `generate voiceover --mode standard|turbo` picks the variant: Standard (the
   default, best quality, 10 credits per 1000 characters) or Turbo (Eleven v4
   Turbo, faster, 5 credits per 1000 characters). `produce --voice-mode
-  standard|turbo` does the same for production narration, and `costs voiceover
-  --chars <n> --mode turbo` quotes the Turbo rate (model id `voiceover-turbo`).
+standard|turbo` does the same for production narration, and `costs voiceover
+--chars <n> --mode turbo` quotes the Turbo rate (model id `voiceover-turbo`).
   Google, OpenAI and cloned `custom-*` voices ignore the mode, and
   `costs voiceover-cloned --mode turbo` is refused. Each flag is sent only when
   given, so the server default applies otherwise.

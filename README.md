@@ -131,13 +131,8 @@ videodraft produce <project> --mode full_video   # one Seedance video per scene
 videodraft export <project> --download final.mp4
 ```
 
-Seedance 2.x allows real people by default, the same as AI Studio: Byteplus
-first, a submit-time Fal fallback, and Fal's higher tier-specific rate. Pass
-`--no-allow-real-people` for the lower Byteplus-only rate when nothing in the
-job is a real identifiable person. If an opted-out request returns
-`SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, estimate the higher rate and retry once
-with `--allow-real-people`. Do not loop if real people were already allowed;
-late Byteplus output refusals are refunded but cannot be rerouted.
+Seedance 2.x has no real-people option. Prices are approximate: each video runs
+on the best available provider.
 
 ## Commands
 
@@ -225,3 +220,5 @@ const me = await client.callTool("whoami");
 ## License
 
 MIT © VideoDraft
+
+Ideogram 4.5 (`ideogram-v4.5`) replaces the visible Ideogram 4.0 entry and stays Tier 2. Quality prices per image: low 3 credits, medium 6 (default), high 22; very_low 1 for regular edits. Supports 1-8 outputs, 1K/2K, seed, a source plus four additional references (three with a mask), regular/high edit precision, and text-to-image prompt expansion. MCP uses `source_image`, `reference_images`, `mask_url`, `edit_precision`, `enable_prompt_expansion`, `image_width`, and `image_height`. CLI equivalents are `--source-image`, repeatable `--ref`, `--mask`, `--edit-precision`, `--prompt-expansion`, `--image-width`, and `--image-height`. Precise/masked edits require Auto size with no resolution or custom dimensions. Masks match source dimensions and contain both black edit regions and white preserved regions. Quotes for very_low require the source/reference count (`reference_image_count` or `--ref-images`). Legacy 4.0 jobs retain their original backend support.

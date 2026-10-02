@@ -81,13 +81,12 @@ export class ToolError extends CliError {
 
   constructor(toolName: string, message: string, data?: unknown) {
     const isCredits = CREDIT_ERROR_RE.test(message);
-    const realPersonHint = seedanceRealPersonRetryHint(data);
     super(
       message,
       isCredits ? EXIT.CREDITS : EXIT.ERROR,
       isCredits
         ? "Check your balance with `videodraft credits` or top up at https://app.videodraft.ai/pricing"
-        : realPersonHint,
+        : undefined,
       data,
     );
     this.name = "ToolError";
@@ -95,24 +94,11 @@ export class ToolError extends CliError {
   }
 }
 
-export function seedanceRealPersonRetryHint(
-  value: unknown,
-): string | undefined {
-  const payload = value as any;
-  if (
-    payload?.code !== "SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED" &&
-    payload?.retry_with?.allow_real_people !== true
-  ) {
-    return undefined;
-  }
-  return "Retry this Seedance request once with --allow-real-people (or simply without --no-allow-real-people). This uses higher Fal-tier pricing.";
-}
-
 /**
- * A hosted retry the route refused BEFORE charging or submitting anything —
- * insufficient credits, provider not configured — does not consume the single
- * real-person retry. Without saying so, a user who sees "failed" assumes their
- * one attempt is gone and stops.
+ * A hosted retry the route refused BEFORE charging or submitting anything
+ * (insufficient credits, provider not configured) can simply be run again.
+ * Without saying so, a user who sees "failed" assumes the attempt is spent and
+ * stops.
  */
 export function seedanceRetryPreservedHint(value: unknown): string | undefined {
   const segments = (value as any)?.failed_segments;
@@ -120,7 +106,7 @@ export function seedanceRetryPreservedHint(value: unknown): string | undefined {
   if (!segments.some((segment: any) => segment?.retry_preserved === true)) {
     return undefined;
   }
-  return "Nothing was charged or submitted for those, so the one real-person retry is still available — fix the reported error and run the same command again.";
+  return "Nothing was charged or submitted for those. Fix the reported error and run the same command again.";
 }
 
 /**

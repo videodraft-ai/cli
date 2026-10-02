@@ -64,15 +64,9 @@ If you are reading this skill through `videodraft skills show skill`, run `video
 
 If the user names a model, use it when compatible. If it cannot handle the request, explain why and recommend alternatives instead of silently switching. Otherwise inspect the inputs, duration, audio, quality, speed, and cost, check the live catalog, and pass an explicit model.
 
-### Seedance 2.x real-person rule
+### Seedance 2.x pricing
 
-Seedance 2.0 and 2.5 allow real people by default, the same as AI Studio:
-
-- The default is true. Generation tries Byteplus first and can fall back to Fal, which allows real-person likenesses, so a person in the prompt, a start frame, end frame, reference image, or reference video does not hard-fail. The request is charged at Fal's higher tier-specific rate even if Byteplus serves it.
-- Turn it off for the cheapest run, only when the user wants that and nothing in the job is a real identifiable person (text-only requests, non-people, anime, clearly synthetic or stylized characters). For MCP use `allow_real_people: false`. For the CLI use `--no-allow-real-people`. That pins the job to the lower-priced Byteplus path, and a Byteplus likeness-policy refusal does not fall back to Fal. Pass the same value to `get_model_costs` or `videodraft costs` so the estimate matches the charge.
-- If a request made with the option off fails with code `SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, estimate the higher rate, follow the user's spend-confirmation preference, and retry exactly once with the option on. The structured recovery fields are `retryable: true`, `retry_with: { allow_real_people: true }`, `cli_flag: "--allow-real-people"`, and `retry_policy: "once"`. CLI `--json` submit errors expose them under `details`; `status` and `wait` include them on the failed job result. Do not treat an unrelated moderation or provider error as that signal.
-- Do not loop when the option was on. Byteplus can accept a task and reject its generated output later. VideoDraft refunds that failed generation, but the late asynchronous failure cannot be rerouted to Fal. Rephrase the prompt or use different references before trying again.
-- For hosted AI Production, the same default applies to every Seedance scene segment: `produce_project` with `mode: "full_video"` and `videodraft produce <project> --mode full_video` allow real people unless you pass `allow_real_people: false` or `--no-allow-real-people`. If an earlier run with the option off partially submitted and returns the opt-in code, rerun that same project once with an explicit `allow_real_people: true` / `--allow-real-people`. The server reconciles asynchronous results first, preserves running/completed jobs, and resubmits only failed scene-video placeholders carrying the exact opt-in signal. Keep the native-first VideoDraft ADE routing rule above: hosted full-video production is still explicit/fallback-only when the local editor is available.
+Seedance 2.0 and 2.5 have no real-people option, including for hosted `full_video` production. Prices are approximate: each video runs on the best available provider. Say "about" when you quote a Seedance estimate (for example "about 48 credits").
 
 **How to pick a model. Follow this order every time:**
 
@@ -130,6 +124,8 @@ Provider routing uses a maintained local price catalog, with exact setting compa
 Temporary provider promotions are excluded from routing prices. With an Atlas personal key, H3 Max supports text or first/last-frame generation at 480P/768P only with `prompt_expansion_mode: "disabled"` and no seed. Balanced/quality expansion, reference generation and H3 Max Lip Sync require the existing Fal path. Atlas H3 Max is not selected automatically while its published price units remain inconsistent.
 
 ## Matching AI Studio controls
+
+Ideogram 4.5 (`ideogram-v4.5`) replaces 4.0 and remains Tier 2. Quality low/medium/high costs 3/6/22 credits per output (default medium); regular edits also offer very_low at 1 credit. Supports 1-8 outputs, 1K/2K, seed, and text-only `--prompt-expansion true|false`. Use `--source-image` plus up to four `--ref` images, or source-first `--ref` ordering. `--edit-precision high` and `--mask` require Auto size with no resolution; masks match source dimensions, black edits and white preserves, and reduce additional references to three. See [models](references/models.md) for custom dimensions and examples.
 
 Use `models image --json` / `models video --json` for the accepted options. Nano Banana Pro/2 expose `--temperature 0..2` and `--google-search-grounding true|false`. Qwen uses one `--ref` plus `--horizontal-angle 0..360`, `--vertical-angle -30..90`, and `--zoom 0..10`; its text prompt is optional. Recraft generates SVG and accepts `--quality Normal|Pro`, repeatable `--recraft-color '#RRGGBB'`, and `--recraft-background '#RRGGBB'`. Original Nano Banana and VideoDraft Image use fixed 1K output.
 
