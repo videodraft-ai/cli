@@ -5,10 +5,14 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
-## [0.27.0] - 2026-10-02
+## [0.27.0] - 2026-10-03
 
 ### Added
 
+- FLUX 3 image (`flux-3-image`) in `generate image`, Tier 2: generation and
+  edits with up to 10 `--ref` images, `--num 1-4`,
+  `--resolution 1K|2K|4K`, `--prompt-expansion true|false` and 14 aspect
+  ratios plus `auto`. Priced by output size, 5 to 82 credits per image.
 - Ideogram 4.5 (`ideogram-v4.5`) in `generate image`, replacing the visible
   Ideogram 4.0 entry: `--quality low|medium|high` (`very_low` for regular
   edits), `--num 1-8`, `--seed`, `--source-image` with up to four `--ref`
@@ -24,9 +28,21 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 - The `videodraft models` table shows each model's tier and lists the
   recommended (Tier 1) models first. `--json` output is unchanged.
-- Seedance no longer has a real-people option. Prices are approximate: each
-  video runs on the best available provider. `--allow-real-people` and
+- Seedance no longer has a real-people option. A video that can't be made at
+  the listed rate, usually one showing a real person, costs a higher rate, and
+  the difference is charged before it starts. `--allow-real-people` and
   `--no-allow-real-people` are still accepted and ignored.
+- Seedance 2.0 runs at Standard quality when `--quality` is omitted (it was
+  Mini), and Kling O3 generates audio unless you pass `--no-audio`, like the
+  other models with an audio option. Both cost more than the old defaults;
+  pass `--quality mini` or `--no-audio` for the cheaper run.
+- `generate 3d --model meshy-7` runs Meshy 7.1, and `--model meshy-7.1` is
+  accepted as the same model. `models 3d` shows each model's name. Meshy's
+  `geometry_resolution` option (`standard`, `2k`, `4k`) replaces the
+  deprecated `ultra_mode`: text and image keep the 2k default at 140 credits,
+  4k costs 160, and multi-image adds 2k (140 credits) and untextured output
+  (80). Meshy's `lowpoly` model type is gone because Meshy retires it on
+  October 30, 2026; use `smart-topology`.
 
 ### Removed
 
@@ -36,8 +52,9 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ### Compatibility
 
-- Ideogram 4.5, provider key notes and the single Seedance price need the
-  matching VideoDraft backend release, which ships separately.
+- FLUX 3 image, Ideogram 4.5, provider key notes, the new Seedance pricing and
+  Meshy 7.1 need the matching VideoDraft backend release, which ships
+  separately.
 - The CLI bundled inside an installed VideoDraft macOS app updates with the
   desktop app; publishing this npm package does not replace that binary.
 

@@ -31,6 +31,35 @@ beforeEach(() => {
   vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 });
 describe("AI Studio option parity", () => {
+  it.each([
+    ["image", "gpt-image-1.5"],
+    ["image", "flux-2-max"],
+    ["image", "ideogram-v3"],
+    ["video", "sora-2"],
+    ["video", "seedance-1.5-pro"],
+    ["video", "grok-imagine-video"],
+  ])(
+    "passes an explicit hidden %s model %s through unchanged",
+    async (kind, model) => {
+      await run([
+        "generate",
+        kind,
+        "A blue cup",
+        "--model",
+        model,
+        "--no-wait",
+      ]);
+      expect(mocks.callTool).toHaveBeenCalledWith(
+        `generate_${kind}`,
+        expect.objectContaining({ model }),
+      );
+      expect(
+        mocks.callTool.mock.calls.some(([name]) =>
+          name.startsWith("list_available_"),
+        ),
+      ).toBe(false);
+    },
+  );
   it("preserves Nano temperature zero and disabled search", async () => {
     await run([
       "generate",

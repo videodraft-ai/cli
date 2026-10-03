@@ -94,7 +94,7 @@ export function registerAccountCommands(program: Command): void {
     .option("--ar <ratio>", "image aspect ratio for accurate credit quotes")
     .option(
       "--rendering-speed <tier>",
-      "Ideogram V3 speed; Ideogram 4.5 uses --quality low/medium/high (very_low for regular edits)",
+      "Legacy image rendering speed; current Ideogram models use --quality low/medium/high (very_low for regular edits)",
     )
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
@@ -299,10 +299,11 @@ export function registerAccountCommands(program: Command): void {
           if (section === "3d") {
             table(
               o,
-              ["model", "input", "default credits", "Fal endpoint"],
+              ["model", "name", "input", "default credits", "Fal endpoint"],
               models.flatMap((model: any) =>
                 (model.inputs ?? []).map((input: any) => [
                   String(model.id ?? ""),
+                  String(model.name ?? ""),
                   String(input.input_mode ?? ""),
                   String(input.default_credits ?? ""),
                   String(input.endpoint_id ?? ""),

@@ -285,8 +285,8 @@ Each scenario: the request, and what a correct run must and must not do.
 ## Seedance has no real-people option
 
 - **Query:** "Animate this photo of me with Seedance 2."
-- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, and quote the price from `--estimate` as approximate (for example "about 48 credits").
-- **Must NOT:** add `--allow-real-people` or `--no-allow-real-people`, quote a different price because a real person is in the input, or warn that Seedance cannot do real people.
+- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, quote the price from `--estimate` (for example "80 credits" for 5 seconds at the default Standard 720p), and say it costs the higher rate (for example "155 credits") if the video can't be made at the lower rate, which is likely for a real person's photo.
+- **Must NOT:** add `--allow-real-people` or `--no-allow-real-people`, call the price approximate, name providers, or warn that Seedance cannot do real people.
 - **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Still no real-people flag. Lower the cost with `--quality mini`, a lower resolution or a shorter duration.
 
 ## A native edit request is one recipe
@@ -331,6 +331,18 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (the user's Pika key is selected in Settings) "Make a GPT Image 2.5 poster for my bakery."
 - **Must:** pass an explicit `--quality` (`low`, `medium`, `high`, `xhigh` or `max`), since that connection has no `auto`; if the server still reports the model or a setting as unsupported, tell the user.
 - **Must NOT:** retry on VideoDraft credits or another key, drop a requested control, or switch models just to get the job accepted.
+
+## FLUX 3 image only when asked for
+
+- **Query:** "Make a 4K poster of a rainy neon street with FLUX 3."
+- **Must:** run `videodraft generate image --model flux-3-image --resolution 4K` with the requested ratio, and quote the price from `--estimate` (77 to 82 credits per image at 4K).
+- **Must NOT:** use the FLUX 3 video model (`flux-3`), pass `--seed` (FLUX 3 image has none), or pick FLUX 3 image for a plain image request that names no model.
+
+## Meshy 3D uses geometry_resolution
+
+- **Query:** "Make a detailed 3D armchair with the sharpest geometry you can."
+- **Must:** run `videodraft generate 3d --model meshy-7 --option geometry_resolution=4k` (meshy-7 runs Meshy 7.1) and quote the price from `--estimate` (160 credits for a text model).
+- **Must NOT:** pass the deprecated `ultra_mode` or `model_type=lowpoly`.
 
 ## An Ideogram 4.5 edit keeps the source image
 

@@ -871,7 +871,7 @@ export function registerGenerateCommands(program: Command): void {
       "--model <id|name>",
       "image model id or display name (default nano-banana-2); run `videodraft models image`",
     )
-    .option("--ar <ratio>", 'aspect ratio, e.g. "16:9"')
+    .option("--ar <ratio>", 'aspect ratio, e.g. "16:9" (FLUX 3 also "auto")')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
     .option(
       "--quality <tier>",
@@ -879,7 +879,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--rendering-speed <tier>",
-      'Ideogram V3: "Default"/"Turbo"/"Quality". Ideogram 4.5 uses --quality.',
+      "Rendering speed for legacy image models. Current Ideogram models use --quality.",
     )
     .option("--temperature <n>", "Nano Banana Pro/2 creativity (0-2)")
     .option(
@@ -901,12 +901,9 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--num <n>",
-      "variations in one call (model limit; Ideogram 4.5: 1-8)",
+      "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.5 and FLUX 3: 1-4)",
     )
-    .option(
-      "--seed <n>",
-      "seed (supported models only, e.g. Flux, Ideogram 4.5)",
-    )
+    .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.5)")
     .option(
       "--ref <url|file>",
       "reference image (repeatable; local files are uploaded)",
@@ -931,7 +928,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--prompt-expansion <true|false>",
-      "Ideogram 4.5 text-to-image prompt expansion (default true)",
+      "prompt expansion (default true): Ideogram 4.5 text-to-image, FLUX 3 generation and edits",
     )
     .option(
       "--image-width <px>",
@@ -1163,7 +1160,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--cfg-scale <n>", "Kling 3.0/2.5 Pro prompt adherence (0-1)")
     .option("--negative <text>", "negative prompt (Kling/Luma; not Wan 3.0)")
-    .option("--camera-fixed", "Seedance 1.5 Pro: lock camera motion")
+    .option(
+      "--camera-fixed",
+      "Lock camera motion when supported by the selected model",
+    )
     .option(
       "--prompt-expansion <true|false>",
       "Wan 3.0 only: enable or disable prompt expansion (default true)",
