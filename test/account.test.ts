@@ -43,60 +43,43 @@ async function runAccount(args: string[]): Promise<void> {
   await program.parseAsync(args, { from: "user" });
 }
 
-describe("costs --allow-real-people", () => {
+describe("costs", () => {
   beforeEach(() => {
     mocks.callTool.mockReset();
     mocks.callTool.mockResolvedValue({ credits: 48 });
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
-  it("forwards the Seedance pricing opt-in", async () => {
-    await runAccount([
-      "costs",
-      "seedance-2.5",
-      "--type",
-      "video",
-      "--duration",
-      "10",
-      "--allow-real-people",
-    ]);
+  it.each(["--allow-real-people", "--no-allow-real-people"])(
+    "accepts the retired %s flag and sends nothing for it",
+    async (flag) => {
+      await runAccount([
+        "costs",
+        "seedance-2.5",
+        "--type",
+        "video",
+        "--duration",
+        "10",
+        flag,
+      ]);
 
-    expect(mocks.callTool).toHaveBeenCalledWith(
-      "get_model_costs",
-      expect.objectContaining({
+      expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
         model_id: "seedance-2.5",
         type: "video",
         duration_seconds: 10,
-        allow_real_people: true,
-      }),
-    );
-  });
+      });
+    },
+  );
 
-  it("forwards the Byteplus-only opt-out, and nothing by default", async () => {
-    await runAccount([
-      "costs",
-      "seedance-2.5",
-      "--type",
-      "video",
-      "--duration",
-      "10",
-      "--no-allow-real-people",
-    ]);
-    expect(mocks.callTool).toHaveBeenLastCalledWith(
-      "get_model_costs",
-      expect.objectContaining({ allow_real_people: false }),
-    );
+  it("keeps the retired real-people flags out of help", () => {
+    const program = new Command();
+    registerAccountCommands(program);
+    const help = program.commands
+      .find((command) => command.name() === "costs")!
+      .helpInformation();
 
-    await runAccount([
-      "costs",
-      "seedance-2.5",
-      "--type",
-      "video",
-      "--duration",
-      "10",
-    ]);
-    const [, args] = mocks.callTool.mock.calls.at(-1)!;
-    expect(args.allow_real_people).toBeUndefined();
+    expect(help).toContain("--voice-control");
+    expect(help).not.toContain("real-people");
   });
 
   it("quotes GPT Image 2.5 with the selected aspect, resolution and quality", async () => {

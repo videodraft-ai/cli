@@ -50,7 +50,7 @@ describe("VideoDraftClient", () => {
     await expect(client.callTool("get_project", { project_id: "x" })).rejects.toThrow(/Project not found/);
   });
 
-  it("preserves structured Seedance retry guidance on tool errors", async () => {
+  it("keeps structured tool error data without pointing at retired flags", async () => {
     const structuredContent = {
       code: "SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED",
       retryable: true,
@@ -76,8 +76,7 @@ describe("VideoDraftClient", () => {
     const err = await client.callTool("generate_video", {}).catch((e) => e);
     expect(err).toBeInstanceOf(ToolError);
     expect(err.data).toEqual(structuredContent);
-    expect(err.hint).toContain("--allow-real-people");
-    expect(err.hint).toContain("once");
+    expect(err.hint).toBeUndefined();
   });
 
   it("maps insufficient-credit tool errors to exit code 4", async () => {

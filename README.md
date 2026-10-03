@@ -92,11 +92,12 @@ Asset I/O is part of the asset workflow: `videodraft upload`, `videodraft downlo
 
 ### 3D model generation and rigging
 
-Meshy 7 and Tripo H3.1 support text, image, and multi-image inputs through Fal. Saved 3D assets are independent of AI Studio sessions. Inspect the live catalog for each endpoint's exact options, view order, limits, default settings, output formats, and pricing:
+Meshy 7.1 (`--model meshy-7`, or `meshy-7.1`) and Tripo H3.1 support text, image, and multi-image inputs through Fal. Meshy's `geometry_resolution` option sets the geometry detail: text and image take `standard`, `2k` (the default) or `4k`, and multi-image takes `standard` (the default) or `2k`. 2k adds 20 credits and 4k adds 40. Saved 3D assets are independent of AI Studio sessions. Inspect the live catalog for each endpoint's exact options, view order, limits, default settings, output formats, and pricing:
 
 ```bash
 videodraft models 3d --json
 videodraft generate 3d "a weathered brass telescope" --model meshy-7 --estimate
+videodraft generate 3d "a weathered brass telescope" --model meshy-7 --option geometry_resolution=4k --estimate
 videodraft generate 3d --model meshy-7 --ref ./character.png --download
 videodraft generate 3d --model tripo-h3.1 --input-mode multi_image --ref ./front.png --ref ./left.png --ref ./back.png --ref ./right.png --options @model-options.json --no-wait --json
 videodraft wait JOB_ID --download ./media/3d --json
@@ -131,13 +132,9 @@ videodraft produce <project> --mode full_video   # one Seedance video per scene
 videodraft export <project> --download final.mp4
 ```
 
-Seedance 2.x allows real people by default, the same as AI Studio: Byteplus
-first, a submit-time Fal fallback, and Fal's higher tier-specific rate. Pass
-`--no-allow-real-people` for the lower Byteplus-only rate when nothing in the
-job is a real identifiable person. If an opted-out request returns
-`SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED`, estimate the higher rate and retry once
-with `--allow-real-people`. Do not loop if real people were already allowed;
-late Byteplus output refusals are refunded but cannot be rerouted.
+Seedance 2.x has no real-people option. A video that can't be made at the
+listed rate, usually one showing a real person, costs a higher rate, and the
+difference is charged before it starts.
 
 ## Commands
 
@@ -225,3 +222,7 @@ const me = await client.callTool("whoami");
 ## License
 
 MIT © VideoDraft
+
+Ideogram 4.5 (`ideogram-v4.5`) replaces the visible Ideogram 4.0 entry and stays Tier 2. Quality prices per image: low 3 credits, medium 6 (default), high 22; very_low 1 for regular edits. Supports 1-8 outputs, 1K/2K, seed, a source plus four additional references (three with a mask), regular/high edit precision, and text-to-image prompt expansion. MCP uses `source_image`, `reference_images`, `mask_url`, `edit_precision`, `enable_prompt_expansion`, `image_width`, and `image_height`. CLI equivalents are `--source-image`, repeatable `--ref`, `--mask`, `--edit-precision`, `--prompt-expansion`, `--image-width`, and `--image-height`. Precise/masked edits require Auto size with no resolution or custom dimensions. Masks match source dimensions and contain both black edit regions and white preserved regions. Quotes for very_low require the source/reference count (`reference_image_count` or `--ref-images`). Legacy 4.0 jobs retain their original backend support.
+
+FLUX 3 image (`flux-3-image`, not the `flux-3` video model) is Tier 2. It generates and edits with up to 10 references, 1-4 outputs, 1K/2K/4K (default 1K), prompt expansion (default on) and 14 aspect ratios plus auto. Each image costs 5-10 credits at 1K, 20-24 at 2K and 77-82 at 4K, set by the ratio; auto is quoted at the tier's highest price. Without an aspect ratio, a new image is 16:9 and an edit follows its first reference. No seed. MCP uses `reference_images`, `num_images`, `resolution`, `aspect_ratio` and `enable_prompt_expansion`; the CLI uses `--ref`, `--num`, `--resolution`, `--ar` and `--prompt-expansion`.

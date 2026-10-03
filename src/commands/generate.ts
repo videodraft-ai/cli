@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Command } from "commander";
+import { Option, type Command } from "commander";
 import {
   buildContext,
   collect,
@@ -35,7 +35,7 @@ import {
   isRetryableAudioError,
 } from "../core/audio-retry.js";
 import { capture } from "../cli/telemetry.js";
-import { CliError, EXIT, seedanceRealPersonRetryHint } from "../core/errors.js";
+import { CliError, EXIT } from "../core/errors.js";
 import { register3DGenerationCommand } from "./model3d.js";
 
 /** Any URI scheme (http(s), gs://, data:, …) passes through; a bare path is a local file. */
@@ -675,10 +675,10 @@ async function printEstimate(
     audio?: boolean;
     num?: number;
     referenceImageCount?: number;
+    imageOptions?: Record<string, unknown>;
     referenceVideoDurationSeconds?: number;
     referenceAudioDurationSeconds?: number;
     voiceControl?: boolean;
-    allowRealPeople?: boolean;
     /** Reference inputs are billed but their durations were not supplied. */
     lowerBoundReason?: string;
   },
@@ -686,6 +686,7 @@ async function printEstimate(
   const estimate = await ctx.client.callTool(
     "get_model_costs",
     compact({
+      ...params.imageOptions,
       model_id: params.model,
       type: params.type,
       duration_seconds: params.duration,
@@ -699,7 +700,6 @@ async function printEstimate(
       reference_video_duration_seconds: params.referenceVideoDurationSeconds,
       reference_audio_duration_seconds: params.referenceAudioDurationSeconds,
       voice_control: params.voiceControl ? true : undefined,
-      allow_real_people: params.allowRealPeople,
       num_images: params.num,
     }),
   );
@@ -753,8 +753,6 @@ export async function handleAsyncJob(
             `Job ${jobId} failed: ${result.payload?.error ?? "unknown error"}`,
           ),
         );
-        const retryHint = seedanceRealPersonRetryHint(result.payload);
-        if (retryHint) note(o, fmt.dim(o, retryHint));
       });
       process.exitCode = 1;
       return;
@@ -804,9 +802,12 @@ export async function handleAsyncJob(
           : {}),
         downloaded_files: downloaded,
         output_media: media,
+        // Set when the selected provider key changed a setting, e.g. Quality.
+        ...(submitted?.key_note ? { key_note: submitted.key_note } : {}),
       },
       (o) => {
         note(o, fmt.green(o, `Completed — job ${jobId}`));
+        if (submitted?.key_note) note(o, fmt.dim(o, submitted.key_note));
         if (interactionId && result.payload?.continuation_available !== false) {
           note(
             o,
@@ -870,15 +871,15 @@ export function registerGenerateCommands(program: Command): void {
       "--model <id|name>",
       "image model id or display name (default nano-banana-2); run `videodraft models image`",
     )
-    .option("--ar <ratio>", 'aspect ratio, e.g. "16:9"')
+    .option("--ar <ratio>", 'aspect ratio, e.g. "16:9" (FLUX 3 also "auto")')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
     .option(
       "--quality <tier>",
-      "model-specific quality; GPT Image 2.5: auto, low, medium, high, xhigh, max",
+      "Ideogram 4.5: low, medium (default), high; regular edits also very_low. GPT Image 2.5: auto, low, medium, high, xhigh, max",
     )
     .option(
       "--rendering-speed <tier>",
-      'Ideogram speed/cost tier, e.g. V4 "Turbo"/"Balanced"/"Quality"',
+      "Rendering speed for legacy image models. Current Ideogram models use --quality.",
     )
     .option("--temperature <n>", "Nano Banana Pro/2 creativity (0-2)")
     .option(
@@ -898,11 +899,11 @@ export function registerGenerateCommands(program: Command): void {
       "--recraft-background <hex>",
       "Recraft background color, e.g. #ffffff",
     )
-    .option("--num <n>", "variations of this prompt in one call (1-4)")
     .option(
-      "--seed <n>",
-      "seed (supported models only, e.g. Flux, Ideogram V4)",
+      "--num <n>",
+      "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.5 and FLUX 3: 1-4)",
     )
+    .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.5)")
     .option(
       "--ref <url|file>",
       "reference image (repeatable; local files are uploaded)",
@@ -913,6 +914,27 @@ export function registerGenerateCommands(program: Command): void {
       "--video-ref <url|file>",
       "video reference, nano-banana-2 only (http(s)/gs:///YouTube, or local file)",
     )
+    .option(
+      "--source-image <url|file>",
+      "Ideogram 4.5 editing source; --ref adds up to four extra references (three with a mask)",
+    )
+    .option(
+      "--mask <url|file>",
+      "Ideogram 4.5 edit mask: black edits, white preserves; match source dimensions",
+    )
+    .option(
+      "--edit-precision <mode>",
+      "Ideogram 4.5 edit precision: regular (default) | high; high/masked edits require Auto size",
+    )
+    .option(
+      "--prompt-expansion <true|false>",
+      "prompt expansion (default true): Ideogram 4.5 text-to-image, FLUX 3 generation and edits",
+    )
+    .option(
+      "--image-width <px>",
+      "Ideogram 4.5 custom width (with --image-height)",
+    )
+    .option("--image-height <px>", "Ideogram 4.5 custom height")
     .option("--style <id>", "style preset id")
     .option("--project <id>", "attach to a project")
     .option(
@@ -936,6 +958,15 @@ export function registerGenerateCommands(program: Command): void {
       const opts = this.opts<any>();
       const prompt = promptWords.join(" ");
       const imageOptions = {
+        edit_precision: opts.editPrecision,
+        enable_prompt_expansion: optionalBooleanChoice(
+          opts.promptExpansion,
+          "--prompt-expansion",
+        ),
+        image_width:
+          opts.imageWidth !== undefined ? Number(opts.imageWidth) : undefined,
+        image_height:
+          opts.imageHeight !== undefined ? Number(opts.imageHeight) : undefined,
         temperature: optionalRangedNumber(
           opts.temperature,
           "--temperature",
@@ -979,23 +1010,34 @@ export function registerGenerateCommands(program: Command): void {
           quality: opts.quality,
           renderingSpeed: opts.renderingSpeed,
           num: opts.num ? Number(opts.num) : undefined,
+          imageOptions: {
+            ...imageOptions,
+            ...(opts.mask ? { mask_url: "https://example.com/mask.png" } : {}),
+          },
           // grok-imagine-2.0 bills 1 credit per reference image on top of the
           // resolution x quality matrix. Without this the quote omits the
           // surcharge entirely (two 2K-medium outputs with 3 refs quoted 16,
           // deducted 22). Only sent when refs exist, so a plain estimate call
           // keeps its existing shape.
-          ...(Array.isArray(opts.ref) && opts.ref.length > 0
-            ? { referenceImageCount: opts.ref.length }
+          ...((opts.ref?.length ?? 0) + (opts.sourceImage ? 1 : 0) > 0
+            ? {
+                referenceImageCount:
+                  (opts.ref?.length ?? 0) + (opts.sourceImage ? 1 : 0),
+              }
             : {}),
         });
         return;
       }
 
-      const [refs, videoRef] = await Promise.all([
+      const [refs, videoRef, sourceImage, maskUrl] = await Promise.all([
         resolveRefs(ctx, opts.ref ?? []),
         opts.videoRef
           ? resolveRefs(ctx, [opts.videoRef]).then((r) => r[0])
           : undefined,
+        opts.sourceImage
+          ? resolveRefs(ctx, [opts.sourceImage]).then((r) => r[0])
+          : undefined,
+        opts.mask ? resolveRefs(ctx, [opts.mask]).then((r) => r[0]) : undefined,
       ]);
       capture("cli_generate", {
         kind: "image",
@@ -1006,6 +1048,8 @@ export function registerGenerateCommands(program: Command): void {
         "generate_image",
         compact({
           ...imageOptions,
+          source_image: sourceImage,
+          mask_url: maskUrl,
           prompt,
           model: opts.model,
           aspect_ratio: opts.ar,
@@ -1053,14 +1097,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--audio", "generate native model audio")
     .option("--no-audio", "disable native model audio")
-    .option(
-      "--allow-real-people",
-      "Seedance 2.x only, and already the default (same as AI Studio): Byteplus first with a Fal fallback at Fal's higher tier-specific rate, so real people in a prompt or reference do not hard-fail.",
-    )
-    .option(
-      "--no-allow-real-people",
-      "Seedance 2.x only: pin the job to Byteplus at the lower rate. Use for the cheapest run when nothing in the job is a real identifiable person (text-only, non-person, anime, clearly synthetic/stylized). Byteplus refuses real-person likenesses and does not fall back. Use --estimate first.",
-    )
+    // Retired Seedance real-people flags: still accepted so old scripts keep
+    // working, but hidden and never sent.
+    .addOption(new Option("--allow-real-people").hideHelp())
+    .addOption(new Option("--no-allow-real-people").hideHelp())
     .option("--start-image <url|file>", "start frame (image-to-video)")
     .option("--end-image <url|file>", "end frame (supported models only)")
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
@@ -1120,7 +1160,10 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option("--cfg-scale <n>", "Kling 3.0/2.5 Pro prompt adherence (0-1)")
     .option("--negative <text>", "negative prompt (Kling/Luma; not Wan 3.0)")
-    .option("--camera-fixed", "Seedance 1.5 Pro: lock camera motion")
+    .option(
+      "--camera-fixed",
+      "Lock camera motion when supported by the selected model",
+    )
     .option(
       "--prompt-expansion <true|false>",
       "Wan 3.0 only: enable or disable prompt expansion (default true)",
@@ -1899,11 +1942,10 @@ export function registerGenerateCommands(program: Command): void {
           opts.negative ||
           opts.quality ||
           opts.cameraFixed ||
-          (opts.keyframe?.length ?? 0) > 0 ||
-          opts.allowRealPeople !== undefined
+          (opts.keyframe?.length ?? 0) > 0
         ) {
           throw new CliError(
-            "minimax-h3-max does not support --negative, --quality, --camera-fixed, --keyframe, or --allow-real-people / --no-allow-real-people.",
+            "minimax-h3-max does not support --negative, --quality, --camera-fixed, or --keyframe.",
             EXIT.USAGE,
           );
         }
@@ -2156,7 +2198,6 @@ export function registerGenerateCommands(program: Command): void {
           voiceControl:
             voiceIds.length > 0 ||
             rawElements.some((element) => element.voice_id),
-          allowRealPeople: opts.allowRealPeople,
         });
         return;
       }
@@ -2340,7 +2381,6 @@ export function registerGenerateCommands(program: Command): void {
           resolution: opts.resolution,
           quality: opts.quality,
           generate_audio: opts.audio,
-          allow_real_people: opts.allowRealPeople,
           start_image_url: startImage,
           end_image_url: endImage,
           reference_images: refs.length > 0 ? refs : undefined,

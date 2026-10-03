@@ -100,7 +100,7 @@ describe("GPT Image 2.5 shot estimates", () => {
   });
 });
 
-describe("produce --allow-real-people", () => {
+describe("produce --mode full_video", () => {
   beforeEach(() => {
     mocks.callTool.mockReset();
     mocks.callTool.mockResolvedValue({ status: "production" });
@@ -112,70 +112,33 @@ describe("produce --allow-real-people", () => {
     process.exitCode = undefined;
   });
 
-  it("documents the full_video scope and higher Fal-tier pricing", () => {
+  it("keeps the retired real-people flags out of help", () => {
     const produce = buildPipelineProgram().commands.find(
       (command) => command.name() === "produce",
     );
-    const option = produce?.options.find(
-      (candidate) => candidate.long === "--allow-real-people",
-    );
+    const help = produce!.helpInformation();
 
-    expect(option?.description).toContain("full_video only");
-    expect(option?.description).toContain("higher Fal-tier pricing");
+    expect(help).toContain("--no-auto-videos");
+    expect(help).not.toContain("real-people");
   });
 
-  it("forwards an explicit opt-in to produce_project", async () => {
-    await runPipeline([
-      "produce",
-      "project_1",
-      "--mode",
-      "full_video",
-      "--allow-real-people",
-    ]);
+  it.each(["--allow-real-people", "--no-allow-real-people"])(
+    "accepts the retired %s flag and sends nothing for it",
+    async (flag) => {
+      await runPipeline(["produce", "project_1", "--mode", "full_video", flag]);
 
-    expect(mocks.callTool).toHaveBeenCalledOnce();
-    expect(mocks.callTool).toHaveBeenCalledWith(
-      "produce_project",
-      expect.objectContaining({
+      expect(mocks.callTool).toHaveBeenCalledOnce();
+      expect(mocks.callTool).toHaveBeenCalledWith("produce_project", {
         project_id: "project_1",
         mode: "full_video",
-        allow_real_people: true,
-      }),
-    );
-  });
-
-  it("omits allow_real_people by default so the server default (true) applies", async () => {
-    await runPipeline(["produce", "project_1", "--mode", "full_video"]);
-
-    const [, args] = mocks.callTool.mock.calls[0]!;
-    expect(args.allow_real_people).toBeUndefined();
-  });
-
-  it("forwards an explicit opt-out to produce_project", async () => {
-    await runPipeline([
-      "produce",
-      "project_1",
-      "--mode",
-      "full_video",
-      "--no-allow-real-people",
-    ]);
-
-    expect(mocks.callTool).toHaveBeenCalledWith(
-      "produce_project",
-      expect.objectContaining({
-        project_id: "project_1",
-        mode: "full_video",
-        allow_real_people: false,
-      }),
-    );
-  });
+      });
+    },
+  );
 
   it("marks a partial hosted submission as unsuccessful for automation", async () => {
     mocks.callTool.mockResolvedValue({
       status: "partial",
-      code: "SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED",
-      retryable: true,
-      retry_with: { allow_real_people: true },
+      failed_segments: [{ scene_index: 0, error: "boom" }],
     });
 
     await runPipeline(["produce", "project_1", "--mode", "full_video"]);
@@ -231,7 +194,7 @@ describe("produce --voice-mode", () => {
 });
 
 describe("partial-run guidance hints", () => {
-  it("says the real-person retry survives a rejection that spent nothing", () => {
+  it("says a rejection that spent nothing can simply be run again", () => {
     expect(
       seedanceRetryPreservedHint({
         status: "partial",
@@ -243,7 +206,7 @@ describe("partial-run guidance hints", () => {
           },
         ],
       }),
-    ).toContain("one real-person retry is still available");
+    ).toContain("run the same command again");
   });
 
   it("warns not to resubmit an unacknowledged submission", () => {

@@ -5,6 +5,59 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-03
+
+### Added
+
+- FLUX 3 image (`flux-3-image`) in `generate image`, Tier 2: generation and
+  edits with up to 10 `--ref` images, `--num 1-4`,
+  `--resolution 1K|2K|4K`, `--prompt-expansion true|false` and 14 aspect
+  ratios plus `auto`. Priced by output size, 5 to 82 credits per image.
+- Ideogram 4.5 (`ideogram-v4.5`) in `generate image`, replacing the visible
+  Ideogram 4.0 entry: `--quality low|medium|high` (`very_low` for regular
+  edits), `--num 1-8`, `--seed`, `--source-image` with up to four `--ref`
+  references (three with `--mask`), `--edit-precision regular|high`,
+  `--prompt-expansion true|false`, and `--image-width`/`--image-height`.
+  Precise and masked edits need Auto size.
+- Provider key notes. `videodraft models` says when your selected Pika, Atlas
+  or Higgsfield key shortens the list, and `generate` keeps the server's
+  `key_note` (for example, a key that runs GPT Image at High instead of Auto)
+  in its output, including `--json`.
+
+### Changed
+
+- The `videodraft models` table shows each model's tier and lists the
+  recommended (Tier 1) models first. `--json` output is unchanged.
+- Seedance no longer has a real-people option. A video that can't be made at
+  the listed rate, usually one showing a real person, costs a higher rate, and
+  the difference is charged before it starts. `--allow-real-people` and
+  `--no-allow-real-people` are still accepted and ignored.
+- Seedance 2.0 runs at Standard quality when `--quality` is omitted (it was
+  Mini), and Kling O3 generates audio unless you pass `--no-audio`, like the
+  other models with an audio option. Both cost more than the old defaults;
+  pass `--quality mini` or `--no-audio` for the cheaper run.
+- `generate 3d --model meshy-7` runs Meshy 7.1, and `--model meshy-7.1` is
+  accepted as the same model. `models 3d` shows each model's name. Meshy's
+  `geometry_resolution` option (`standard`, `2k`, `4k`) replaces the
+  deprecated `ultra_mode`: text and image keep the 2k default at 140 credits,
+  4k costs 160, and multi-image adds 2k (140 credits) and untextured output
+  (80). Meshy's `lowpoly` model type is gone because Meshy retires it on
+  October 30, 2026; use `smart-topology`.
+
+### Removed
+
+- The nightly schema-drift CI job and its tool-name snapshot. It needed a
+  stored production key; the tools the CLI calls are now checked against the
+  server's tool list before each release instead.
+
+### Compatibility
+
+- FLUX 3 image, Ideogram 4.5, provider key notes, the new Seedance pricing and
+  Meshy 7.1 need the matching VideoDraft backend release, which ships
+  separately.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.26.0] - 2026-09-30
 
 ### Added
@@ -13,8 +66,8 @@ All notable changes to the `videodraft` CLI. Format loosely follows
   `generate voiceover --mode standard|turbo` picks the variant: Standard (the
   default, best quality, 10 credits per 1000 characters) or Turbo (Eleven v4
   Turbo, faster, 5 credits per 1000 characters). `produce --voice-mode
-  standard|turbo` does the same for production narration, and `costs voiceover
-  --chars <n> --mode turbo` quotes the Turbo rate (model id `voiceover-turbo`).
+standard|turbo` does the same for production narration, and `costs voiceover
+--chars <n> --mode turbo` quotes the Turbo rate (model id `voiceover-turbo`).
   Google, OpenAI and cloned `custom-*` voices ignore the mode, and
   `costs voiceover-cloned --mode turbo` is refused. Each flag is sent only when
   given, so the server default applies otherwise.

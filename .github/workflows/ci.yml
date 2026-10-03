@@ -8,7 +8,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 7 * * *" # daily 07:00 UTC — drives the schema-drift job below
+    - cron: "0 7 * * *" # daily 07:00 UTC: re-runs every check on main
 
 jobs:
   test:
@@ -96,29 +96,3 @@ jobs:
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=JSON.parse(s);if(o.section!=="SKILL.md"||!o.content.includes("Showing media"))throw new Error("compiled skills show broken");console.log("compiled skills show ok")})'
           HOME="$RUNNER_TEMP/home" "$RUNNER_TEMP/vd" skills install --agent claude --force --json > /dev/null
           test -f "$RUNNER_TEMP/home/.claude/skills/videodraft/SKILL.md" && echo "compiled skills install ok"
-
-  schema-drift:
-    # Nightly: detect MCP tool-schema changes that would break curated commands.
-    # The `call` passthrough is immune by design; this guards the typed flags.
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Diff live MCP tool names against the committed snapshot
-        env:
-          VIDEODRAFT_API_KEY: ${{ secrets.VIDEODRAFT_DRIFT_TOKEN }}
-        run: |
-          # Compare the SET OF TOOL NAMES (stable, low-noise) — a tool being
-          # added/removed/renamed is the drift that warrants a curated-command
-          # review. Param-level changes are absorbed by the `call` passthrough.
-          curl -sX POST https://app.videodraft.ai/api/mcp \
-            -H "Authorization: Bearer $VIDEODRAFT_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
-            | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const t=JSON.parse(d).result.tools.map(x=>x.name).sort();process.stdout.write(JSON.stringify(t,null,2)+"\n")})' \
-            > /tmp/live-tool-names.json
-          diff -u test/fixtures/tool-names.json /tmp/live-tool-names.json || {
-            echo "::warning::MCP tool set changed — add a curated flag if needed, then update cli/test/fixtures/tool-names.json"; exit 1; }

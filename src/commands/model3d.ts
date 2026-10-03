@@ -290,9 +290,9 @@ export function register3DGenerationCommand(generate: Command): void {
     generate
       .command("3d [prompt]")
       .description(
-        "Generate a saved 3D asset through Fal (Meshy 7 or Tripo H3.1)",
+        "Generate a saved 3D asset through Fal (Meshy 7.1 or Tripo H3.1)",
       )
-      .option("--model <id>", "meshy-7 | tripo-h3.1", "meshy-7")
+      .option("--model <id>", "meshy-7 (Meshy 7.1) | tripo-h3.1", "meshy-7")
       .option(
         "--input-mode <mode>",
         "text | image | multi_image; inferred from references by default",
@@ -306,6 +306,8 @@ export function register3DGenerationCommand(generate: Command): void {
   ).action(async function (this: Command, prompt?: string) {
     const ctx = buildContext(this);
     const opts = this.opts<any>();
+    // The meshy-7 id runs Meshy 7.1, so accept the version name as well.
+    if (opts.model === "meshy-7.1") opts.model = "meshy-7";
     if (!["meshy-7", "tripo-h3.1"].includes(opts.model))
       throw new CliError(
         "--model must be meshy-7 or tripo-h3.1. Use models 3d --json for the live catalog.",

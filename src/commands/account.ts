@@ -2,8 +2,9 @@
  * `videodraft credits | costs | models | workspaces`
  */
 
-import type { Command } from "commander";
+import { Option, type Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
+import { modelTable, TIER_NOTE } from "../cli/model-table.js";
 import { emit, kv, note, table } from "../cli/output.js";
 import { UsageError } from "../core/errors.js";
 import { resetAllConnectionSessions } from "../core/session.js";
@@ -93,7 +94,7 @@ export function registerAccountCommands(program: Command): void {
     .option("--ar <ratio>", "image aspect ratio for accurate credit quotes")
     .option(
       "--rendering-speed <tier>",
-      'image speed/cost tier, e.g. Ideogram V4 "Turbo"/"Balanced"/"Quality"',
+      "Legacy image rendering speed; current Ideogram models use --quality low/medium/high (very_low for regular edits)",
     )
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
@@ -101,21 +102,21 @@ export function registerAccountCommands(program: Command): void {
       "--voice-control",
       "Kling element voice_id pricing (V3 Standard/Pro only; O3/4K are unavailable)",
     )
-    .option(
-      "--allow-real-people",
-      "Seedance 2.x: estimate the higher tier-specific Fal rate (the default, matching AI Studio)",
-    )
-    .option(
-      "--no-allow-real-people",
-      "Seedance 2.x: estimate the lower Byteplus-only rate",
-    )
+    // Retired Seedance real-people flags: still accepted so old scripts keep
+    // working, but hidden and never sent.
+    .addOption(new Option("--allow-real-people").hideHelp())
+    .addOption(new Option("--no-allow-real-people").hideHelp())
     .option(
       "--ref-images <n>",
-      "input/reference image count for MiniMax H3, MiniMax H3 Max, or Grok 1.5",
+      "input/reference image count including source for Ideogram 4.5; also MiniMax H3 / H3 Max / Grok",
     )
     .option(
       "--ref-video-seconds <seconds>",
       "MiniMax H3 / H3 Max combined reference-video duration",
+    )
+    .option(
+      "--edit-precision <mode>",
+      "Ideogram 4.5: regular | high (requires --ref-images)",
     )
     .option("--num <n>", "image batch size")
     .option(
@@ -147,9 +148,9 @@ export function registerAccountCommands(program: Command): void {
         quality?: string;
         ar?: string;
         renderingSpeed?: string;
+        editPrecision?: string;
         audio?: boolean;
         voiceControl?: boolean;
-        allowRealPeople?: boolean;
         length?: string;
         chars?: string;
         num?: string;
@@ -177,9 +178,9 @@ export function registerAccountCommands(program: Command): void {
           quality: opts.quality,
           aspect_ratio: opts.ar,
           rendering_speed: opts.renderingSpeed,
+          edit_precision: opts.editPrecision,
           generate_audio: opts.audio,
           voice_control: opts.voiceControl,
-          allow_real_people: opts.allowRealPeople,
           reference_image_count: opts.refImages
             ? Number(opts.refImages)
             : undefined,
@@ -298,10 +299,11 @@ export function registerAccountCommands(program: Command): void {
           if (section === "3d") {
             table(
               o,
-              ["model", "input", "default credits", "Fal endpoint"],
+              ["model", "name", "input", "default credits", "Fal endpoint"],
               models.flatMap((model: any) =>
                 (model.inputs ?? []).map((input: any) => [
                   String(model.id ?? ""),
+                  String(model.name ?? ""),
                   String(input.input_mode ?? ""),
                   String(input.default_credits ?? ""),
                   String(input.endpoint_id ?? ""),
@@ -320,22 +322,12 @@ export function registerAccountCommands(program: Command): void {
             );
             continue;
           }
-          const rows: string[][] = models.map((m: any) => [
-            String(m.id ?? m.model_id ?? m.voice_id ?? ""),
-            String(m.name ?? "").slice(0, 40),
-            String(m.category ?? ""),
-            String(m.tool ?? ""),
-            String(m.credit_cost ?? m.cost ?? m.pricing?.summary ?? ""),
-          ]);
-          table(
-            o,
-            section === "video"
-              ? ["id", "name", "category", "tool", "cost"]
-              : ["id", "name", "cost"],
-            section === "video"
-              ? rows
-              : rows.map((row) => [row[0] ?? "", row[1] ?? "", row[4] ?? ""]),
-          );
+          const { headers, rows, hasTiers } = modelTable(section, payload);
+          table(o, headers, rows);
+          if (hasTiers) note(o, TIER_NOTE);
+          // A selected Pika, Atlas or Higgsfield key shortens the list.
+          const keyNote = (payload as any)?.selected_key?.note;
+          if (keyNote) note(o, keyNote);
         }
       });
     });

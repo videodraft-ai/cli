@@ -4,7 +4,7 @@
  *   generate_storyboard_from_idea → generate_shot_images → produce_project → export_video
  */
 
-import type { Command } from "commander";
+import { Option, type Command } from "commander";
 import { buildContext, compact } from "../cli/context.js";
 import { emit, fmt, note, spinner } from "../cli/output.js";
 import {
@@ -23,7 +23,6 @@ import { capture } from "../cli/telemetry.js";
 import {
   CliError,
   EXIT,
-  seedanceRealPersonRetryHint,
   seedanceRetryPreservedHint,
   seedanceUnresolvedSubmissionHint,
 } from "../core/errors.js";
@@ -291,14 +290,10 @@ export function registerPipelineCommands(program: Command): void {
       "--no-auto-videos",
       "full_video: set up scene videos but don't submit them (no credits spent)",
     )
-    .option(
-      "--allow-real-people",
-      "full_video only, and already the default: Fal fallback at higher Fal-tier pricing. Pass it explicitly to retry failed scene videos once after SEEDANCE_REAL_PERSON_OPT_IN_REQUIRED",
-    )
-    .option(
-      "--no-allow-real-people",
-      "full_video only: pin every scene video to Byteplus at the lower rate; Byteplus refuses real-person likenesses",
-    )
+    // Retired Seedance real-people flags: still accepted so old scripts keep
+    // working, but hidden and never sent.
+    .addOption(new Option("--allow-real-people").hideHelp())
+    .addOption(new Option("--no-allow-real-people").hideHelp())
     .option("--no-voiceover", "skip per-scene voiceovers + captions")
     .option("--no-video-prompts", "skip advisory per-shot motion prompts")
     .option(
@@ -335,7 +330,6 @@ export function registerPipelineCommands(program: Command): void {
             mode: opts.mode,
             // negatable flags default true; only forward an explicit opt-out.
             auto_generate_videos: opts.autoVideos === false ? false : undefined,
-            allow_real_people: opts.allowRealPeople,
             include_voiceover: opts.voiceover === false ? false : undefined,
             generate_video_prompts:
               opts.videoPrompts === false ? false : undefined,
@@ -378,15 +372,6 @@ export function registerPipelineCommands(program: Command): void {
           if (unresolvedHint) note(o, fmt.yellow(o, unresolvedHint));
           const preservedHint = seedanceRetryPreservedHint(result);
           if (preservedHint) note(o, fmt.dim(o, preservedHint));
-          if (seedanceRealPersonRetryHint(result)) {
-            note(
-              o,
-              fmt.dim(
-                o,
-                `Retry only the failed scene videos once: videodraft produce ${projectId} --mode full_video --allow-real-people`,
-              ),
-            );
-          }
         } else if (opts.mode === "full_video" && pendingVideos.length > 0) {
           note(
             o,

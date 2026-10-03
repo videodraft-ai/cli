@@ -115,6 +115,26 @@ describe("3D CLI", () => {
     expect(mocks.prepare3DRequest).not.toHaveBeenCalled();
   });
 
+  it("accepts the Meshy 7.1 version name and sends the meshy-7 id", async () => {
+    await run([
+      "generate",
+      "3d",
+      "a brass telescope",
+      "--model",
+      "meshy-7.1",
+      "--option",
+      "geometry_resolution=2k",
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledExactlyOnceWith("estimate_3d", {
+      operation: "generate",
+      model: "meshy-7",
+      input_mode: "text",
+      prompt: "a brass telescope",
+      options: { geometry_resolution: "2k" },
+    });
+  });
+
   it("preserves ordered references and every provider-native control on submit", async () => {
     const id = "046a4b3d-c2da-407a-bd85-3141256e6a9c";
     await run([
@@ -181,11 +201,12 @@ describe("3D CLI", () => {
       models: [
         {
           id: "meshy-7",
+          name: "Meshy 7.1",
           inputs: [
             {
               input_mode: "image",
               default_credits: 140,
-              endpoint_id: "meshy/v7/image-to-3d",
+              endpoint_id: "meshy/v7.1/image-to-3d",
             },
           ],
         },
@@ -199,6 +220,12 @@ describe("3D CLI", () => {
     expect(stderr.mock.calls.map(([line]) => String(line)).join("")).toContain(
       "Humanoid rigging: 20 credits; preset animation adds 12 credits.",
     );
+    const rows = vi
+      .mocked(process.stdout.write)
+      .mock.calls.map(([line]) => String(line))
+      .join("");
+    expect(rows).toContain("Meshy 7.1");
+    expect(rows).toContain("meshy/v7.1/image-to-3d");
   });
 
   it("retains artifact metadata and keeps a mesh out of output_media in wait", async () => {
