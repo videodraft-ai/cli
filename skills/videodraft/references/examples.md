@@ -82,7 +82,7 @@ videodraft generate image \
 
 SCRIPT=$(videodraft avatar script "why our espresso subscription saves you money" --style ad-style --json | jq -r .script)
 AVATAR=$(videodraft avatar create ./media/avatar.png --script "$SCRIPT" --voice elevenlabs-kPzsL2i3teMYv0FxEYQ6 --ar 9:16 --json | jq -r .avatar_video_id)
-videodraft avatar render "$AVATAR" --resolution 720p   # VEED Fabric paid step; confirm cost first (~20 credits/sec)
+videodraft avatar render "$AVATAR" --resolution 720p   # VEED Fabric paid step; check the cost first with --estimate
 ```
 
 `avatar script` and `avatar create` (including speech) are bundled/free. In this example only the optional portrait generation and Fabric render spend credits.

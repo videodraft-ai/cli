@@ -20,6 +20,18 @@ describe("bundledSkillFiles", () => {
     }
   });
 
+  // Every CLI version keeps its skill text, so a written price goes stale on
+  // older installs. Prices come from `videodraft costs` / `--estimate` only.
+  it("quotes no credit prices", () => {
+    const price =
+      /\b\d[\d.,/ -]*\s*(?:credits?|cr)\b(?! per dollar)|\bcr\/s\b|credits?\/(?:s|sec|second|image|minute)\b/i;
+    for (const [name, content] of Object.entries(bundledSkillFiles()))
+      for (const line of content.split("\n"))
+        expect(line, `${name}: ${line.trim().slice(0, 120)}`).not.toMatch(
+          price,
+        );
+  });
+
   it("carries the canonical SKILL.md (frontmatter + the media-embedding section)", () => {
     const files = bundledSkillFiles();
     expect(files["SKILL.md"]).toContain("name: videodraft");
@@ -51,19 +63,30 @@ describe("bundledSkillFiles", () => {
       "A script-only request creates a script-stage project but stops at the script.",
     );
     expect(skill).toContain("The editor can work without showing its UI.");
-    expect(skill).toContain("run `videodraft skills show editor` before native editor work");
+    expect(skill).toContain(
+      "run `videodraft skills show editor` before native editor work",
+    );
     expect(skill).toContain(
       "Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` by default.",
     );
     expect(skill).toContain("Hosted fallback pipeline");
     expect(editor).toContain("both Code and VideoDraft modes");
-    expect(editor).toContain("make it the default surface for production, timeline assembly, and final export");
+    expect(editor).toContain(
+      "make it the default surface for production, timeline assembly, and final export",
+    );
     expect(editor).toContain("rather than silently switching surfaces");
     // The skill teaches the editor's workflow tools only; earlier editors'
     // single-purpose tools are left to their own live catalog.
     expect(editor).not.toContain("expectedRevision");
     expect(editor).toContain("videodraft-editor tool project_manage");
-    for (const retired of ["ifRevision", "project_control", "timeline_read", "clips_place", "export_start", "--api v1"]) {
+    for (const retired of [
+      "ifRevision",
+      "project_control",
+      "timeline_read",
+      "clips_place",
+      "export_start",
+      "--api v1",
+    ]) {
       expect(editor).not.toContain(retired);
       expect(skill).not.toContain(retired);
     }

@@ -2462,7 +2462,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--download <path>", "download the generated audio file")
     .option(
       "--estimate",
-      "show 19 credits/minute pricing and the 38-credit maximum reservation",
+      "show the current per-minute price and the maximum reservation, then exit (spends nothing)",
     )
     .action(async function (this: Command, promptWords: string[]) {
       const ctx = buildContext(this);
@@ -2594,7 +2594,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--mode <standard|turbo>",
-      "ElevenLabs voices only: standard (default; Eleven v4, best quality, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, faster, 5 credits per 1000 chars). Google, OpenAI and cloned custom-* voices ignore it",
+      "ElevenLabs voices only: standard (default; Eleven v4, best quality) | turbo (Eleven v4 Turbo, faster and cheaper). Google, OpenAI and cloned custom-* voices ignore it",
     )
     .option("--language <bcp47>", 'target language, default "en"')
     .option("--project <id>", "attach to a project")
@@ -2651,7 +2651,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--model <id>",
-      "omit for the server default (lyria-3.5 where the backend supports it) | lyria-3.5 (short or long, 10 credits) | lyria-3-clip-preview (fixed 30s, 4 credits) | lyria-3-pro-preview (legacy) | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
+      "omit for the server default (lyria-3.5 where the backend supports it) | lyria-3.5 (short or long) | lyria-3-clip-preview (fixed 30s) | lyria-3-pro-preview (legacy) | elevenlabs-music-v2.5 | elevenlabs-music-v1 (elevenlabs-music means v2.5)",
     )
     .option(
       "--length <seconds>",

@@ -82,14 +82,14 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 10c. Explicit MiniMax H3 Max keeps its distinct controls
 
 - **Query:** "Use MiniMax H3 Max for an 8-second 768p first-to-last-frame clip. Use quality prompt expansion and seed 42."
-- **Must:** choose `minimax-h3-max`, pass both frames, `--prompt-expansion-mode quality`, and `--seed 42`. Quote the 8 credits per second 768p rate.
+- **Must:** choose `minimax-h3-max`, pass both frames, `--prompt-expansion-mode quality`, and `--seed 42`. Quote the price from `--estimate`.
 - **Must NOT:** pass `--safety-checker` — the provider safety checker is off by default and is only set when the user explicitly asks.
 - **Must NOT:** choose `minimax-h3`, pass reference media alongside the frames, add an aspect ratio alongside the start frame, or collapse the prompt expansion mode to the Wan boolean flag.
 
 ## 10d. MiniMax H3 Max reference mode
 
 - **Query:** "Use MiniMax H3 Max at 768p for a 10-second clip. Keep the rider from this photo and match the camera move in this clip."
-- **Must:** choose `minimax-h3-max`, pass the photo via `--ref` and the clip via `--ref-video`, cite them in the prompt as `Image 1` and `Video 1`, and quote the 8 cr/s 768p rate plus the pooled reference-token charge (first 4,096 free, 2 credits per 1,000 after, reference video at 7,459 tokens/s at 768p).
+- **Must:** choose `minimax-h3-max`, pass the photo via `--ref` and the clip via `--ref-video`, cite them in the prompt as `Image 1` and `Video 1`, and quote the price from `--estimate`, which includes the pooled reference-token charge.
 - **Must NOT:** pass `--start-image` alongside the references, send `--ref-audio` as the only reference, or use `--ar adaptive` when no reference is attached.
 
 ## 11. Source-video editing selects Gemini
@@ -245,7 +245,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 33. A short high-resolution lip sync from existing audio uses H3 Max Lip Sync
 
 - **Query:** "Make this portrait sing the first 12 seconds of this song at 1080p. Use MiniMax."
-- **Must:** use `videodraft avatar h3-lipsync <portrait> --audio <song> --resolution 1080P`, quote the cost with `--estimate` (16 credits per second, billed on the audio length clipped at 14.8s), and say that only the first 14.8 seconds of audio are used.
+- **Must:** use `videodraft avatar h3-lipsync <portrait> --audio <song> --resolution 1080P`, quote the cost with `--estimate` (billed per second on the audio length clipped at 14.8s), and say that only the first 14.8 seconds of audio are used.
 - **Must NOT:** send a prompt or duration (the model takes neither), use generic `generate video`, create a managed avatar record, or turn on `--safety-checker` unless the user asked for it.
 
 ## 34. Lip sync without transcription only when the user asks
@@ -257,7 +257,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## Lyria 3.5 full-song preference
 
 - **Query:** "Make a full cinematic song, roughly two minutes, with Hindi vocals."
-- **Must:** select `lyria-3.5`, quote 10 credits (zero VideoDraft credits on Fal BYOK), and put the desired duration, language and vocal style in the prompt.
+- **Must:** select `lyria-3.5`, quote the price from `--estimate` (zero VideoDraft credits on Fal BYOK), and put the desired duration, language and vocal style in the prompt.
 - **Must NOT:** substitute legacy Lyria 3 Pro or insist Lyria cannot sing.
 - **Companion query:** "Make a quick 30-second piano loop, no vocals." Still use `lyria-3.5`, and put "about 30 seconds, instrumental only, no vocals" in the prompt. Use `lyria-3-clip-preview` only when the user names it. Omitting `--model` lets the server default apply. If the server reports `lyria-3.5` as unknown, rerun without `--model` instead of giving up.
 
@@ -285,7 +285,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## Seedance has no real-people option
 
 - **Query:** "Animate this photo of me with Seedance 2."
-- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, quote the price from `--estimate` (for example "80 credits" for 5 seconds at the default Standard 720p), and say it costs the higher rate (for example "155 credits") if the video can't be made at the lower rate, which is likely for a real person's photo.
+- **Must:** run `videodraft generate video ... --model seedance-2` with no real-people flag, quote the price from `--estimate`, and say it costs the higher rate (the estimate's `higher_rate_cost`) if the video can't be made at the lower rate, which is likely for a real person's photo.
 - **Must NOT:** add `--allow-real-people` or `--no-allow-real-people`, call the price approximate, name providers, or warn that Seedance cannot do real people.
 - **Companion query:** "Cheapest possible Seedance clip of a paper-craft fox." Still no real-people flag. Lower the cost with `--quality mini`, a lower resolution or a shorter duration.
 
@@ -322,7 +322,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## A quick or cheap voiceover uses Turbo
 
 - **Query:** "Read this long script as a quick draft voiceover, and keep it cheap."
-- **Must:** keep the ElevenLabs voice and run `videodraft generate voiceover ... --mode turbo`; quote 5 credits per 1000 characters (`videodraft costs voiceover --chars <n> --mode turbo`).
+- **Must:** keep the ElevenLabs voice and run `videodraft generate voiceover ... --mode turbo`; quote the price from `videodraft costs voiceover --chars <n> --mode turbo`.
 - **Must NOT:** switch to a Google or OpenAI voice to save credits, or pass `--mode` with a cloned `custom-*` voice.
 - **Companion query:** "Now the final version in the best quality." Run it without `--mode`, so Standard (Eleven v4) applies.
 
@@ -335,13 +335,13 @@ Each scenario: the request, and what a correct run must and must not do.
 ## FLUX 3 image only when asked for
 
 - **Query:** "Make a 4K poster of a rainy neon street with FLUX 3."
-- **Must:** run `videodraft generate image --model flux-3-image --resolution 4K` with the requested ratio, and quote the price from `--estimate` (77 to 82 credits per image at 4K).
+- **Must:** run `videodraft generate image --model flux-3-image --resolution 4K` with the requested ratio, and quote the price from `--estimate`.
 - **Must NOT:** use the FLUX 3 video model (`flux-3`), pass `--seed` (FLUX 3 image has none), or pick FLUX 3 image for a plain image request that names no model.
 
 ## Meshy 3D uses geometry_resolution
 
 - **Query:** "Make a detailed 3D armchair with the sharpest geometry you can."
-- **Must:** run `videodraft generate 3d --model meshy-7 --option geometry_resolution=4k` (meshy-7 runs Meshy 7.1) and quote the price from `--estimate` (160 credits for a text model).
+- **Must:** run `videodraft generate 3d --model meshy-7 --option geometry_resolution=4k` (meshy-7 runs Meshy 7.1) and quote the price from `--estimate`.
 - **Must NOT:** pass the deprecated `ultra_mode` or `model_type=lowpoly`.
 
 ## An Ideogram 4.5 edit keeps the source image
@@ -349,3 +349,9 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "With Ideogram, turn the sky in this photo into a sunset and keep everything else exactly as it is."
 - **Must:** run `videodraft generate image --model ideogram-v4.5 --source-image <photo> --edit-precision high` with Auto size (no `--image-width`/`--image-height`) and a `--quality` of `low`, `medium` or `high`.
 - **Must NOT:** pick the retired `ideogram-v4`, pass `--quality very_low` with `--edit-precision high`, or set a custom size on a precise edit.
+
+## A price question gets a live quote
+
+- **Query:** "How much would a 10-second Kling 3.0 Pro video with audio cost?"
+- **Must:** run `videodraft costs kling-3.0 --type video --duration 10 --quality pro --audio` (or the generate command with `--estimate`) and report the number it returns.
+- **Must NOT:** quote a price from memory, the skill or older notes, or start a paid generation to find out.
