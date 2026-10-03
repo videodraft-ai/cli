@@ -46,7 +46,7 @@ videodraft generate video --model gemini-omni-1.1-flash --previous-interaction-i
 videodraft generate audio "Read this in a calm documentary voice" --voice vivi_mixed_en_zh_ja_es_id --download narration.mp3
 videodraft generate audio "Extend @Audio1 with soft rain" --ref-audio ./opening.wav --download extended.wav --format wav
 videodraft generate voiceover "Welcome to VideoDraft" --download welcome.mp3
-videodraft generate voiceover "Welcome to VideoDraft" --mode turbo --download welcome.mp3 # Eleven v4 Turbo: faster, 5 credits per 1000 chars
+videodraft generate voiceover "Welcome to VideoDraft" --mode turbo --download welcome.mp3 # Eleven v4 Turbo: faster and cheaper
 videodraft generate music "minimal ambient, 60 BPM" --download bgm.mp3
 videodraft generate sound-effect "cinematic whoosh, sub hit" --duration 3 --download sfx.mp3
 videodraft generate dialogue --line "elevenlabs-kPzsL2i3teMYv0FxEYQ6:Ready?" --line "elevenlabs-s3TPKV1kjDlVtZbl4Ksh:Let's go." --download dialogue.mp3
@@ -92,7 +92,7 @@ Asset I/O is part of the asset workflow: `videodraft upload`, `videodraft downlo
 
 ### 3D model generation and rigging
 
-Meshy 7.1 (`--model meshy-7`, or `meshy-7.1`) and Tripo H3.1 support text, image, and multi-image inputs through Fal. Meshy's `geometry_resolution` option sets the geometry detail: text and image take `standard`, `2k` (the default) or `4k`, and multi-image takes `standard` (the default) or `2k`. 2k adds 20 credits and 4k adds 40. Saved 3D assets are independent of AI Studio sessions. Inspect the live catalog for each endpoint's exact options, view order, limits, default settings, output formats, and pricing:
+Meshy 7.1 (`--model meshy-7`, or `meshy-7.1`) and Tripo H3.1 support text, image, and multi-image inputs through Fal. Meshy's `geometry_resolution` option sets the geometry detail: text and image take `standard`, `2k` (the default) or `4k`, and multi-image takes `standard` (the default) or `2k`. 2k and 4k cost more. Saved 3D assets are independent of AI Studio sessions. Inspect the live catalog for each endpoint's exact options, view order, limits, default settings, output formats, and pricing:
 
 ```bash
 videodraft models 3d --json
@@ -155,8 +155,8 @@ difference is charged before it starts.
 
 `call` reaches **every** VideoDraft API tool (the full MCP catalog), including ones without a curated command — new platform features work in the CLI the day they ship.
 
-Kling voice creation costs 1 VideoDraft credit on the platform Fal account and
-0 credits with Fal BYOK. `--estimate` checks the active account without creating
+Kling voice creation has a small charge on the platform Fal account and is free
+with Fal BYOK. `--estimate` checks the active account without creating
 a voice. Samples must be MP3, WAV, MP4, or MOV, 5-30 seconds, and no larger
 than 50 MB. Voice IDs are opaque strings scoped to the Fal account that created
 them; keep a `voice_id` inside its image-backed or video-backed element so the binding is preserved.
@@ -223,6 +223,6 @@ const me = await client.callTool("whoami");
 
 MIT © VideoDraft
 
-Ideogram 4.5 (`ideogram-v4.5`) replaces the visible Ideogram 4.0 entry and stays Tier 2. Quality prices per image: low 3 credits, medium 6 (default), high 22; very_low 1 for regular edits. Supports 1-8 outputs, 1K/2K, seed, a source plus four additional references (three with a mask), regular/high edit precision, and text-to-image prompt expansion. MCP uses `source_image`, `reference_images`, `mask_url`, `edit_precision`, `enable_prompt_expansion`, `image_width`, and `image_height`. CLI equivalents are `--source-image`, repeatable `--ref`, `--mask`, `--edit-precision`, `--prompt-expansion`, `--image-width`, and `--image-height`. Precise/masked edits require Auto size with no resolution or custom dimensions. Masks match source dimensions and contain both black edit regions and white preserved regions. Quotes for very_low require the source/reference count (`reference_image_count` or `--ref-images`). Legacy 4.0 jobs retain their original backend support.
+Ideogram 4.5 (`ideogram-v4.5`) replaces the visible Ideogram 4.0 entry and stays Tier 2. Quality: low, medium (default) or high, priced per image; very_low for regular edits. Supports 1-8 outputs, 1K/2K, seed, a source plus four additional references (three with a mask), regular/high edit precision, and text-to-image prompt expansion. MCP uses `source_image`, `reference_images`, `mask_url`, `edit_precision`, `enable_prompt_expansion`, `image_width`, and `image_height`. CLI equivalents are `--source-image`, repeatable `--ref`, `--mask`, `--edit-precision`, `--prompt-expansion`, `--image-width`, and `--image-height`. Precise/masked edits require Auto size with no resolution or custom dimensions. Masks match source dimensions and contain both black edit regions and white preserved regions. Quotes for very_low require the source/reference count (`reference_image_count` or `--ref-images`). Legacy 4.0 jobs retain their original backend support.
 
-FLUX 3 image (`flux-3-image`, not the `flux-3` video model) is Tier 2. It generates and edits with up to 10 references, 1-4 outputs, 1K/2K/4K (default 1K), prompt expansion (default on) and 14 aspect ratios plus auto. Each image costs 5-10 credits at 1K, 20-24 at 2K and 77-82 at 4K, set by the ratio; auto is quoted at the tier's highest price. Without an aspect ratio, a new image is 16:9 and an edit follows its first reference. No seed. MCP uses `reference_images`, `num_images`, `resolution`, `aspect_ratio` and `enable_prompt_expansion`; the CLI uses `--ref`, `--num`, `--resolution`, `--ar` and `--prompt-expansion`.
+FLUX 3 image (`flux-3-image`, not the `flux-3` video model) is Tier 2. It generates and edits with up to 10 references, 1-4 outputs, 1K/2K/4K (default 1K), prompt expansion (default on) and 14 aspect ratios plus auto. Each image is priced by output size (resolution and ratio); auto is quoted at the tier's highest price. Without an aspect ratio, a new image is 16:9 and an edit follows its first reference. No seed. MCP uses `reference_images`, `num_images`, `resolution`, `aspect_ratio` and `enable_prompt_expansion`; the CLI uses `--ref`, `--num`, `--resolution`, `--ar` and `--prompt-expansion`.

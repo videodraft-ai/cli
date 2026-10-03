@@ -303,7 +303,7 @@ export function registerPipelineCommands(program: Command): void {
     .option("--voice <id>", "TTS voice id for voiceovers")
     .option(
       "--voice-mode <standard|turbo>",
-      "ElevenLabs narration voices only: standard (default; Eleven v4, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, faster, 5 credits per 1000 chars)",
+      "ElevenLabs narration voices only: standard (default; Eleven v4) | turbo (Eleven v4 Turbo, faster and cheaper)",
     )
     .option("--language <bcp47>", "voiceover + caption language")
     .option("--captions", "force burn captions")

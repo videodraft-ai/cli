@@ -132,7 +132,7 @@ export function registerAccountCommands(program: Command): void {
     .option("--fps <n>", "Topaz: delivered / target frame rate")
     .option(
       "--mode <mode>",
-      "Topaz upscale mode: generative | precision | creative. For voiceover, the ElevenLabs TTS mode: standard (Eleven v4, 10 credits per 1000 chars) | turbo (Eleven v4 Turbo, 5 credits per 1000 chars)",
+      "Topaz upscale mode: generative | precision | creative. For voiceover, the ElevenLabs TTS mode: standard (Eleven v4) | turbo (Eleven v4 Turbo, faster and cheaper)",
     )
     .option(
       "--topaz-model <name>",

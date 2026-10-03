@@ -7,8 +7,8 @@
       "files": [
         {
           "path": "references/3d.md",
-          "sha256": "97560d188df8f6fa3e6735fac42b92f14032cd0bbdf4d904f5916196faac2e8b",
-          "bytes": 5436
+          "sha256": "12a542bc0d902ae15e520b8d18b553bc5ff5229e97df60d0f799ba0c5387d334",
+          "bytes": 5431
         },
         {
           "path": "references/editor.md",
@@ -17,23 +17,23 @@
         },
         {
           "path": "references/examples.md",
-          "sha256": "a899b9cbd890cd4645bbb4ffe23edcf18cd188175f1dbc0a47820643a1ce2112",
+          "sha256": "7bea9a261ca4e258089af48f35e51f00c1ec877726559581efc7ecbd7aaeb696",
           "bytes": 10103
         },
         {
           "path": "references/models.md",
-          "sha256": "62f33a43f741899683476d66d92ecdf0dc9b978551c4e1ed7a85df53d7a9dcfd",
-          "bytes": 46810
+          "sha256": "6b1e4dac4e4469c01ee61dd9fce07788f2f1c4da75fdcaf4488d2442abdd4000",
+          "bytes": 46051
         },
         {
           "path": "references/pipeline.md",
-          "sha256": "5317a6e661f0c4adf0377c6e6b4ec9833a238c84b5b82a103f96cbdb71797e80",
-          "bytes": 14269
+          "sha256": "2178cf9d8d800614f7881ffc68ce12a0700e1eb1877c7392aef22bce129d27b2",
+          "bytes": 14213
         },
         {
           "path": "SKILL.md",
-          "sha256": "67b6462dcf5e17834decd3574a55a20614fd0ec93ebb1c6f64612c2187d9fb1a",
-          "bytes": 46485
+          "sha256": "e35a1c86039e1fda2fae67518aa7799fefb50f5722893f212d5dbabbe147432e",
+          "bytes": 46450
         }
       ]
     }

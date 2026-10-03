@@ -5,6 +5,22 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-03
+
+### Changed
+
+- The bundled skill, README and `--help` text no longer list credit prices,
+  which now change with provider routing and sales. They describe how each
+  job is billed and point to `videodraft costs` or `--estimate`, which read
+  current prices from the server, so an older CLI never quotes a stale price.
+
+### Compatibility
+
+- No backend change is needed: `videodraft costs` and `--estimate` already
+  read prices from the server.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.27.0] - 2026-10-03
 
 ### Added
