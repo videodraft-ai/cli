@@ -182,7 +182,7 @@ export function registerPipelineCommands(program: Command): void {
             model_id:
               opts.model ??
               project?.storyboard?.settings?.defaultImageModel ??
-              "nano-banana-2",
+              "nano-banana-2.1",
             type: "image",
             aspect_ratio:
               opts.ar ??

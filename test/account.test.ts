@@ -43,6 +43,52 @@ async function runAccount(args: string[]): Promise<void> {
   await program.parseAsync(args, { from: "user" });
 }
 
+describe("voice catalogue", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({
+      voices: [],
+      next_page_token: "2",
+      has_more: true,
+    });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+  it("forwards public voice search and pagination to the shared MCP catalogue", async () => {
+    await runAccount([
+      "models",
+      "voices",
+      "--search",
+      "warm narrator",
+      "--language",
+      "hi",
+      "--source",
+      "library",
+      "--page-size",
+      "12",
+      "--page-token",
+      "1",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith("list_available_voices", {
+      search: "warm narrator",
+      language: "hi",
+      accent: undefined,
+      gender: undefined,
+      source: "library",
+      page_size: 12,
+      page_token: "1",
+    });
+  });
+  it("rejects voice filters on unrelated catalogues and invalid page sizes", async () => {
+    await expect(
+      runAccount(["models", "video", "--search", "warm"]),
+    ).rejects.toThrow("require models voices");
+    await expect(
+      runAccount(["models", "voices", "--page-size", "101"]),
+    ).rejects.toThrow("1 to 100");
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+});
+
 describe("costs", () => {
   beforeEach(() => {
     mocks.callTool.mockReset();

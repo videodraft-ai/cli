@@ -44,9 +44,46 @@ describe("generate --estimate model selection", () => {
 
     expect(mocks.callTool).toHaveBeenCalledOnce();
     expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
-      model_id: "nano-banana-2",
+      model_id: "nano-banana-2.1",
       type: "image",
     });
+  });
+
+  it("passes the Nano Banana 2.1 thinking level and web search to the estimate", async () => {
+    await runGenerate([
+      "generate",
+      "image",
+      "an infographic",
+      "--estimate",
+      "--thinking-level",
+      "HIGH",
+      "--google-search-grounding",
+      "true",
+      "--resolution",
+      "4K",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "nano-banana-2.1",
+      type: "image",
+      resolution: "4K",
+      thinking_level: "high",
+      google_search_grounding: true,
+    });
+  });
+
+  it("rejects an unknown thinking level before calling the server", async () => {
+    await expect(
+      runGenerate([
+        "generate",
+        "image",
+        "a poster",
+        "--estimate",
+        "--thinking-level",
+        "low",
+      ]),
+    ).rejects.toThrow(/--thinking-level must be minimal, medium or high/);
+    expect(mocks.callTool).not.toHaveBeenCalled();
   });
 
   it("uses an explicit image model for the estimate", async () => {

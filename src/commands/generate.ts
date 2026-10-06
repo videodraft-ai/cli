@@ -566,6 +566,20 @@ function optionalSeed(value: unknown): number | undefined {
   return parsed;
 }
 
+/** --thinking-level: minimal, medium or high (Nano Banana 2.1), or undefined. */
+function optionalThinkingLevel(
+  value: unknown,
+): "minimal" | "medium" | "high" | undefined {
+  if (value === undefined) return undefined;
+  const level = String(value).trim().toLowerCase();
+  if (level !== "minimal" && level !== "medium" && level !== "high")
+    throw new CliError(
+      "--thinking-level must be minimal, medium or high.",
+      EXIT.USAGE,
+    );
+  return level;
+}
+
 function optionalBooleanChoice(
   value: unknown,
   label: string,
@@ -869,7 +883,7 @@ export function registerGenerateCommands(program: Command): void {
     .description("Generate an image (async; waits by default)")
     .option(
       "--model <id|name>",
-      "image model id or display name (default nano-banana-2); run `videodraft models image`",
+      "image model id or display name (default nano-banana-2.1); run `videodraft models image`",
     )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9" (FLUX 3 also "auto")')
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
@@ -881,10 +895,17 @@ export function registerGenerateCommands(program: Command): void {
       "--rendering-speed <tier>",
       "Rendering speed for legacy image models. Current Ideogram models use --quality.",
     )
-    .option("--temperature <n>", "Nano Banana Pro/2 creativity (0-2)")
+    .option(
+      "--temperature <n>",
+      "Nano Banana Pro/2 creativity (0-2); not on 2.1",
+    )
     .option(
       "--google-search-grounding <true|false>",
-      "Nano Banana Pro/2 Google Search grounding",
+      "Nano Banana 2.1/Pro/2 Google Search grounding",
+    )
+    .option(
+      "--thinking-level <level>",
+      "Nano Banana 2.1 thinking: minimal (default) | medium | high (slower; complex layouts, dense text; no extra charge)",
     )
     .option("--horizontal-angle <degrees>", "Qwen horizontal rotation (0-360)")
     .option("--vertical-angle <degrees>", "Qwen elevation (-30 to 90)")
@@ -912,7 +933,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--video-ref <url|file>",
-      "video reference, nano-banana-2 only (http(s)/gs:///YouTube, or local file)",
+      "video reference, nano-banana-2.1 and nano-banana-2 only (http(s)/gs:///YouTube, or local file)",
     )
     .option(
       "--source-image <url|file>",
@@ -977,6 +998,7 @@ export function registerGenerateCommands(program: Command): void {
           opts.googleSearchGrounding,
           "--google-search-grounding",
         ),
+        thinking_level: optionalThinkingLevel(opts.thinkingLevel),
         horizontal_angle: optionalRangedNumber(
           opts.horizontalAngle,
           "--horizontal-angle",
@@ -1003,7 +1025,7 @@ export function registerGenerateCommands(program: Command): void {
         await printEstimate(ctx, {
           // Cost lookup needs a concrete model. Keep runtime generation
           // model-less so the server can still make its task-aware choice.
-          model: opts.model ?? "nano-banana-2",
+          model: opts.model ?? "nano-banana-2.1",
           type: "image",
           aspectRatio: opts.ar,
           resolution: opts.resolution,

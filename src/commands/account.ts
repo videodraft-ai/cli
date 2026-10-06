@@ -215,9 +215,28 @@ export function registerAccountCommands(program: Command): void {
       "--category <name>",
       "video only: generation | video_edit | motion_control | avatar_lipsync | upscale",
     )
+    .option("--search <text>", "voices: search names and descriptions")
+    .option("--language <code>", "voices: language code")
+    .option("--accent <accent>", "voices: accent filter")
+    .option("--gender <gender>", "voices: male | female")
+    .option("--source <source>", "voices: account | library")
+    .option("--page-size <count>", "voices: results per page, 1-100")
+    .option(
+      "--page-token <token>",
+      "voices: next_page_token from the preceding response",
+    )
     .action(async function (this: Command, kind?: string) {
       const ctx = buildContext(this);
-      const opts = this.opts<{ category?: string }>();
+      const opts = this.opts<{
+        category?: string;
+        search?: string;
+        language?: string;
+        accent?: string;
+        gender?: string;
+        source?: string;
+        pageSize?: string;
+        pageToken?: string;
+      }>();
       const wanted = kind ?? "all";
       if (
         !["all", "image", "video", "audio", "3d", "voices", "styles"].includes(
@@ -245,6 +264,28 @@ export function registerAccountCommands(program: Command): void {
           "--category is only valid for the video model catalog.",
         );
       }
+      const voiceFilters = [
+        opts.search,
+        opts.language,
+        opts.accent,
+        opts.gender,
+        opts.source,
+        opts.pageSize,
+        opts.pageToken,
+      ];
+      if (wanted !== "voices" && voiceFilters.some((v) => v !== undefined))
+        throw new UsageError("Voice search filters require models voices.");
+      if (opts.source && !["account", "library"].includes(opts.source))
+        throw new UsageError("--source must be account or library.");
+      if (opts.gender && !["male", "female"].includes(opts.gender))
+        throw new UsageError("--gender must be male or female.");
+      const pageSize =
+        opts.pageSize === undefined ? undefined : Number(opts.pageSize);
+      if (
+        pageSize !== undefined &&
+        (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)
+      )
+        throw new UsageError("--page-size must be an integer from 1 to 100.");
       const result: Record<string, unknown> = {};
 
       if (wanted === "image" || wanted === "all") {
@@ -277,7 +318,15 @@ export function registerAccountCommands(program: Command): void {
         result["3d"] = await ctx.client.callTool("get_3d_models");
       }
       if (wanted === "voices") {
-        result.voices = await ctx.client.callTool("list_available_voices");
+        result.voices = await ctx.client.callTool("list_available_voices", {
+          search: opts.search,
+          language: opts.language,
+          accent: opts.accent,
+          gender: opts.gender,
+          source: opts.source,
+          page_size: pageSize,
+          page_token: opts.pageToken,
+        });
       }
       if (wanted === "styles") {
         result.styles = await ctx.client.callTool("list_available_styles");
@@ -325,6 +374,14 @@ export function registerAccountCommands(program: Command): void {
           const { headers, rows, hasTiers } = modelTable(section, payload);
           table(o, headers, rows);
           if (hasTiers) note(o, TIER_NOTE);
+          if (section === "voices") {
+            if ((payload as any)?.error) note(o, (payload as any).error);
+            if ((payload as any)?.next_page_token)
+              note(
+                o,
+                `More voices: repeat these filters with --page-token ${JSON.stringify((payload as any).next_page_token)}`,
+              );
+          }
           // A selected Pika, Atlas or Higgsfield key shortens the list.
           const keyNote = (payload as any)?.selected_key?.note;
           if (keyNote) note(o, keyNote);

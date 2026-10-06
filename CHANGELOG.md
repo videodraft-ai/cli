@@ -5,6 +5,41 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-07
+
+### Added
+
+- Nano Banana 2.1 (`nano-banana-2.1`) is the new default image model and
+  Tier 1. `generate image --thinking-level minimal|medium|high` sets how much
+  it plans before drawing: `minimal` is the default, and `medium` or `high`
+  help with complex layouts, infographics and dense text but are slower. There
+  is no extra charge for thinking. `--google-search-grounding` works with it,
+  `--temperature` does not, and `--video-ref` accepts it as well as Nano
+  Banana 2.
+- ElevenLabs voice search. `videodraft models voices` takes `--search`,
+  `--language`, `--accent`, `--gender male|female`,
+  `--source account|library` and `--page-size 1-100`, and prints the
+  `--page-token` that fetches the next page with the same filters. With your
+  own ElevenLabs key it lists that account's voices by default; `--source
+  library` explores the public library on that key.
+
+### Changed
+
+- `generate image --estimate` quotes `nano-banana-2.1` when no `--model` is
+  given, and `shots --estimate` does the same for a project with no default
+  image model. Generating without `--model` still lets the server choose.
+- The bundled skill recommends Nano Banana 2.1 for general images, shot grids
+  and avatar portraits, keeps Nano Banana 2 for when temperature control is
+  wanted, and teaches voice search.
+
+### Compatibility
+
+- Needs the matching VideoDraft backend release, which deploys separately.
+  Older servers don't know `nano-banana-2.1`, `thinking_level` or the voice
+  search filters.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.27.1] - 2026-10-03
 
 ### Changed
