@@ -113,13 +113,13 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 14. Multi-shot character video uses a reference-first grid
 
 - **Query:** "Make a three-shot sequence of the same detective entering an apartment, searching the desk, and finding a key. Keep him consistent."
-- **Must:** create/reuse a project, generate the shot images with Nano Banana 2 grid mode, then use the decoded shot images as start frames or references for the motion clips.
+- **Must:** create/reuse a project, generate the shot images with Nano Banana 2.1 grid mode, then use the decoded shot images as start frames or references for the motion clips.
 - **Must NOT:** independently generate three text-only video clips with no shared visual anchor.
 
 ## 15. Talking-head without a portrait creates the avatar first
 
 - **Query:** "Make a vertical talking-head video explaining compound interest. Create the presenter too."
-- **Must:** generate a clear front-facing 9:16 portrait with `nano-banana-2`, wait for its finished URL/file, then use it with `videodraft avatar create` and render at 720p with VEED Fabric. Confirm the combined generation and render spend.
+- **Must:** generate a clear front-facing 9:16 portrait with `nano-banana-2.1`, wait for its finished URL/file, then use it with `videodraft avatar create` and render at 720p with VEED Fabric. Confirm the combined generation and render spend.
 - **Must NOT:** call generic `generate video` or attempt the avatar render without a character image.
 
 ## 16. Image quality enhancement uses Topaz
@@ -150,7 +150,7 @@ Each scenario: the request, and what a correct run must and must not do.
 
 - **Query:** "Use GPT Image 2 to make a consistent three-shot storyboard of the same detective."
 - **Must:** preserve `gpt-image-2` for the shot-image/grid generation and use the decoded shots as later video references.
-- **Must NOT:** silently replace the requested image model with GPT Image 2.5 or Nano Banana 2.
+- **Must NOT:** silently replace the requested image model with GPT Image 2.5 or Nano Banana 2.1.
 
 ## 20. Incompatible explicit model is explained, not silently replaced
 
@@ -355,3 +355,15 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "How much would a 10-second Kling 3.0 Pro video with audio cost?"
 - **Must:** run `videodraft costs kling-3.0 --type video --duration 10 --quality pro --audio` (or the generate command with `--estimate`) and report the number it returns.
 - **Must NOT:** quote a price from memory, the skill or older notes, or start a paid generation to find out.
+
+## A dense infographic gets more thinking
+
+- **Query:** "Make an infographic poster that explains the water cycle in five labeled steps."
+- **Must:** run `videodraft generate image` with Nano Banana 2.1 (the default, or `--model nano-banana-2.1`) and `--thinking-level high` (or `medium`), and quote the price from `--estimate`.
+- **Must NOT:** pass `--temperature` to Nano Banana 2.1, pass `--thinking-level` to another model, or say thinking costs extra.
+
+## A voice request searches the live catalog
+
+- **Query:** "Find me a warm British female narrator voice for this explainer."
+- **Must:** run `videodraft models voices --search "warm narrator" --accent british --gender female --json` (adding `--language en` or `--source library` as needed), offer a few matching voices by name, and fetch more with `--page-token <next_page_token>` and the same filters when none fit.
+- **Must NOT:** pick a voice id from memory or an old list, or assume a premade voice exists in a connected ElevenLabs account.

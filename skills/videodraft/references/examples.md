@@ -78,7 +78,7 @@ When the user has no portrait, generate a clear front-facing avatar image first.
 ```bash
 videodraft generate image \
   "Front-facing head-and-shoulders portrait of a friendly coffee expert, direct eye contact, natural expression, clean studio background" \
-  --model nano-banana-2 --ar 9:16 --download ./media/avatar.png
+  --model nano-banana-2.1 --ar 9:16 --download ./media/avatar.png
 
 SCRIPT=$(videodraft avatar script "why our espresso subscription saves you money" --style ad-style --json | jq -r .script)
 AVATAR=$(videodraft avatar create ./media/avatar.png --script "$SCRIPT" --voice elevenlabs-kPzsL2i3teMYv0FxEYQ6 --ar 9:16 --json | jq -r .avatar_video_id)

@@ -24,7 +24,8 @@ Tier 1 is the rows marked **T1** below. Every other catalog model is Tier 2 and 
 
 | Need                                                                                       | Choose                   | Why                                                               |
 | ------------------------------------------------------------------------------------------ | ------------------------ | ----------------------------------------------------------------- |
-| T1: Most generation, editing, character consistency, or reference work                     | `nano-banana-2`          | Best general default; 1K/2K/4K and up to 14 reference images      |
+| T1: Most generation, editing, text, character consistency, or reference work               | `nano-banana-2.1`        | Best general default; 1K/2K/4K, 14 references, thinking levels    |
+| T1: Previous default, or when temperature control is wanted                                | `nano-banana-2`          | 1K/2K/4K and up to 14 reference images; temperature 0-2           |
 | T1: Highest-quality complex generation or reasoning                                        | `nano-banana-pro`        | Premium Nano Banana quality and reasoning                         |
 | T1: Fast, inexpensive drafts and iteration                                                 | `nano-banana-2-lite`     | Fastest/cheapest Nano Banana option; 1K only, up to 14 references |
 | T1: Posters, title cards, signs, logos, or any image with important readable text          | `gpt-image-2.5-flare`    | Fast OpenAI option; 16 references, 1K/2K/4K and PNG output        |
@@ -124,8 +125,8 @@ Kling O3 is also exposed for reference generation. `videodraft generate video --
 
 - Prefer a start frame or reference image whenever a specific character, product, location, style, composition, or brand identity must stay recognizable.
 - If the user gives a reference, pass it. Never silently replace it with a text description.
-- If no reference exists and continuity matters, generate a still first with the user's explicitly requested compatible image model, otherwise use Nano Banana 2. Wait for the image URL, then animate it with the selected video model. Confirm the combined image plus video cost before starting.
-- For multi-shot scenes, generate shot images with `videodraft shots <project_id> --model <selected-image-model> --grid`. Preserve an explicitly requested compatible image model; otherwise use `nano-banana-2`. The grid establishes the scene and characters together, then decodes into individual shot images.
+- If no reference exists and continuity matters, generate a still first with the user's explicitly requested compatible image model, otherwise use Nano Banana 2.1. Wait for the image URL, then animate it with the selected video model. Confirm the combined image plus video cost before starting.
+- For multi-shot scenes, generate shot images with `videodraft shots <project_id> --model <selected-image-model> --grid`. Preserve an explicitly requested compatible image model; otherwise use `nano-banana-2.1`. The grid establishes the scene and characters together, then decodes into individual shot images.
 - Animate the decoded shot images as per-shot start frames or references. Do not independently text-generate each video clip when the shots need to match.
 - Pure text-to-video remains appropriate for generic one-off footage where no subject, composition, or continuity needs to be preserved.
 
@@ -167,7 +168,7 @@ For a presenter, spokesperson or explainer speaking to camera, VEED Fabric is th
 
 The managed renderer is VEED Fabric Fast (`veed/fabric-1.0/fast`). Direct Fabric, MiniMax H3 Max Lip Sync, and Sync Labs are paid AI Studio generations and return async job IDs.
 
-1. Obtain the avatar image. Prefer the user's supplied portrait or an existing character. If none exists, use the user's explicitly requested compatible image model, otherwise generate a front-facing head-and-shoulders portrait with `nano-banana-2`, direct eye contact, a natural expression, and a clean background. Match the intended video aspect ratio when practical.
+1. Obtain the avatar image. Prefer the user's supplied portrait or an existing character. If none exists, use the user's explicitly requested compatible image model, otherwise generate a front-facing head-and-shoulders portrait with `nano-banana-2.1`, direct eye contact, a natural expression, and a clean background. Match the intended video aspect ratio when practical.
 2. If the portrait is visibly soft or too small, run Topaz image enhancement/upscaling before animation.
 3. Generate a script only if needed: `videodraft avatar script "<idea>"`.
 4. Create the avatar record and speech: `videodraft avatar create <portrait-url-or-file> --script "..." --voice <id> --ar 9:16`. Prefer ElevenLabs when unspecified, but honor another explicitly selected supported voice/provider.
@@ -200,7 +201,7 @@ Direct Fabric text/audio, H3 Max Lip Sync, and Sync Labs do not use the managed 
 
 This skill lists no prices because they change with provider routing and sales. Get the current price from `videodraft costs <model> [settings]` or the command's `--estimate` flag; both read live prices from the server and spend nothing. Never quote a price from memory. What each kind of job is billed on:
 
-- Images: per image (x `--num`). Matrix-priced models (GPT Image, Nano Banana Pro, Seedream v5 Pro, Ideogram 4.5, Grok Imagine 2.0) vary by resolution and/or quality; Grok Imagine 2.0 also charges per reference image (up to 3).
+- Images: per image (x `--num`). Matrix-priced models (GPT Image, Nano Banana 2.1 and Pro, Seedream v5 Pro, Ideogram 4.5, Grok Imagine 2.0) vary by resolution and/or quality (Nano Banana 2.1 thinking and web search are free); Grok Imagine 2.0 also charges per reference image (up to 3).
 - Video: per output second; the rate depends on model, resolution, quality and native audio on/off.
 - Gemini Omni 1.1 Flash: per output second by resolution (720p default). Extend appends an explicit 3-10 seconds to a 1-30s source, whether uploaded or resolved from a prior interaction; 40 seconds total is reachable only while the source stays at or under 30s. Fal BYOK generation and basic source edits cost zero VideoDraft credits; continuation, extension, and separate creative references on a source edit are unavailable under Fal BYOK.
 - MiniMax H3: per output second by resolution (768p default). The first 5 reference images are included, then each additional image adds a charge. Reference video and reference audio are NOT billed.
