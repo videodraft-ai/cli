@@ -185,7 +185,7 @@ A dependable sequence:
 Call `delivery_manage` with `operation: "submit"`. Submission is not completion: it returns a job, destination, and `started` or `queued` status.
 
 - Use `mode: "video"` for H.264, H.265, or ProRes.
-- Use `mode: "xml"` (XMEML) for Premiere Pro **and DaVinci Resolve**. Resolve reads XMEML natively. Use `fcpxml` only for Final Cut Pro; sending Resolve an FCPXML produces a package it cannot open cleanly.
+- Use `mode: "xml"` (XMEML) for Premiere Pro **and DaVinci Resolve**; Resolve reads XMEML natively. Use `mode: "fcpxml"` with `fcpxmlTarget: "fcp"` for Final Cut Pro: the default target writes the Resolve flavor. `fcpxmlTarget: "resolve"` stays for older Resolve workflows, but new Resolve handoffs use `xml`.
 - Use `mode: "videodraft"` for a self-contained project package.
 - Use `mode: "srt"` or `mode: "vtt"` for a subtitle file of the captions: words and timing only, without styling. `captionGroupId` picks a caption group; `wordTiming: true` adds each word's start to a `vtt`.
 - Omit `outputPath` unless the user named a destination; the default is `~/Downloads`. The editor does not create folders, so a named destination's folder must already exist.
