@@ -5,6 +5,27 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-10-11
+
+### Changed
+
+- Agent skill: generation billing and personal provider keys are managed in
+  Settings → API Keys on the web, or in Settings → Media providers in
+  VideoDraft ADE.
+- Agent skill, editor reference: a Final Cut Pro handoff uses
+  `delivery_manage` with `mode: "fcpxml"` and `fcpxmlTarget: "fcp"`, because
+  the default target writes the Resolve flavor. New DaVinci Resolve handoffs
+  use `mode: "xml"`; `fcpxmlTarget: "resolve"` stays for older Resolve
+  workflows.
+
+### Compatibility
+
+- Text only; no command changes. Settings → Media providers arrives with a
+  VideoDraft desktop release that has not shipped yet; until then, keys are
+  managed on the web. `fcpxmlTarget` already works in current editor builds.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.28.0] - 2026-10-07
 
 ### Added

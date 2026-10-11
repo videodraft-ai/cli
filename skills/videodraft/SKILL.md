@@ -15,7 +15,8 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 
 ## How to connect
 
-Generation billing is selected in VideoDraft Settings → API keys. Where enabled,
+Generation billing is selected in VideoDraft Settings → API Keys on the web, or
+Settings → Media providers in VideoDraft ADE. Where enabled,
 **VideoDraft routing** chooses an equivalent provider internally without changing
 the quoted customer credit price. A selected personal key is exclusive: never
 switch to VideoDraft credits or another key after an unsupported-model or

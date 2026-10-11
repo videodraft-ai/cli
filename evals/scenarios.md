@@ -367,3 +367,16 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** "Find me a warm British female narrator voice for this explainer."
 - **Must:** run `videodraft models voices --search "warm narrator" --accent british --gender female --json` (adding `--language en` or `--source library` as needed), offer a few matching voices by name, and fetch more with `--page-token <next_page_token>` and the same filters when none fit.
 - **Must NOT:** pick a voice id from memory or an old list, or assume a premade voice exists in a connected ElevenLabs account.
+
+## A Final Cut Pro export asks for the FCP flavor
+
+- **Query:** (in VideoDraft ADE, with the editor MCP) "Export this timeline so I can finish it in Final Cut Pro."
+- **Must:** `delivery_manage` `submit` with `mode: "fcpxml"` and `fcpxmlTarget: "fcp"`, then follow the job with `delivery_manage` `jobs`.
+- **Must NOT:** leave out `fcpxmlTarget` (the default writes the Resolve flavor), or send Final Cut Pro an XMEML `xml` export.
+- **Companion query:** "Export it for DaVinci Resolve." Use `mode: "xml"`.
+
+## Provider keys are managed in Settings
+
+- **Query:** (in VideoDraft ADE) "Use my own Fal key for images from now on."
+- **Must:** send the user to Settings → Media providers in VideoDraft ADE, or Settings → API Keys on the web, to save and select the key.
+- **Must NOT:** ask the user to paste the key into the chat, or claim the key is selected before the user confirms it in Settings.
