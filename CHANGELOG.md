@@ -5,6 +5,39 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-10-12
+
+### Changed
+
+- Agent skill: editing work goes to the app the user picked, or to the app an
+  existing project already lives in (After Effects, Blender, DaVinci Resolve,
+  Premiere Pro, Final Cut Pro, CapCut, Unity, Remotion or HyperFrames),
+  before the native VideoDraft editor. A request in the current chat wins
+  over a `<creative_routes>` block from VideoDraft ADE, and that block wins
+  over the skill's defaults. The agent keeps the project editable and does
+  not silently switch apps after an error.
+- Agent skill: when VideoDraft ADE exposes `creative_apps` or `creative_mcp`,
+  the agent reads the chosen app's bundled guide first and uses only the
+  tools that are actually present. These are VideoDraft ADE tools, not
+  `videodraft` CLI commands.
+- Agent skill: with no app chosen, the native editor stays the default when
+  it is available. Hosted production and export (`videodraft produce`,
+  `videodraft export`) stay an explicit choice, or a fallback when the native
+  editor is unavailable and no other app is selected. Steps that import
+  storyboard shots, avatar clips or the pieces of a long source edit now go
+  to the selected app.
+- Agent skill: the generation model, payer and spending limits don't change
+  with the editing app.
+
+### Compatibility
+
+- Text only; no command changes. `creative_apps`, `creative_mcp` and
+  `<creative_routes>` arrive with a VideoDraft desktop release that has not
+  shipped yet; until then, agents keep using the native editor or hosted
+  tools as before.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.28.1] - 2026-10-11
 
 ### Changed

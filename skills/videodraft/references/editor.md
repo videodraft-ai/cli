@@ -4,9 +4,11 @@ Use this reference when the user wants to assemble, cut, caption, mix, lay out, 
 
 ## VideoDraft ADE preference rule
 
-When `videodraft_editor` tools are exposed, treat the native editor as available and make it the default surface for production, timeline assembly, and final export. It is headless by design, so a hidden window or an untouched Open Editor button does not justify using hosted production instead.
+When `videodraft_editor` tools are exposed and no chosen app or existing external project takes precedence, treat the native editor as available and make it the default surface for production, timeline assembly, and final export. It is headless by design, so a hidden window or an untouched Open Editor button does not justify using hosted production instead.
 
-Use cloud tools for asset generation and optional script/storyboard work, then import the results. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` unless the user explicitly requests an editable web production or the native editor tools are unavailable. If a native tool call fails after the editor was available, report or recover that native failure rather than silently switching surfaces.
+Honor the user's chosen app, an existing project's editing surface, and VideoDraft ADE's `<creative_routes>` before applying this native-editor reference. An explicit current request takes precedence over the saved route. For a chosen external app, work directly there with its available scripting, CLI, verified MCP and Computer Use, preserving the editable project. When `creative_apps` is actually exposed, read that app's bundled guide; when `creative_mcp` is exposed, use its live discovery and the guide's connection/recovery rules. Neither tool is a public `videodraft` CLI command or guaranteed outside VideoDraft ADE. Do not create a `.vdproject` merely to hand an external-app task back to the chosen application.
+
+For a native production, use cloud tools for asset generation and optional script/storyboard work, then import the results. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` unless the user explicitly requests an editable web production, or the native editor is unavailable and no external app is selected. If a native tool call fails after the editor was available, report or recover that native failure rather than silently switching surfaces. The editing destination does not change the generation model, payer or spending limits.
 
 ## Choose the correct surface
 

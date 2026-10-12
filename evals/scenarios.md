@@ -380,3 +380,34 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (in VideoDraft ADE) "Use my own Fal key for images from now on."
 - **Must:** send the user to Settings → Media providers in VideoDraft ADE, or Settings → API Keys on the web, to save and select the key.
 - **Must NOT:** ask the user to paste the key into the chat, or claim the key is selected before the user confirms it in Settings.
+
+## A chosen creative app keeps the edit
+
+- **Query:** (in VideoDraft ADE, with `creative_apps` exposed) "Cut these three clips into a 20-second teaser in DaVinci Resolve."
+- **Must:** read the `resolve` guide from `creative_apps` first, build the edit in Resolve with the tools that are actually present, keep the project editable, and verify the saved project and output.
+- **Must NOT:** build it in a native `.vdproject`, call hosted `produce` or `export`, or move to another app after a Resolve error without telling the user.
+- **Companion query:** (a `<creative_routes>` block selects Premiere Pro) "Do this one in Final Cut Pro." The request in the chat wins over the saved route.
+
+## An existing external project stays in its app
+
+- **Query:** (in VideoDraft ADE, the project being edited is an After Effects project) "Swap the music for something calmer."
+- **Must:** generate the new track with the cloud CLI or MCP if one is needed, then make the change in the After Effects project.
+- **Must NOT:** rebuild the edit in a new native or hosted project unless the user asks to move it.
+
+## Missing app tools are explained, not invented
+
+- **Query:** (in VideoDraft ADE, with no `creative_apps` or `creative_mcp` tools) "Finish this edit in Unity."
+- **Must:** use the Unity tools that are actually available, or explain that this route is missing.
+- **Must NOT:** invent `videodraft` commands for Unity, or assume a Unity connector is installed.
+
+## With no app chosen, the native editor is the default
+
+- **Query:** (in VideoDraft ADE, with `videodraft_editor`, no chosen app and no external project) "Turn this idea into a 30-second vertical ad."
+- **Must:** generate the assets in the cloud, import them into a native project, assemble there, and export with `delivery_manage` `submit`.
+- **Must NOT:** call hosted `produce` or `export` unless the user asks for the web workflow.
+
+## The editing app does not change generation billing
+
+- **Query:** (Blender selected in `<creative_routes>`) "Make a 6-second clip of the product turning and add it to my Blender scene."
+- **Must:** choose the model and payer and confirm the cost exactly as for any other clip, then add the clip in Blender.
+- **Must NOT:** switch models, payers or spending limits because the destination is Blender.

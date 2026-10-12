@@ -1,6 +1,6 @@
 ---
 name: videodraft
-description: Create and edit AI videos, images, 3D meshes, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, 3D asset, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; wants to download a video from YouTube, Instagram, TikTok, X or another site; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers the cloud `videodraft` CLI/MCP and local headless `videodraft_editor` MCP. When the editor MCP is exposed, prefer it for production, timeline assembly, and export; use cloud production/export only when explicitly requested or the editor is unavailable.
+description: Create and edit AI videos, images, 3D meshes, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, 3D asset, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; wants to download a video from YouTube, Instagram, TikTok, X or another site; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers cloud `videodraft` CLI/MCP, local `videodraft_editor` MCP, and creative-app routing. Honor the chosen app and existing project; otherwise prefer the native editor when available. Hosted production/export is an explicit choice or fallback when no local editing route is selected or available.
 ---
 
 # VideoDraft
@@ -10,8 +10,8 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 - **Asset generation**: standalone images, video clips, Seed Audio, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
 - **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
 - **3D assets**: standalone Meshy 7.1 and Tripo H3.1 meshes, multi-view generation, complete artifact downloads, and Meshy humanoid rigging through MCP/CLI. Read [references/3d.md](references/3d.md), or `videodraft skills show 3d`. These assets have their own saved library and do not require an AI Studio session or web viewer.
-- **Native editing**: local `.vdproject` timelines, cuts, layouts, captions, effects, audio, and exports through the headless VideoDraft Editor. Inside VideoDraft ADE, this is the default production and export lane whenever `videodraft_editor` is available.
-- **Hosted project production**: idea → script → storyboard → hosted production timeline → exported MP4. Use the early stages for scripts, storyboards, and generated assets when useful. Treat hosted production and export as a fallback when the native editor is unavailable, or as an explicit destination when the user asks for an editable web project or hosted workflow.
+- **Native editing**: local `.vdproject` timelines, cuts, layouts, captions, effects, audio, and exports through the headless VideoDraft Editor. Inside VideoDraft ADE, this is the default production and export lane when `videodraft_editor` is available and no chosen app or existing external project takes precedence.
+- **Hosted project production**: idea → script → storyboard → hosted production timeline → exported MP4. Use the early stages for scripts, storyboards, and generated assets when useful. Treat hosted production and export as a fallback when the native editor is unavailable and no external app is selected, or as an explicit destination when the user asks for an editable web project or hosted workflow.
 
 ## How to connect
 
@@ -41,25 +41,30 @@ Cloud generation has two equivalent surfaces (same backend, credits, and hosted 
    - Asset lane: `videodraft generate ...`, `videodraft edit video|motion`, `videodraft avatar ...`, `videodraft upscale ...`, `videodraft interpolate ...`, `videodraft upload`, and `videodraft download`.
    - Full API access: `videodraft tools schema <name>`, `videodraft call <tool> --args '<json>'`.
 2. **MCP connector**: if VideoDraft MCP tools (e.g. `generate_storyboard_from_idea`) are available, call them directly — the CLI's curated commands map 1:1 onto these tools.
-3. **Native editor MCP** (`videodraft_editor`): prefer this for project production, timeline assembly, cutting, layouts, transitions, captions, audio placement, and final export. Inside VideoDraft ADE on a supported Mac, Claude, Codex, OpenCode and Grok receive it automatically in both Code and VideoDraft modes. It runs headlessly, so an Open Editor click is not required. Start with `project_manage` (`operation: "project"`, action `list`, `open`, or `create`); standalone asset generation remains in the cloud CLI or MCP.
+3. **Native editor MCP** (`videodraft_editor`): prefer this for project production, timeline assembly, cutting, layouts, transitions, captions, audio placement, and final export when no chosen app or existing external project takes precedence. Inside VideoDraft ADE on a supported Mac, Claude, Codex, OpenCode and Grok receive it automatically in both Code and VideoDraft modes. It runs headlessly, so an Open Editor click is not required. Start with `project_manage` (`operation: "project"`, action `list`, `open`, or `create`); standalone asset generation remains in the cloud CLI or MCP.
 
 Send native editor edits serially, batching everything a request needs into one `edit_apply` recipe. Pass the latest `context` when a person may be editing at the same time, so a stale write is refused. See [references/editor.md](references/editor.md) for project selection, media import, timing units, edit recipes, verification, export, and the `videodraft-editor` terminal bridge.
 
 If you are reading this skill through `videodraft skills show skill`, run `videodraft skills show editor` before native editor work to load that reference.
 
-**VideoDraft ADE routing rule:** the presence of `videodraft_editor` means the native editor is ready, even when no editor window is visible. Use cloud tools to generate or source assets and, when helpful, scripts or storyboards. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` by default. Import the assets into the native project, assemble there, and export with native `delivery_manage` `submit`. Use hosted production/export only when the user explicitly asks for the web workflow or the native editor tools are unavailable. Do not silently fall back to hosted production after a native tool error.
+**VideoDraft ADE routing rule:** honor the app named in the current request and the editing surface of an existing project. A `<creative_routes>` block selects the chat's routes and overrides this skill's generic tool defaults; an explicit current request takes precedence over that block. Work directly in the chosen app, combining its supported scripting, CLI, verified MCP and Computer Use wherever useful. Do not turn a chosen-app request into a native-editor handoff or silently switch destinations after an error. Keep the editable source and dependencies, preserve unsaved work, and verify the saved project and output. Generation model, payer and spending limits remain separate from the editing app.
+
+When `creative_apps` is actually exposed, read the chosen app's bundled guide before using it. App topics include `after-effects`, `blender`, `resolve`, `premiere`, `final-cut`, `capcut`, `unity`, `remotion` and `hyperframes`. These app guides belong to VideoDraft ADE and describe installed-version setup and supported routes; users do not need personal per-app skills. When `creative_mcp` is also exposed, use its live discovery and the app guide for connected tools, and retain request IDs to recover uncertain operations. Computer Use is available only when its tools and permissions are present. These are VideoDraft ADE workspace tools, not public `videodraft` CLI commands. If they are absent, use the available app tools or explain the missing route without inventing commands or assuming a connector is installed.
+
+With no chosen external app or existing external project, the presence of `videodraft_editor` means the native editor is ready, even when no editor window is visible. Use cloud tools to generate or source assets and, when helpful, scripts or storyboards. Do not call hosted `produce_project` / `videodraft produce` or `export_video` / `videodraft export` by default. Import the assets into the native project, assemble there, and export with native `delivery_manage` `submit`. Use hosted production/export when the user explicitly asks for the web workflow, or when the native editor is unavailable and no external app is selected. Do not silently fall back to hosted production after a local tool error.
 
 ## First decision: asset, hosted project, or native edit?
 
 - **One standalone asset** (image, clip, voiceover, music track, sound effect, dialogue track, voice-changed file, dubbed media file, upscale, or description): generate it directly. Do NOT create a project.
   - `videodraft generate image "a red fox in snow, cinematic" --ar 16:9 --download ./out/`
   - `videodraft generate video "slow dolly over a misty lake" --model gemini-omni-1.1-flash --duration 6 --download ./out/`
-- **Any final video, production timeline, existing footage, local `.vdproject`, or hands-on edit**: use `videodraft_editor` when available. List or open the intended local project, or create a native project for a new production. The editor can work without showing its UI.
+- **A chosen creative app or existing external project**: continue in that app using the routing rule above. Keep its project editable; use handoff only for a requested transfer or accepted fallback.
+- **Any final video, production timeline, existing footage, local `.vdproject`, or hands-on edit with no other app selected**: use `videodraft_editor` when available. List or open the intended local project, or create a native project for a new production. The editor can work without showing its UI.
 - **A small set of related assets**: still stay in the asset lane. They are grouped automatically (see [AI Studio sessions](#ai-studio-sessions)); give the current group one useful task-specific name with `videodraft sessions name "<name>"`. Switch to a project only when the deliverable matches the project criteria below or the user asks to attach the assets to one.
-- **A generated multi-scene video / ad / explainer**: when the editor is available, use hosted tools only for any needed script, storyboard, shot planning, or generated assets; stop before hosted production, import the assets, and build/export the native timeline. A hosted project is optional unless the user wants the web project or its storyboard workflow.
-- **A hosted web project or hosted export**: use the hosted pipeline only when the user explicitly asks for it or the native editor is unavailable.
+- **A generated multi-scene video / ad / explainer**: use hosted tools for any needed script, storyboard, shot planning, or generated assets, then build/export in the selected editing app. With no app selected and the native editor available, stop before hosted production, import the assets, and build/export the native timeline. A hosted project is optional unless the user wants the web project or its storyboard workflow.
+- **A hosted web project or hosted export**: use the hosted pipeline when the user explicitly asks for it, or the native editor is unavailable and no external app is selected.
 - **Just a script** (no video asked for): A script-only request creates a script-stage project but stops at the script. Use `videodraft create "..." --script-only`; do not build a storyboard the user didn't ask for.
-- **Iterating on existing work**: identify the surface first. Use `project_manage` `project` with `action: "list"` for native projects and `videodraft projects list` only for hosted work. Never create a replacement project just to change an existing one.
+- **Iterating on existing work**: identify the surface first and preserve an external project's app unless the user requests a transfer. Use `project_manage` `project` with `action: "list"` for native projects and `videodraft projects list` only for hosted work. Never create a replacement project just to change an existing one.
 
 ## Choose the model from the task
 
@@ -102,7 +107,7 @@ Every `videodraft models image|video|audio --json` entry carries `tier` (1 or 2)
 - `seedance-2.5`: 4-30s single takes and up to 50 references (30 image, 10 video, 10 audio). Same modes as 2.0, one quality tier, 480p/720p/1080p. Reach for it when a shot must run past 15s or carry more references than 2.0 allows.
 - `kling-o3`: reference images plus structured image/video elements, first/last frames, multi-prompt, audio control, or 4K. O3 allows 7 combined image references and image-backed elements, reduced to 4 combined items when a video-backed element is present. `kling-3.0`: image-to-video can use structured image/video elements and bind a custom Kling voice ID to either element form. Tier 2, by name: `kling-v3-turbo` (fast polished 3-15s with first frame, multi-prompt, and audio, but no elements) and Kling 2.6 Pro (top-level voice IDs cited as `<<<voice_1>>>` and `<<<voice_2>>>`).
 - Existing-video edits use `videodraft edit video`, not generic generation. `gemini-omni-1.1-flash` is the preferred edit model and is chosen automatically when you omit `--model`: source up to 10s, up to 10 reference images, 360p/720p/1080p/4K with audio. Creative `--ref-video` inputs are NOT accepted on an edit, because an edit takes exactly one input video; use `generate video --video-task generate` to guide a new clip with video references instead. Omitting `--model` on a longer or unmeasurable source spends nothing and prints a priced menu (what each model edits, what it drops, what it costs) so you can put the choice to the user. **Truncation:** only Gemini refuses an over-length source. Happy Horse silently edits just the first 15s, Kling O3 the first 10s, and Grok the first 8s. The command warns you when that will happen; always relay it to the user. Gemini regenerates the audio track, so use Happy Horse or Kling O3 with `--preserve-audio` when the source audio must survive. Choose Grok for the cheapest prompt-only edit, Happy Horse for up to 5 image references, or Kling O3 for controlled reference-image edits.
-- To edit a source longer than 10s without losing its tail, cut it into <=10s pieces in the native editor, edit each with Gemini, and reassemble. VideoDraft has no server-side split/concat, so this path needs `videodraft_editor`.
+- To edit a source longer than 10s without losing its tail, cut it into <=10s pieces in the selected editing app (`videodraft_editor` by default), edit each with Gemini, and reassemble in that app. VideoDraft has no server-side split/concat, so this path needs a local editing route.
 - Kling O3 also has a reference-generation mode. Use `videodraft generate video --model kling-o3-video-ref-edit` with exactly one `--ref-video` to generate a new guided clip; use `videodraft edit video` when changing the source itself. For new mixed-reference generation use Seedance 2 / 2.5.
 - Motion transfer uses `videodraft edit motion` with Kling V3 by default, or Kling 2.6 when explicitly requested or lower cost matters. It requires a subject image and a motion-reference video.
 - Veo 3.1, Grok Video 1.5, Happy Horse and the other Tier 2 video models: only when explicitly requested or when no Tier 1 model fits.
@@ -147,7 +152,7 @@ Pure text-to-image or text-to-video is fine for a generic one-off asset. When a 
 
 - If the user supplies reference media, preserve and pass it. Never reduce the request to text alone.
 - When continuity matters, generate/select a strong still first with the selected image model (`nano-banana-2.1` by default), wait for its URL, then animate it as a start frame/reference. Confirm the combined image and video cost.
-- When using a hosted storyboard stage for multiple shots, use `videodraft shots <project_id> --model <selected-image-model> --grid`, then animate the decoded shots. Preserve explicit models. In VideoDraft ADE, import the resulting assets into the native editor instead of continuing into hosted production. A requested non-Seedance video model must use manual per-shot generation instead of Seedance full-video mode.
+- When using a hosted storyboard stage for multiple shots, use `videodraft shots <project_id> --model <selected-image-model> --grid`, then animate the decoded shots. Preserve explicit models. In VideoDraft ADE, import the resulting assets into the selected editing app (the native editor by default) instead of continuing into hosted production. A requested non-Seedance video model must use manual per-shot generation instead of Seedance full-video mode.
 
 ## Cost and credits
 
@@ -273,7 +278,7 @@ Use the path you saved to: a **workspace-relative** path (`./media/clip.mp4`, or
 
 ## Native-first VideoDraft ADE pipeline (idea → MP4)
 
-When `videodraft_editor` is present:
+When `videodraft_editor` is present and no chosen app or existing external project takes precedence:
 
 1. Generate or source the script, storyboard, shot images, clips, voiceovers, music, and other assets through the cloud CLI/MCP as needed.
 2. Call native `project_manage` (`project`, action `open` or `create`) to open or create the `.vdproject`.
@@ -284,8 +289,8 @@ Do not run the hosted production or export steps in this path unless the user ex
 
 ## Hosted fallback pipeline (idea → MP4)
 
-Use this only when there is NO native editor at all, or the user explicitly requests the hosted web
-workflow. The native surface is not only the injected `videodraft_editor` MCP: a `videodraft-editor`
+Use this when the user explicitly requests the hosted web workflow, or there is NO native editor
+and no external app is selected. The native surface is not only the injected `videodraft_editor` MCP: a `videodraft-editor`
 executable on PATH is the same editor reached through its terminal bridge, and
 [references/editor.md](references/editor.md) covers driving it that way. Treating a missing MCP as
 "no editor" sends sessions that have the binary into hosted production for no reason.
@@ -302,13 +307,13 @@ Optional between produce and export: per-shot motion clips (`videodraft generate
 
 ## Avatar and talking-head videos (both surfaces)
 
-Avatar generation is cloud-only — the native editor has no avatar or lipsync tools — so this applies whether or not `videodraft_editor` is present. Generate the avatar in the cloud; in VideoDraft ADE, import the rendered clip and cut it on the native timeline like any other footage.
+Avatar generation is cloud-only, so this applies whether or not `videodraft_editor` is present. Generate the avatar in the cloud; when a larger edit is requested, import the rendered clip into the selected editing app (the native editor by default) and cut it like any other footage.
 
 Avatar/talking-head videos use dedicated commands. For a reusable managed avatar, obtain or generate a clear portrait → `videodraft avatar script` when needed → `videodraft avatar create` → `videodraft avatar render --resolution 720p`. For a one-off portrait, use `videodraft avatar fabric <portrait> --text "..."` or `--audio <file>`, or `videodraft avatar h3-lipsync <portrait> --audio <file>` for a short high-resolution clip from existing audio. For an existing video plus replacement audio, use `videodraft avatar lipsync <video> --audio <file>`. Managed script/creation is bundled/free; direct Fabric, H3 Max Lip Sync, Sync, the managed Fabric render, and optional portrait generation/upscaling are paid. Confirm expensive steps first.
 
 ## Working with hosted project data
 
-A hosted project is one JSON blob (script, storyboard scenes, shot cards, visual assets, production timeline). To inspect: `videodraft projects get <id>`. To edit: fetch `--raw`, modify, then `videodraft call update_project` — objects deep-merge, **arrays replace wholesale** (send the complete `storyboard.scenes` array to change one scene). Snapshot first with `videodraft checkpoint create <id>` before risky edits. Schema reference: `videodraft call get_project_schema`. This does not replace native editor tools when `videodraft_editor` is available for the production itself.
+A hosted project is one JSON blob (script, storyboard scenes, shot cards, visual assets, production timeline). To inspect: `videodraft projects get <id>`. To edit: fetch `--raw`, modify, then `videodraft call update_project` — objects deep-merge, **arrays replace wholesale** (send the complete `storyboard.scenes` array to change one scene). Snapshot first with `videodraft checkpoint create <id>` before risky edits. Schema reference: `videodraft call get_project_schema`. This does not replace the chosen app's project or the native editor's `.vdproject` for the production itself.
 
 ## More
 
