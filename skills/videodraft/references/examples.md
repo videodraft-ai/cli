@@ -2,11 +2,14 @@
 
 Working patterns for common asks. All assume auth (`videodraft login` once, or `VIDEODRAFT_API_KEY` in the environment) and use `--json` for parsing.
 
-Inside VideoDraft ADE, if a native editor is available, use these recipes for asset generation and
-optional script/storyboard stages. Hand the results to the editor for production and export ONLY
-when the deliverable the user asked for is a composed production. A standalone output — the batch
-product clips in recipe 1, the upscale in recipe 7 — is finished when it is generated; importing it
-into a project and exporting a timeline builds an edit nobody asked for. Recipes below that call `videodraft produce` or `videodraft export` are hosted fallbacks only. Do not choose them over the available native editor unless the user explicitly asks for the hosted web workflow.
+Inside VideoDraft ADE, use these recipes for asset generation and optional script/storyboard stages.
+Honor the chosen app, existing project and `<creative_routes>` as described in SKILL.md. Hand the
+results to that app for production and export ONLY when the user asked for a composed production;
+the native editor is the default when available and no other app takes precedence. A standalone
+output, such as the batch product clips in recipe 1 or the upscale in recipe 7, is finished when
+generated. Recipes below that call `videodraft produce` or `videodraft export` are hosted fallbacks
+only. Use them when explicitly requested, or when the native editor is unavailable and no external
+app is selected. Do not switch an external-app request to a hosted or native production silently.
 
 ## 1. Batch product videos from a CSV
 
@@ -69,7 +72,7 @@ videodraft generate audio "Extend @Audio1 into a 20-second transition" --ref-aud
 videodraft export "$PROJECT" --download solace-launch.mp4
 ```
 
-Use this complete hosted path only when the user requested a web project or the native editor is unavailable. Otherwise stop after the storyboard/assets, import them into the native `.vdproject`, and export with `delivery_manage`. The hosted project stays editable at the URL in `project.json` (`.urls`).
+Use this complete hosted path only when the user requested a web project, or the native editor is unavailable and no external app is selected. Otherwise stop after the storyboard/assets and finish in the selected editing app; for the default native `.vdproject`, export with `delivery_manage`. The hosted project stays editable at the URL in `project.json` (`.urls`).
 
 ## 3. Talking-head (avatar) video
 

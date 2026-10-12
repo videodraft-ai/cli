@@ -3,7 +3,7 @@
   "skills": [
     {
       "name": "videodraft",
-      "description": "Create and edit AI videos, images, 3D meshes, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, 3D asset, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; wants to download a video from YouTube, Instagram, TikTok, X or another site; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers the cloud `videodraft` CLI/MCP and local headless `videodraft_editor` MCP. When the editor MCP is exposed, prefer it for production, timeline assembly, and export; use cloud production/export only when explicitly requested or the editor is unavailable.",
+      "description": "Create and edit AI videos, images, 3D meshes, Seed Audio, voiceovers, music, sound effects, dialogue, dubbing, storyboards, avatar videos, media upscales, and product/ad videos with VideoDraft. Use whenever the user mentions VideoDraft; asks to generate a video, image, 3D asset, audio asset, ad, explainer, storyboard, avatar, upscale, or batch/CI workflow; wants to download a video from YouTube, Instagram, TikTok, X or another site; or wants to assemble, cut, caption, mix, lay out, inspect, or export a native VideoDraft Editor timeline. Covers cloud `videodraft` CLI/MCP, local `videodraft_editor` MCP, and creative-app routing. Honor the chosen app and existing project; otherwise prefer the native editor when available. Hosted production/export is an explicit choice or fallback when no local editing route is selected or available.",
       "files": [
         {
           "path": "references/3d.md",
@@ -12,28 +12,28 @@
         },
         {
           "path": "references/editor.md",
-          "sha256": "5ed968d1075a5a733cb77dd6b29040bc1c92fa5c0e0844553dd24fc803bd3eb1",
-          "bytes": 24453
+          "sha256": "e35a86088e211d22521325245aa848b18eceef6952d8bbdae6fdc8c2269833c0",
+          "bytes": 25381
         },
         {
           "path": "references/examples.md",
-          "sha256": "a6398c2f1e40b54b9a169680235e712b59f09bef984f56f65df50b6aac4154c1",
-          "bytes": 10105
+          "sha256": "bc9ab98cfb3a654103b4282cdc8ef00e0bc05a2bfe85e40dc7ad7f10411d08d8",
+          "bytes": 10276
         },
         {
           "path": "references/models.md",
-          "sha256": "40ac27fe5f0683d80b3b4825f0a2f501aea2381896bb44ec85a53cf98d07da19",
-          "bytes": 46306
+          "sha256": "e27189da4367fd832b636f42fb057cd3d878c549bbea5c9a06976cc2e18a0307",
+          "bytes": 46474
         },
         {
           "path": "references/pipeline.md",
-          "sha256": "2178cf9d8d800614f7881ffc68ce12a0700e1eb1877c7392aef22bce129d27b2",
-          "bytes": 14213
+          "sha256": "0f3dfd38df6cfdc6ce29073dbcb8645ced1f610c08730deec078d45a53957528",
+          "bytes": 14473
         },
         {
           "path": "SKILL.md",
-          "sha256": "d53aaca263bed6c54872db6810b41a9ae6212d6f2e446f62ab704d61187cb3b6",
-          "bytes": 47568
+          "sha256": "17b76858e18ddae2e456635bc51accf44225728f47c707102269919245fbfa43",
+          "bytes": 49919
         }
       ]
     }
