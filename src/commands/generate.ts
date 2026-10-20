@@ -1110,7 +1110,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--duration <seconds>", "clip duration in seconds")
     .option(
       "--auto-duration",
-      "Wan 3.0, Seedance 2/2.5, FLUX 3 or Gemini Omni: automatic duration, reserves the model ceiling and reconciles unused credits",
+      "Wan 3.0, Seedance 2/2.5 or Gemini Omni: automatic duration, reserves the model ceiling and reconciles unused credits. FLUX 3 Max requires a fixed 5-20s duration.",
     )
     .option("--resolution <res>", 'e.g. "360p", "720p", "1080p", "2K", "4K"')
     .option(
@@ -1170,7 +1170,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--keyframe <url|file@seconds>",
-      "FLUX 3 keyframe pinned to a moment, e.g. shot.png@2.5 (repeatable, max 10; local files uploaded)",
+      "FLUX 3 Max keyframe pinned to a moment, e.g. shot.png@2.5 (repeatable, max 10; local files uploaded)",
       collect,
       [],
     )
@@ -1179,6 +1179,10 @@ export function registerGenerateCommands(program: Command): void {
       "multi-prompt segment (repeatable; Kling 3.0 / 3.0 Turbo / O3)",
       collect,
       [],
+    )
+    .option(
+      "--reasoning-level <level>",
+      "FLUX 3 Max: high (default) or low (faster)",
     )
     .option("--cfg-scale <n>", "Kling 3.0/2.5 Pro prompt adherence (0-1)")
     .option("--negative <text>", "negative prompt (Kling/Luma; not Wan 3.0)")
@@ -1318,6 +1322,36 @@ export function registerGenerateCommands(program: Command): void {
       if (opts.autoDuration && duration !== undefined)
         throw new CliError(
           "--auto-duration and --duration are mutually exclusive.",
+          EXIT.USAGE,
+        );
+      const isFlux3MaxRequest = [
+        "flux-3-max",
+        "flux3max",
+        "flux_3_max",
+      ].includes(opts.model);
+      if (
+        opts.reasoningLevel !== undefined &&
+        (!isFlux3MaxRequest || !["low", "high"].includes(opts.reasoningLevel))
+      )
+        throw new CliError(
+          "--reasoning-level requires --model flux-3-max and low or high.",
+          EXIT.USAGE,
+        );
+      if (
+        isFlux3MaxRequest &&
+        (opts.autoDuration || opts.quality !== undefined)
+      )
+        throw new CliError(
+          "FLUX 3 Max has no Draft/quality mode or auto duration; use --duration 5..20.",
+          EXIT.USAGE,
+        );
+      if (
+        isFlux3MaxRequest &&
+        duration !== undefined &&
+        (!Number.isInteger(duration) || duration < 5 || duration > 20)
+      )
+        throw new CliError(
+          "FLUX 3 Max --duration must be a whole second from 5 to 20.",
           EXIT.USAGE,
         );
       const isFlux3Request = ["flux-3", "flux3", "flux_3"].includes(opts.model);
@@ -2419,6 +2453,7 @@ export function registerGenerateCommands(program: Command): void {
           video_task: geminiVideoTask,
           enable_prompt_expansion: promptExpansion,
           prompt_expansion_mode: promptExpansionMode,
+          reasoning_level: opts.reasoningLevel,
           enable_safety_checker: safetyChecker,
           enable_thinking: opts.thinking ? true : undefined,
           elements: elements.length > 0 ? elements : undefined,

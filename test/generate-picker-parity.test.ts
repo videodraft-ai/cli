@@ -382,3 +382,62 @@ describe("FLUX 3 fixed-frame estimate defaults", () => {
     );
   }
 });
+
+it("passes FLUX 3 Max reasoning, seed zero, frames and audio without a quality tier", async () => {
+  await run([
+    "generate",
+    "video",
+    "A boat",
+    "--model",
+    "flux-3-max",
+    "--start-image",
+    "https://example.com/start.png",
+    "--end-image",
+    "https://example.com/end.png",
+    "--duration",
+    "12",
+    "--resolution",
+    "1080p",
+    "--reasoning-level",
+    "low",
+    "--seed",
+    "0",
+    "--no-audio",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({
+      model: "flux-3-max",
+      reasoning_level: "low",
+      seed: 0,
+      duration_seconds: 12,
+      resolution: "1080p",
+      generate_audio: false,
+      start_image_url: "https://example.com/start.png",
+      end_image_url: "https://example.com/end.png",
+    }),
+  );
+  expect(mocks.callTool.mock.calls[0]?.[1]).not.toHaveProperty("quality");
+});
+it.each([
+  ["--auto-duration"],
+  ["--quality", "draft"],
+  ["--reasoning-level", "medium"],
+])(
+  "rejects unsupported FLUX 3 Max controls before calling MCP: %s",
+  async (...flags) => {
+    await expect(
+      run([
+        "generate",
+        "video",
+        "A boat",
+        "--model",
+        "flux-3-max",
+        ...flags,
+        "--no-wait",
+      ]),
+    ).rejects.toThrow();
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  },
+);
