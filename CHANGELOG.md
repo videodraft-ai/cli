@@ -5,6 +5,35 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-20
+
+### Added
+
+- `generate video --model flux-3-max --reasoning-level high|low` controls
+  FLUX 3 Max prompt reasoning. High is the default; low is faster.
+
+### Changed
+
+- CLI help and the bundled agent skill recommend FLUX 3 Max as a Tier 1
+  model above MiniMax H3 Max. Gemini Omni 1.1 Flash remains the default.
+  Max supports 5-20 whole seconds at 720p or 1080p, optional audio, a seed,
+  first/last frames, and up to 10 timed keyframes.
+- Reject unsupported Max quality tiers, automatic duration, invalid reasoning
+  levels, and durations outside its whole-second range before calling MCP.
+  Explicit requests for original FLUX 3 remain supported for compatibility.
+- Sync the public repository with the current branding assets and generated
+  skill index.
+- Keep Max pricing guidance live through `videodraft costs` and `--estimate`,
+  so installed documentation does not retain expired promotional prices.
+
+### Compatibility
+
+- FLUX 3 Max generation and reasoning require the matching VideoDraft backend
+  release, which deploys separately. Model discovery and estimates continue
+  to read the live server catalog.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.28.2] - 2026-10-12
 
 ### Changed
