@@ -112,13 +112,21 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "MiniMax H3 / H3 Max combined reference-video duration",
+      "MiniMax H3 / H3 Max, Seedance or Kling 4.0 combined reference-video duration; for kling-4.0-video-edit, the source video's length",
     )
     .option(
       "--edit-precision <mode>",
       "Ideogram 4.5: regular | high (requires --ref-images)",
     )
     .option("--num <n>", "image batch size")
+    .option(
+      "--source-url <url>",
+      "original media URL for an exact background removal quote",
+    )
+    .option(
+      "--no-refine-edges",
+      "video background removal: quote without edge refinement",
+    )
     .option(
       "--width <px>",
       "Topaz: source width (with --height gives an exact quote)",
@@ -154,6 +162,8 @@ export function registerAccountCommands(program: Command): void {
         length?: string;
         chars?: string;
         num?: string;
+        sourceUrl?: string;
+        refineEdges?: boolean;
         refImages?: string;
         refVideoSeconds?: string;
         width?: string;
@@ -170,6 +180,8 @@ export function registerAccountCommands(program: Command): void {
         "get_model_costs",
         compact({
           model_id: voiceoverModelId ?? model,
+          source_url: opts.sourceUrl,
+          refine_edges: opts.refineEdges === false ? false : undefined,
           type: opts.type,
           duration_seconds: opts.duration ? Number(opts.duration) : undefined,
           length_seconds: opts.length ? Number(opts.length) : undefined,
@@ -213,7 +225,7 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--category <name>",
-      "video only: generation | video_edit | motion_control | avatar_lipsync | upscale",
+      "video only: generation | video_edit | motion_control | avatar_lipsync | upscale | background_removal",
     )
     .option("--search <text>", "voices: search names and descriptions")
     .option("--language <code>", "voices: language code")
@@ -253,10 +265,11 @@ export function registerAccountCommands(program: Command): void {
         "motion_control",
         "avatar_lipsync",
         "upscale",
+        "background_removal",
       ]);
       if (opts.category && !videoCategories.has(opts.category)) {
         throw new UsageError(
-          `Unknown video category "${opts.category}". Use generation, video_edit, motion_control, avatar_lipsync, or upscale.`,
+          `Unknown video category "${opts.category}". Use generation, video_edit, motion_control, avatar_lipsync, upscale, or background_removal.`,
         );
       }
       if (opts.category && wanted !== "video" && wanted !== "all") {

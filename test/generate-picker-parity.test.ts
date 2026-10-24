@@ -441,3 +441,189 @@ it.each([
     expect(mocks.callTool).not.toHaveBeenCalled();
   },
 );
+
+it("passes Kling 4.0 references, elements and 1080p through to generate_video", async () => {
+  await run([
+    "generate",
+    "video",
+    "@Element1 walks into @Image1",
+    "--model",
+    "kling4",
+    "--start-image",
+    "https://example.com/start.png",
+    "--ref",
+    "https://example.com/room.png",
+    "--ref-video",
+    "https://example.com/move.mp4",
+    "--element",
+    JSON.stringify({
+      frontal_image_url: "https://example.com/hero.png",
+      reference_image_urls: ["https://example.com/hero-side.png"],
+      voice_id: "voice-1",
+    }),
+    "--duration",
+    "20",
+    "--resolution",
+    "1080p",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({
+      model: "kling-4.0",
+      duration_seconds: 20,
+      resolution: "1080p",
+      start_image_url: "https://example.com/start.png",
+      reference_images: ["https://example.com/room.png"],
+      reference_videos: ["https://example.com/move.mp4"],
+      elements: [
+        expect.objectContaining({
+          frontal_image_url: "https://example.com/hero.png",
+          voice_id: "voice-1",
+        }),
+      ],
+    }),
+  );
+});
+
+it("accepts Kling 4.0 shots of up to 30 seconds in total", async () => {
+  await run([
+    "generate",
+    "video",
+    "--model",
+    "kling-4.0",
+    "--segment",
+    "Wide shot of the harbor:18",
+    "--segment",
+    "Close on the keeper:12",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({
+      model: "kling-4.0",
+      multi_prompt: [
+        { prompt: "Wide shot of the harbor", duration: 18 },
+        { prompt: "Close on the keeper", duration: 12 },
+      ],
+    }),
+  );
+});
+
+it("sends Kling 4.0 start and end frames as image-to-video", async () => {
+  await run([
+    "generate",
+    "video",
+    "The paper boat tips over the curb",
+    "--model",
+    "kling-4.0",
+    "--start-image",
+    "https://example.com/start.png",
+    "--end-image",
+    "https://example.com/end.png",
+    "--duration",
+    "6",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({
+      model: "kling-4.0",
+      start_image_url: "https://example.com/start.png",
+      end_image_url: "https://example.com/end.png",
+      duration_seconds: 6,
+    }),
+  );
+});
+
+it.each([
+  [["--no-audio"]],
+  [["--quality", "pro"]],
+  [["--end-image", "https://example.com/end.png"]],
+  [
+    [
+      "--start-image",
+      "https://example.com/start.png",
+      "--end-image",
+      "https://example.com/end.png",
+      "--ref",
+      "https://example.com/room.png",
+    ],
+  ],
+  [["--start-image", "https://example.com/start.png", "--ar", "9:16"]],
+  [["--duration", "31"]],
+  [["--segment", "a:20", "--segment", "b:11"]],
+  [
+    [
+      "--element",
+      JSON.stringify({ video_url: "https://example.com/1.mp4" }),
+      "--element",
+      JSON.stringify({ video_url: "https://example.com/2.mp4" }),
+      "--element",
+      JSON.stringify({ video_url: "https://example.com/3.mp4" }),
+      "--element",
+      JSON.stringify({ video_url: "https://example.com/4.mp4" }),
+    ],
+  ],
+])(
+  "rejects unsupported Kling 4.0 input before calling MCP: %s",
+  async (flags) => {
+    await expect(
+      run(["generate", "video", "A boat", "--model", "kling-4.0", ...flags]),
+    ).rejects.toThrow();
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  },
+);
+
+it("quotes a Kling 4.0 reference video at its 3 second minimum when its length is unknown", async () => {
+  mocks.callTool.mockResolvedValue({ cost: 100, credits_per_second: 10 });
+  await run([
+    "generate",
+    "video",
+    "Match @Video1",
+    "--model",
+    "kling-4.0",
+    "--ref-video",
+    "https://example.com/move.mp4",
+    "--duration",
+    "5",
+    "--estimate",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "get_model_costs",
+    expect.objectContaining({
+      model_id: "kling-4.0",
+      reference_video_duration_seconds: 3,
+    }),
+  );
+});
+
+it("picks Kling 4.0 without --model only when shots run past 15 seconds", async () => {
+  await run([
+    "generate",
+    "video",
+    "--segment",
+    "Wide shot:12",
+    "--segment",
+    "Close up:8",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({ model: "kling-4.0" }),
+  );
+  mocks.callTool.mockClear();
+  await run([
+    "generate",
+    "video",
+    "--segment",
+    "Wide shot:6",
+    "--segment",
+    "Close up:4",
+    "--no-wait",
+  ]);
+  expect(mocks.callTool).toHaveBeenCalledWith(
+    "generate_video",
+    expect.objectContaining({ model: "kling-3.0" }),
+  );
+});

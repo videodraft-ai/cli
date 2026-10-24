@@ -411,3 +411,34 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Query:** (Blender selected in `<creative_routes>`) "Make a 6-second clip of the product turning and add it to my Blender scene."
 - **Must:** choose the model and payer and confirm the cost exactly as for any other clip, then add the clip in Blender.
 - **Must NOT:** switch models, payers or spending limits because the destination is Blender.
+
+## Kling 4.0 only when asked for
+
+- **Query:** "Make a 12-second Kling 4.0 video of a lighthouse at dusk in 1080p."
+- **Must:** run `videodraft generate video --model kling-4.0 --duration 12 --resolution 1080p` and quote the price from `--estimate`.
+- **Must NOT:** pass `--quality`, `--no-audio` or an auto duration, or pick Kling 4.0 for a video request that names no model.
+
+## A Kling 4.0 reference video is quoted by its length
+
+- **Query:** "With Kling 4.0, make a 5-second clip that copies the camera move in this 8-second video."
+- **Must:** quote with `videodraft costs kling-4.0 --type video --duration 5 --ref-video-seconds 8` (or `--estimate` with the `--ref-video`), then run `videodraft generate video --model kling-4.0 --ref-video <clip> --duration 5` with a prompt that cites @Video1.
+- **Must NOT:** quote without the reference length, or pass `--end-image` in reference mode.
+
+## A long whole-source edit uses Kling 4.0 Video Edit
+
+- **Query:** "Turn this whole 20-second clip into a snowy night."
+- **Must:** run `videodraft edit video <clip> "<prompt citing @Video1>" --model kling-4.0-video-edit`, quoted with `videodraft costs kling-4.0-video-edit --type video --ref-video-seconds 20`.
+- **Must NOT:** cut the clip to fit a 10-second edit model, or pass `--ref-video` to an edit.
+
+## GenJutsu motion transfer by name
+
+- **Query:** "Use GenJutsu to make my character perform the dance in this video."
+- **Must:** run `videodraft edit motion <character image> --model genjutsu --motion-video <video>` (720p unless asked) and quote it with `--estimate`.
+- **Must NOT:** pass Kling-only motion flags, Elements, a seed or an aspect ratio, or fall back to Kling motion control without saying so.
+
+## A transparent cutout uses background removal
+
+- **Query:** "Remove the background from this product photo and give me a transparent PNG."
+- **Must:** run `videodraft remove-background image <photo> --download <name>.png`.
+- **Must NOT:** generate a new image from a prompt, send a thumbnail, or save the cutout as JPEG.
+- **Companion query:** "Now do the same for this clip of me talking." Quote with `videodraft remove-background video <clip> --estimate`, then run it with the default `--subject person` and save it as `.webm`.

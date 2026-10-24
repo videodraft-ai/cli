@@ -8,6 +8,17 @@ npx videodraft generate image "a red fox in snow, cinematic" --download ./out/
 npx videodraft create "30s launch video for our espresso machine" --ar 9:16
 ```
 
+## Background removal
+
+```sh
+videodraft remove-background image portrait.png --download cutout.png
+videodraft remove-background video clip.mp4 --estimate
+videodraft remove-background video clip.mp4 --subject person --download cutout.webm
+videodraft remove-background video product.mp4 --subject object --no-refine-edges --no-wait
+```
+
+Image removal uses Pixelcut and returns transparent PNG. Video removal uses VEED Fast and returns transparent WebM, preserving source resolution and timing. Video sources must be uploaded MP4/MOV files, up to 100 MB, five minutes and 120 fps; local files upload automatically. Use `--max-credits` to cap spending, `--session` to group results, and `--idempotency-key <uuid>` to safely retry the same request. VideoDraft credits and Fal BYOK are supported.
+
 ## Install
 
 ```bash
@@ -226,6 +237,10 @@ MIT © VideoDraft
 Ideogram 4.5 (`ideogram-v4.5`) replaces the visible Ideogram 4.0 entry and stays Tier 2. Quality: low, medium (default) or high, priced per image; very_low for regular edits. Supports 1-8 outputs, 1K/2K, seed, a source plus four additional references (three with a mask), regular/high edit precision, and text-to-image prompt expansion. MCP uses `source_image`, `reference_images`, `mask_url`, `edit_precision`, `enable_prompt_expansion`, `image_width`, and `image_height`. CLI equivalents are `--source-image`, repeatable `--ref`, `--mask`, `--edit-precision`, `--prompt-expansion`, `--image-width`, and `--image-height`. Precise/masked edits require Auto size with no resolution or custom dimensions. Masks match source dimensions and contain both black edit regions and white preserved regions. Quotes for very_low require the source/reference count (`reference_image_count` or `--ref-images`). Legacy 4.0 jobs retain their original backend support.
 
 FLUX 3 image (`flux-3-image`, separate from `flux-3-max` video) is Tier 2. It generates and edits with up to 10 references, 1-4 outputs, 1K/2K/4K (default 1K), prompt expansion (default on) and 14 aspect ratios plus auto. Each image is priced by output size (resolution and ratio); auto is quoted at the tier's highest price. Without an aspect ratio, a new image is 16:9 and an edit follows its first reference. No seed. MCP uses `reference_images`, `num_images`, `resolution`, `aspect_ratio` and `enable_prompt_expansion`; the CLI uses `--ref`, `--num`, `--resolution`, `--ar` and `--prompt-expansion`.
+
+### Kling 4.0 video
+
+`kling-4.0` is Kling's newest model. It runs on Atlas Cloud first, with Fal, Higgsfield and Pika as backups. It is Tier 1, the preferred Kling after Gemini Omni and Seedance (Kling 3.0 and O3 keep 4K). Three modes, like Kling O3: text to video; image to video from a start image (`start_image_url`) with an optional end image (`end_image_url`), where framing follows the image; and reference to video, chosen when references are given, with an optional start image, up to 10 images including it (`reference_images`, cited as @Image1), up to 5 reference videos (`reference_videos`, cited as @Video1, 3-30s each) and up to 7 `elements` (cited as @Element1; up to 3 with `voice_id`, up to 3 video-backed). Reference and element videos share 5 clips and 30 seconds, and 15 inputs is the total. Duration is 3-30 whole seconds (default 5), or 1-6 `multi_prompt` shots of 1-30s each and 3-30s in total. 720p/1080p, audio always on, aspect ratio 16:9/9:16/1:1/21:9 plus auto with references (none in image to video). Reference mode has no end frame. No seed, negative prompt or quality tier. Reference and element videos are billed by length plus the output, at least twice the output; quote with `videodraft costs kling-4.0 --type video --duration 10 --ref-video-seconds 6` or `--estimate`. CLI: `--model kling-4.0` with `--start-image`, `--end-image`, `--ref`, `--ref-video`, `--element`, `--segment`, `--resolution`. `kling-4.0-video-edit` edits a whole 3-30s source with `videodraft edit video <source> "<prompt citing @Video1>" --model kling-4.0-video-edit`, up to 10 `--ref` images and 7 image-only `--element` entries, and an optional output `--duration` (3-30; default the source length). It bills the source plus the output, at least twice the output; quote with `videodraft costs kling-4.0-video-edit --type video --ref-video-seconds <source seconds>`. See the [model guide](skills/videodraft/references/models.md).
 
 ### FLUX 3 Max video
 

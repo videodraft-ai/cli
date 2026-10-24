@@ -1,7 +1,16 @@
 /** `videodraft edit ...` specialized existing-media transformations. */
 
 import type { Command } from "commander";
-import { buildContext, compact, sessionArg } from "../cli/context.js";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import {
+  buildContext,
+  compact,
+  sessionArg,
+  sessionProfileKey,
+} from "../cli/context.js";
+import { configDir } from "../core/config.js";
+import { prepareBackgroundRemovalSource } from "../core/background-removal-source.js";
 import { capture } from "../cli/telemetry.js";
 import { emit, note, table } from "../cli/output.js";
 import { EXIT, UsageError } from "../core/errors.js";
@@ -13,11 +22,14 @@ import {
   resolveRefs,
 } from "./generate.js";
 
+const KLING_4_EDIT_MODEL = "kling-4.0-video-edit";
+
 const VIDEO_EDIT_MODELS = new Set([
   "gemini-omni-1.1-flash",
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
+  KLING_4_EDIT_MODEL,
 ]);
 
 /** Reference-image cap per edit model; mirrors the server's own limits. */
@@ -26,7 +38,14 @@ const EDIT_MODEL_MAX_REFS: Record<string, number> = {
   "happy-horse-video-edit": 5,
   "kling-o3-video-ref-edit": 4,
   "grok-imagine-video-edit": 0,
+  [KLING_4_EDIT_MODEL]: 10,
 };
+
+/** Edit models that take image-only Kling elements. */
+const ELEMENT_EDIT_MODELS = new Set([
+  "kling-o3-video-ref-edit",
+  KLING_4_EDIT_MODEL,
+]);
 
 /**
  * Priced cost lookups need a concrete id, so --estimate without --model quotes
@@ -88,11 +107,11 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "gemini-omni-1.1-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit",
+      "gemini-omni-1.1-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit | kling-4.0-video-edit (edits a whole 3-30s source)",
     )
     .option(
       "--element <json|@file>",
-      "Kling O3 image-only element (repeatable)",
+      "Kling O3 or Kling 4.0 Video Edit image-only element (repeatable)",
       collect,
       [],
     )
@@ -118,7 +137,7 @@ export function registerEditCommands(program: Command): void {
     .option("--quality <tier>", "Kling O3 only: standard or pro")
     .option(
       "--duration <seconds>",
-      "estimate-only output duration; submitted edits follow the source/model duration",
+      "kling-4.0-video-edit: output length, 3-30s (default: the source length). Other models: estimate-only, since edits follow the source",
     )
     .option("--preserve-audio", "preserve original source audio when supported")
     .option("--project <id>", "group in a project's AI Studio session")
@@ -143,11 +162,11 @@ export function registerEditCommands(program: Command): void {
       const rawElements = parseKlingElements(opts.element ?? []);
       if (
         rawElements.length &&
-        (model !== "kling-o3-video-ref-edit" ||
+        (!ELEMENT_EDIT_MODELS.has(model ?? "") ||
           rawElements.some((e) => e.video_url || e.voice_id))
       )
         throw new UsageError(
-          "--element requires Kling O3 Video Ref/Edit and image-only elements without voice_id.",
+          "--element requires Kling O3 Video Ref/Edit or Kling 4.0 Video Edit, with image-only elements and no voice_id.",
         );
       if (
         rawElements.length + (opts.ref?.length ?? 0) > 4 &&
@@ -155,6 +174,17 @@ export function registerEditCommands(program: Command): void {
       )
         throw new UsageError(
           "Kling O3 accepts at most 4 combined elements and reference images.",
+        );
+      if (model === KLING_4_EDIT_MODEL && rawElements.length > 7)
+        throw new UsageError(
+          "Kling 4.0 Video Edit accepts at most 7 --element entries.",
+        );
+      if (
+        model === KLING_4_EDIT_MODEL &&
+        1 + (opts.ref?.length ?? 0) + rawElements.length > 15
+      )
+        throw new UsageError(
+          "Kling 4.0 Video Edit accepts at most 15 inputs: the source video, --ref images and --element entries.",
         );
       const editSeed = opts.seed === undefined ? undefined : Number(opts.seed);
       if (
@@ -174,6 +204,14 @@ export function registerEditCommands(program: Command): void {
         );
 
       const duration = positiveNumber(opts.duration, "--duration");
+      if (
+        model === KLING_4_EDIT_MODEL &&
+        duration !== undefined &&
+        (!Number.isInteger(duration) || duration < 3 || duration > 30)
+      )
+        throw new UsageError(
+          "Kling 4.0 Video Edit --duration must be a whole second from 3 to 30.",
+        );
       const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
       const shotIndex = nonNegativeInteger(opts.shot, "--shot");
       const refCount = (opts.ref ?? []).length;
@@ -241,6 +279,15 @@ export function registerEditCommands(program: Command): void {
           'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4k".',
         );
       }
+      if (
+        model === KLING_4_EDIT_MODEL &&
+        opts.resolution &&
+        !["720p", "1080p"].includes(String(opts.resolution).toLowerCase())
+      ) {
+        throw new UsageError(
+          'kling-4.0-video-edit --resolution must be "720p" or "1080p".',
+        );
+      }
       if ((!model || model === "gemini-omni-1.1-flash") && opts.resolution) {
         const normalizedResolution = normalizeGeminiOmniResolutionOption(
           opts.resolution,
@@ -250,7 +297,8 @@ export function registerEditCommands(program: Command): void {
       if (
         opts.preserveAudio &&
         (model === "grok-imagine-video-edit" ||
-          model === "gemini-omni-1.1-flash")
+          model === "gemini-omni-1.1-flash" ||
+          model === KLING_4_EDIT_MODEL)
       ) {
         throw new UsageError(
           `${model} does not expose source-audio preservation.`,
@@ -276,13 +324,15 @@ export function registerEditCommands(program: Command): void {
           note:
             model === undefined
               ? `No credits were spent (--estimate). Quoted with ${estimateModel}, the preferred edit model; the server picks the real model at submit time and returns a priced menu when this one cannot run the source.`
-              : "No credits were spent (--estimate).",
+              : model === KLING_4_EDIT_MODEL
+                ? "No credits were spent (--estimate). Kling 4.0 Video Edit bills the source plus the output, at least twice the output, and this quote assumes the source is as long as the output. For an exact quote run `videodraft costs kling-4.0-video-edit --type video --ref-video-seconds <source seconds>`, adding --duration only for a different output length."
+                : "No credits were spent (--estimate).",
         });
         return;
       }
-      if (duration !== undefined) {
+      if (duration !== undefined && model !== KLING_4_EDIT_MODEL) {
         throw new UsageError(
-          "--duration is estimate-only for video edits. Submitted edits follow the source and model duration.",
+          "--duration is estimate-only for video edits. Submitted edits follow the source and model duration; only kling-4.0-video-edit takes an output --duration.",
         );
       }
       const [[videoUrl], referenceImages, referenceVideos, elements] =
@@ -319,6 +369,7 @@ export function registerEditCommands(program: Command): void {
               : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
+          duration_seconds: model === KLING_4_EDIT_MODEL ? duration : undefined,
           preserve_audio: opts.preserveAudio ? true : undefined,
           project_id: opts.project,
           session_id: sessionArg(this, opts),
@@ -382,7 +433,18 @@ export function registerEditCommands(program: Command): void {
     .requiredOption("--motion-video <url|file>", "motion reference video")
     .option(
       "--model <id>",
-      "kling-v3-motion-control (default) | kling-2.6-motion-control",
+      "kling-v3-motion-control (default) | kling-2.6-motion-control | genjutsu | genjutsu-light",
+    )
+    .option(
+      "--ref <url|file>",
+      "GenJutsu: additional reference image (up to 8 total)",
+      collect,
+      [],
+    )
+    .option("--resolution <res>", "GenJutsu: 480p, 720p (default), or 1080p")
+    .option(
+      "--idempotency-key <uuid>",
+      "GenJutsu: retry the same request without another charge",
     )
     .option("--quality <tier>", "standard or pro (default pro)")
     .option(
@@ -414,9 +476,48 @@ export function registerEditCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const model = opts.model ?? "kling-v3-motion-control";
+      const genjutsu = model === "genjutsu" || model === "genjutsu-light";
+      if (genjutsu) {
+        if (
+          opts.quality !== undefined ||
+          opts.orientation !== undefined ||
+          opts.originalSound === false ||
+          opts.element
+        )
+          throw new UsageError(
+            "GenJutsu has no quality, orientation, original-sound toggle, or Element controls.",
+          );
+        if ((opts.ref ?? []).length > 7)
+          throw new UsageError(
+            "GenJutsu accepts at most 8 images including the subject image.",
+          );
+        if (
+          opts.resolution !== undefined &&
+          !["480p", "720p", "1080p"].includes(opts.resolution)
+        )
+          throw new UsageError(
+            "GenJutsu --resolution must be 480p, 720p, or 1080p.",
+          );
+        if (
+          opts.idempotencyKey &&
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            opts.idempotencyKey,
+          )
+        )
+          throw new UsageError("--idempotency-key must be a UUID.");
+      } else if (
+        (opts.ref ?? []).length ||
+        opts.resolution !== undefined ||
+        opts.idempotencyKey !== undefined
+      ) {
+        throw new UsageError(
+          "--ref, --resolution, and --idempotency-key on edit motion apply only to GenJutsu.",
+        );
+      }
       if (
         model !== "kling-v3-motion-control" &&
-        model !== "kling-2.6-motion-control"
+        model !== "kling-2.6-motion-control" &&
+        !genjutsu
       ) {
         throw new UsageError(
           `Unsupported motion-control model "${model}". Run videodraft models video and use a motion_control entry.`,
@@ -467,6 +568,7 @@ export function registerEditCommands(program: Command): void {
             type: "video",
             duration_seconds: duration,
             quality: opts.quality,
+            resolution: opts.resolution,
           }),
         );
         emit(ctx.out, {
@@ -482,11 +584,44 @@ export function registerEditCommands(program: Command): void {
         );
       }
 
-      const [[imageUrl], [motionVideoUrl], elements] = await Promise.all([
-        resolveRefs(ctx, [imageSource]),
-        resolveRefs(ctx, [opts.motionVideo]),
+      const operationId = genjutsu
+        ? (opts.idempotencyKey ?? randomUUID())
+        : undefined;
+      const resolveMotionRefs = (
+        sources: string[],
+        slot: "images" | "video",
+      ) => {
+        if (!operationId) return resolveRefs(ctx, sources);
+        return Promise.all(
+          sources.map((source, index) =>
+            prepareBackgroundRemovalSource(
+              JSON.stringify([
+                ctx.baseUrl,
+                sessionProfileKey(
+                  ctx.profileName,
+                  ctx.flags.token ?? process.env.VIDEODRAFT_API_KEY,
+                ),
+                process.cwd(),
+                slot,
+                index,
+              ]),
+              operationId,
+              source,
+              async () => (await resolveRefs(ctx, [source]))[0]!,
+              path.join(configDir(), "genjutsu-requests"),
+            ),
+          ),
+        );
+      };
+      const [imageUrls, [motionVideoUrl], elements] = await Promise.all([
+        resolveMotionRefs(
+          [imageSource, ...(genjutsu ? (opts.ref ?? []) : [])],
+          "images",
+        ),
+        resolveMotionRefs([opts.motionVideo], "video"),
         resolveKlingElements(ctx, rawElements),
       ]);
+      const imageUrl = imageUrls[0];
       const resolvedElement = elements[0];
       capture("cli_edit", {
         kind: "motion_control",
@@ -498,12 +633,17 @@ export function registerEditCommands(program: Command): void {
         compact({
           model,
           prompt: promptWords.join(" ").trim(),
-          image_url: imageUrl,
+          image_url: genjutsu ? undefined : imageUrl,
+          reference_images: genjutsu ? imageUrls : undefined,
+          resolution: genjutsu ? opts.resolution : undefined,
+          idempotency_key: operationId,
           motion_video_url: motionVideoUrl,
           quality: opts.quality,
           character_orientation:
             elements.length > 0 ? "video" : opts.orientation,
-          keep_original_sound: opts.originalSound !== false,
+          keep_original_sound: genjutsu
+            ? undefined
+            : opts.originalSound !== false,
           element: resolvedElement
             ? {
                 frontal_image_url: resolvedElement.frontal_image_url,

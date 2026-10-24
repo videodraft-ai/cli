@@ -12,8 +12,8 @@
         },
         {
           "path": "references/editor.md",
-          "sha256": "e35a86088e211d22521325245aa848b18eceef6952d8bbdae6fdc8c2269833c0",
-          "bytes": 25381
+          "sha256": "82f1f972191430a4f44f28384cd3688c1553c744fcc5316c2798a400bff9d9be",
+          "bytes": 29579
         },
         {
           "path": "references/examples.md",
@@ -22,8 +22,8 @@
         },
         {
           "path": "references/models.md",
-          "sha256": "db80a37e3a4cea0df38a8ace4b99654e74cc6c4ebd6c768abc1c5c3592511677",
-          "bytes": 46719
+          "sha256": "2d17b925ea11bfbadc684b255d78b6af619510a1def4da78514afd1ef724f5cf",
+          "bytes": 50698
         },
         {
           "path": "references/pipeline.md",
@@ -32,8 +32,8 @@
         },
         {
           "path": "SKILL.md",
-          "sha256": "dfa55654d56a522d7a52c3364de21bbc179689a838abeae30108b8576921dfdd",
-          "bytes": 49955
+          "sha256": "b125159dd40b48248a83d5c457f05c79f81145f70d793814028ffb7d2a7cf13a",
+          "bytes": 54027
         }
       ]
     }
