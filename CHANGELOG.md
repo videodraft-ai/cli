@@ -5,6 +5,60 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-24
+
+### Added
+
+- `edit motion --model genjutsu` and `--model genjutsu-light` use native
+  Higgsfield motion transfer with a source video, ordered character references,
+  and resolution controls. Explicit idempotency keys preserve uploaded inputs
+  across retries. `generate video` also dispatches both models.
+- `remove-background image` and `remove-background video` return transparent
+  PNG or WebM results, with verified quotes, spending caps, retry keys, downloads,
+  and video subject/edge-refinement controls.
+- `generate video --model kling-4.0` (aliases `kling4`, `kling-4`, `kling-v4`)
+  runs Kling 4.0 in three modes, like Kling O3: text to video; image to
+  video from `--start-image` with an optional `--end-image`; or reference
+  to video when you add `--ref`, `--ref-video` or `--element`, with an
+  optional `--start-image`, up to 10 images, 5 `--ref-video` clips and 7
+  `--element` entries (3 with a voice, 3 video-backed), cited as @Image1,
+  @Video1 and @Element1. 3-30 s at 720p or 1080p, audio always on, and
+  `--segment` shots of up to 30 s in total.
+- `edit video --model kling-4.0-video-edit` edits a whole 3-30 s source
+  with up to 10 `--ref` images and 7 image-only `--element` entries at
+  720p or 1080p. The output matches the source unless `--duration` (3-30)
+  sets a new length. `generate video --model kling-4.0-video-edit` with one
+  `--ref-video` source routes there too.
+- `--estimate` and `costs` bill Kling 4.0 reference and element videos by
+  length (pass `--ref-video-seconds`); without it the quote assumes 3 s per
+  clip and says so. For `kling-4.0-video-edit`, `--ref-video-seconds` is the
+  source length.
+
+### Changed
+
+- Reject Kling 4.0 quality tiers, auto duration, `--no-audio`, an
+  `--end-image` without `--start-image` or beside references, `--ar` in
+  image-to-video, and inputs past its limits before calling MCP.
+- `costs` takes `--source-url` and `--no-refine-edges` for exact background
+  removal quotes, and `models video --category background_removal` lists the
+  background removal models.
+- Kling 4.0 is a Tier 1 video model: agents pick it as the preferred Kling,
+  after Gemini Omni 1.1 Flash and Seedance and ahead of Kling 3.0 and O3,
+  which keep 4K. Kling 4.0 Video Edit stays Tier 2 and is offered for whole
+  10-30 s sources.
+- The bundled skill covers Kling 4.0, Kling 4.0 Video Edit, GenJutsu and
+  background removal, and the native-editor guide adds a background-removal
+  handoff. Prices still come only from `videodraft costs` and `--estimate`.
+
+### Compatibility
+
+- Kling 4.0, Kling 4.0 Video Edit, GenJutsu and background removal require
+  the matching VideoDraft backend release, which deploys separately. Until it
+  is live, the server rejects these models and commands; other commands are
+  unchanged.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.29.0] - 2026-10-20
 
 ### Added

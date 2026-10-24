@@ -523,6 +523,7 @@ const REF_VIDEO_SECONDS_MAX = 30;
 function refVideoSecondsWindow(model: string | undefined): number | null {
   switch (model) {
     case "seedance-2.5":
+    case "kling-4.0":
       return 30;
     case "seedance-2":
     case "minimax-h3":
@@ -1162,7 +1163,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "combined reference-video duration for an exact --estimate (Seedance 2.x bills input seconds, MiniMax H3 Max bills them as reference tokens; MiniMax H3 and Wan 3.0 do not). Max 30s on Seedance 2.5, 15s elsewhere",
+      "combined reference-video duration for an exact --estimate (Seedance 2.x and Kling 4.0 bill input seconds, MiniMax H3 Max bills them as reference tokens; MiniMax H3 and Wan 3.0 do not). Max 30s on Seedance 2.5 and Kling 4.0, 15s elsewhere",
     )
     .option(
       "--ref-audio-seconds <seconds>",
@@ -1176,7 +1177,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--segment <prompt:seconds>",
-      "multi-prompt segment (repeatable; Kling 3.0 / 3.0 Turbo / O3)",
+      "multi-prompt segment (repeatable; Kling 4.0 / 3.0 / 3.0 Turbo / O3)",
       collect,
       [],
     )
@@ -1324,6 +1325,32 @@ export function registerGenerateCommands(program: Command): void {
           "--auto-duration and --duration are mutually exclusive.",
           EXIT.USAGE,
         );
+      if (
+        ["kling4", "kling-4", "kling-v4", "kling_4"].includes(
+          String(opts.model || ""),
+        )
+      )
+        opts.model = "kling-4.0";
+      const isKling4Request = opts.model === "kling-4.0";
+      if (
+        isKling4Request &&
+        (opts.autoDuration ||
+          opts.quality !== undefined ||
+          opts.audio === false)
+      )
+        throw new CliError(
+          "Kling 4.0 has no quality tier or auto duration, and its audio is always on.",
+          EXIT.USAGE,
+        );
+      if (
+        isKling4Request &&
+        duration !== undefined &&
+        (!Number.isInteger(duration) || duration < 3 || duration > 30)
+      )
+        throw new CliError(
+          "Kling 4.0 --duration must be a whole second from 3 to 30.",
+          EXIT.USAGE,
+        );
       const isFlux3MaxRequest = [
         "flux-3-max",
         "flux3max",
@@ -1384,17 +1411,21 @@ export function registerGenerateCommands(program: Command): void {
           EXIT.USAGE,
         );
       }
+      // Kling 4.0 shots run up to 30 s each and in total; earlier Kling
+      // models cap both at 15 s.
+      // Without --model, shots past 15 s select Kling 4.0 below.
+      const maxSegmentSeconds = isKling4Request || !opts.model ? 30 : 15;
       if (
         segments.length > 6 ||
         segments.some(
           (segment) =>
             !Number.isInteger(segment.duration) ||
             segment.duration < 1 ||
-            segment.duration > 15,
+            segment.duration > maxSegmentSeconds,
         )
       ) {
         throw new CliError(
-          "--segment supports 1-6 entries with whole-second durations from 1 to 15.",
+          `--segment supports 1-6 entries with whole-second durations from 1 to ${maxSegmentSeconds}.`,
           EXIT.USAGE,
         );
       }
@@ -1404,10 +1435,10 @@ export function registerGenerateCommands(program: Command): void {
       );
       if (
         segments.length > 0 &&
-        (segmentDuration < 3 || segmentDuration > 15)
+        (segmentDuration < 3 || segmentDuration > maxSegmentSeconds)
       ) {
         throw new CliError(
-          "The total --segment duration must be between 3 and 15 seconds.",
+          `The total --segment duration must be between 3 and ${maxSegmentSeconds} seconds.`,
           EXIT.USAGE,
         );
       }
@@ -1449,6 +1480,16 @@ export function registerGenerateCommands(program: Command): void {
         opts.model = "wan-3.0";
       } else if (!opts.model && voiceIds.length > 0) {
         opts.model = "kling-2.6-pro";
+      } else if (
+        !opts.model &&
+        (segmentDuration > 15 ||
+          (rawElements.length > 0 &&
+            ((opts.refVideo?.length ?? 0) > 0 ||
+              rawElements.filter((element) => element.video_url).length > 1)))
+      ) {
+        // Only Kling 4.0 takes shots past 15 s, or elements beside reference
+        // videos or several video elements.
+        opts.model = "kling-4.0";
       } else if (!opts.model && rawElements.length > 0) {
         opts.model = opts.startImage ? "kling-3.0" : "kling-o3";
       } else if (!opts.model && segments.length > 0) {
@@ -1476,10 +1517,12 @@ export function registerGenerateCommands(program: Command): void {
       }
       if (
         segments.length > 0 &&
-        !["kling-3.0", "kling-v3-turbo", "kling-o3"].includes(opts.model)
+        !["kling-4.0", "kling-3.0", "kling-v3-turbo", "kling-o3"].includes(
+          opts.model,
+        )
       ) {
         throw new CliError(
-          "--segment is supported only by kling-3.0, kling-v3-turbo, and kling-o3.",
+          "--segment is supported only by kling-4.0, kling-3.0, kling-v3-turbo, and kling-o3.",
           EXIT.USAGE,
         );
       }
@@ -1650,12 +1693,13 @@ export function registerGenerateCommands(program: Command): void {
           );
         }
         if (
+          opts.model !== "kling-4.0" &&
           opts.model !== "kling-3.0" &&
           opts.model !== "kling-o3" &&
           opts.model !== "kling-v3-motion-control"
         ) {
           throw new CliError(
-            "--element is supported by kling-3.0, kling-o3, and kling-v3-motion-control only.",
+            "--element is supported by kling-4.0, kling-3.0, kling-o3, and kling-v3-motion-control only.",
             EXIT.USAGE,
           );
         }
@@ -1719,6 +1763,26 @@ export function registerGenerateCommands(program: Command): void {
             EXIT.USAGE,
           );
         }
+        if (opts.model === "kling-4.0") {
+          const videoElements = rawElements.filter(
+            (element) => element.video_url,
+          ).length;
+          if (rawElements.length > 7)
+            throw new CliError(
+              "kling-4.0 accepts at most 7 --element entries.",
+              EXIT.USAGE,
+            );
+          if (videoElements > 3)
+            throw new CliError(
+              "kling-4.0 accepts at most 3 video-backed --element entries.",
+              EXIT.USAGE,
+            );
+          if (rawElements.filter((element) => element.voice_id).length > 3)
+            throw new CliError(
+              "kling-4.0 accepts voice_id on at most 3 --element entries.",
+              EXIT.USAGE,
+            );
+        }
         if (opts.model === "kling-o3" && (opts.refVideo?.length ?? 0) > 0) {
           throw new CliError(
             "kling-o3 --element cannot be combined with the legacy --ref-video edit mode. Put the element video in --element video_url instead.",
@@ -1761,6 +1825,50 @@ export function registerGenerateCommands(program: Command): void {
             );
           }
         }
+      }
+      if (opts.model === "kling-4.0") {
+        const imageCount = (opts.ref?.length ?? 0) + (opts.startImage ? 1 : 0);
+        const videoCount = opts.refVideo?.length ?? 0;
+        // References pick reference mode; a start image alone (with an
+        // optional end image) is image-to-video, as on Kling O3.
+        const hasReferenceMedia =
+          (opts.ref?.length ?? 0) > 0 ||
+          videoCount > 0 ||
+          rawElements.length > 0;
+        if (opts.endImage && !opts.startImage)
+          throw new CliError(
+            "kling-4.0 --end-image needs --start-image (image-to-video).",
+            EXIT.USAGE,
+          );
+        if (opts.endImage && hasReferenceMedia)
+          throw new CliError(
+            "kling-4.0 --end-image is for image-to-video, which takes a start and end image only. Reference mode has no end frame: drop --end-image or the references.",
+            EXIT.USAGE,
+          );
+        if (opts.ar && opts.startImage && !hasReferenceMedia)
+          throw new CliError(
+            "kling-4.0 image-to-video follows --start-image's framing; remove --ar, or add references for reference mode.",
+            EXIT.USAGE,
+          );
+        if (imageCount > 10)
+          throw new CliError(
+            "kling-4.0 accepts at most 10 images, --start-image included.",
+            EXIT.USAGE,
+          );
+        if (
+          videoCount +
+            rawElements.filter((element) => element.video_url).length >
+          5
+        )
+          throw new CliError(
+            "kling-4.0 --ref-video and video-backed --element entries share 5 clips.",
+            EXIT.USAGE,
+          );
+        if (imageCount + videoCount + rawElements.length > 15)
+          throw new CliError(
+            "kling-4.0 accepts at most 15 images, videos and elements in total.",
+            EXIT.USAGE,
+          );
       }
       if (voiceIds.length > 0) {
         if (opts.model !== "kling-2.6-pro") {
@@ -2173,14 +2281,27 @@ export function registerGenerateCommands(program: Command): void {
         // this or every reference-video quote is short. MiniMax H3 no longer
         // bills reference video, but its existing 0 is preserved so a plain
         // estimate keeps the payload shape its tests assert.
+        // Kling 4.0 bills reference and element videos by length, each at
+        // least 3 s, so an unmeasured clip quotes that minimum.
+        const kling4VideoClips =
+          estimateModel === "kling-4.0"
+            ? (Array.isArray(opts.refVideo) ? opts.refVideo.length : 0) +
+              rawElements.filter((element) => element.video_url).length
+            : 0;
         const estimateReferenceVideoDuration =
           estimateModel === "minimax-h3"
             ? hasRefVideos
               ? refVideoSeconds
               : 0
-            : refVideoWindow !== null && hasRefVideos
-              ? refVideoSeconds
-              : undefined;
+            : kling4VideoClips > 0
+              ? (refVideoSeconds ?? kling4VideoClips * 3)
+              : refVideoWindow !== null && hasRefVideos
+                ? refVideoSeconds
+                : undefined;
+        const kling4LowerBoundReason =
+          kling4VideoClips > 0 && refVideoSeconds === undefined
+            ? "kling-4.0 bills reference and element videos by their length. This quote assumes 3 s each; pass --ref-video-seconds for an exact quote."
+            : undefined;
         // H3 Max bills reference media as pooled tokens. Missing video/audio
         // durations can be supplied by flag; image dimensions cannot be, since
         // the server measures the real pixels, so any image reference is a
@@ -2250,7 +2371,7 @@ export function registerGenerateCommands(program: Command): void {
               : undefined,
           // H3 Max bills reference video and audio as pooled tokens, so a
           // quote that cannot see their durations omits a real surcharge.
-          lowerBoundReason: h3MaxLowerBoundReason,
+          lowerBoundReason: h3MaxLowerBoundReason ?? kling4LowerBoundReason,
           voiceControl:
             voiceIds.length > 0 ||
             rawElements.some((element) => element.voice_id),
@@ -2326,6 +2447,7 @@ export function registerGenerateCommands(program: Command): void {
       const videoEditModels = new Set([
         "happy-horse-video-edit",
         "grok-imagine-video-edit",
+        "kling-4.0-video-edit",
       ]);
       const motionControlModels = new Set([
         "kling-v3-motion-control",
@@ -2333,7 +2455,55 @@ export function registerGenerateCommands(program: Command): void {
       ]);
       let toolName = "generate_video";
       let toolArgs: Record<string, unknown>;
-      if (videoEditModels.has(opts.model)) {
+      if (opts.model === "genjutsu" || opts.model === "genjutsu-light") {
+        const images = [...(startImage ? [startImage] : []), ...refs];
+        if (refVideos.length !== 1 || images.length < 1 || images.length > 8)
+          throw new CliError(
+            "GenJutsu requires one --ref-video and 1–8 images using --ref or --start-image.",
+            EXIT.USAGE,
+          );
+        if (
+          endImage ||
+          refAudios.length ||
+          segments.length ||
+          opts.ar ||
+          opts.negative ||
+          opts.cameraFixed ||
+          opts.seed !== undefined ||
+          elements.length ||
+          voiceIds.length ||
+          opts.quality ||
+          opts.audio !== undefined ||
+          duration !== undefined ||
+          opts.autoDuration
+        )
+          throw new CliError(
+            "GenJutsu supports source video, reference images, optional prompt, and resolution only. Use edit motion --estimate --duration for cost estimates.",
+            EXIT.USAGE,
+          );
+        if (
+          opts.resolution !== undefined &&
+          !["480p", "720p", "1080p"].includes(opts.resolution)
+        )
+          throw new CliError(
+            "GenJutsu --resolution must be 480p, 720p, or 1080p.",
+            EXIT.USAGE,
+          );
+        toolName = "generate_motion_control_video";
+        toolArgs = {
+          model: opts.model,
+          prompt: prompt || undefined,
+          reference_images: images,
+          motion_video_url: refVideos[0],
+          resolution: opts.resolution,
+          idempotency_key: randomUUID(),
+          project_id: opts.project,
+          session_id: sessionArg(this, opts),
+          scene_index:
+            opts.scene !== undefined ? Number(opts.scene) : undefined,
+          shot_index: opts.shot !== undefined ? Number(opts.shot) : undefined,
+        };
+      } else if (videoEditModels.has(opts.model)) {
         if (refVideos.length !== 1) {
           throw new CliError(
             `${opts.model} requires exactly one --ref-video source. You can also use videodraft edit video.`,

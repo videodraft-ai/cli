@@ -21,10 +21,11 @@ describe("bundledSkillFiles", () => {
   });
 
   // Every CLI version keeps its skill text, so a written price goes stale on
-  // older installs. Prices come from `videodraft costs` / `--estimate` only.
-  it("quotes no credit prices", () => {
+  // older installs. Prices come from `videodraft costs` / `--estimate` only,
+  // and neither credit prices nor provider dollar rates belong in the skill.
+  it("quotes no credit prices or dollar rates", () => {
     const price =
-      /\b\d[\d.,/ -]*\s*(?:credits?|cr)\b(?! per dollar)|\bcr\/s\b|credits?\/(?:s|sec|second|image|minute)\b/i;
+      /\b\d[\d.,/ -]*\s*(?:credits?|cr)\b(?! per dollar)|\bcr\/s\b|credits?\/(?:s|sec|second|image|minute)\b|\$\d/i;
     for (const [name, content] of Object.entries(bundledSkillFiles()))
       for (const line of content.split("\n"))
         expect(line, `${name}: ${line.trim().slice(0, 120)}`).not.toMatch(

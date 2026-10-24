@@ -164,6 +164,69 @@ For a batch of local outputs, download them into one workspace directory and imp
 
 To apply a LUT, first store it with `library_manage` `prepare_look` (`parameters.path` to a `.cube` file), then use the returned `storedPath` in a `grade` action.
 
+## Background-removal handoff
+
+Keep paid processing in the VideoDraft CLI or cloud MCP. The editor's
+`library_manage` operation `background_removal`, when present in the live schema,
+connects an existing clip to that workflow without replacing its linked sound.
+It does not generate, upload, quote or charge. Older editors without this operation
+can keep the completed asset for later; do not claim the guarded handoff is available.
+
+1. Read the selection if the user means an existing clip. Call `library_manage`
+   with `operation: "background_removal"` and `parameters: {"action":"prepare",
+   "clipId":"…"}`. Keep its `sourceToken` and use `source.path`, the original
+   full file. Do not send a thumbnail, a composited timeline frame, or a trimmed
+   excerpt. Video limits apply to the whole source, even if the timeline uses only
+   a small part of it. This handoff currently requires a result of the same full
+   source duration and aspect ratio.
+2. Check the removal tool exists before any paid submission. In VideoDraft ADE, use the
+   exact app-bundled CLI from the session instructions. A pre-release CLI may lack
+   `remove-background`; do not install or substitute another CLI. Its generic
+   `tools schema remove_image_background` / `remove_video_background` and `call`
+   can reach these tools once the server deploys them. If the server also lacks
+   the tool, keep the edit unchanged and explain that the release is pending.
+   Generic `call` takes a public URL, not a local path: use `upload` first and
+   retain that exact uploaded URL with the operation UUID for every retry.
+3. Quote the actual source and settings, then submit with `max_credits` (CLI
+   `--max-credits`) and a retained UUID idempotency key. Images return transparent
+   PNG; video returns VP9 WebM with alpha. A timeout is a status check or a retry
+   of the same operation, never a second paid submission.
+4. PNG imports directly. The native editor cannot decode WebM. Before charging
+   for a video intended for this editor, establish that an existing FFmpeg with
+   the `libvpx-vp9` decoder and `prores_ks` encoder is available. When VideoDraft ADE's runtime
+   discovery is exposed, its installed FFmpeg may be used by absolute path. If
+   none is available, explain that video conversion needs setup; never silently
+   install a runtime or flatten the output. Keep the original WebM under `media/`.
+   Convert a separate MOV with the explicit `libvpx-vp9` input decoder; FFmpeg's
+   other VP9 decoder can discard alpha. For constant-frame-rate output, use the
+   measured output frame rate, not an assumed 30 fps:
+
+   ```sh
+   /absolute/path/to/ffmpeg -nostdin -n -c:v libvpx-vp9 -i media/cutout.webm \
+     -map 0:v:0 -an -vf 'setpts=PTS-STARTPTS' -r <measured-output-fps> \
+     -fps_mode cfr -c:v prores_ks -profile:v 4 -pix_fmt yuva444p10le \
+     media/cutout-alpha.mov
+   ```
+
+   This MOV intentionally has no sound; applying it keeps the clip's original
+   linked audio. Check frame count, duration, dimensions and alpha before import.
+   Do not use H.264, rename `.webm` to `.mov`, assume a codec's alpha capability
+   proves the particular output retains transparency, or overwrite the WebM.
+   For variable-rate output, use a timestamp-preserving conversion and verify
+   its last-frame duration; do not force the example's constant-rate path.
+   ProRes intermediates can be much larger than the WebM, so check disk space.
+5. Import the PNG/MOV with `library_manage import` and wait for its asset to
+   become ready. Call `library_manage` `background_removal` with
+   `parameters: {"action":"apply","clipId":"…","sourceToken":"…",
+   "assetId":"…"}`. It verifies transparency and source identity, preserves
+   the cut and original linked sound, and makes one undoable replacement.
+   An edited clip or changed source refuses the old token. Review the existing
+   result and prepare again; do not regenerate automatically.
+6. Inspect frames against a contrasting background and verify the final export.
+   A plain MP4 cannot carry alpha; a composited export should show the intended
+   background through the cutout. Original media and the returned cutout stay
+   available after Undo.
+
 ## Speech edits
 
 `speech_apply` runs speech work as separate operations, not recipe actions: `words` removes transcript words, `silence` trims dead air, and `captions` generates styled captions. Read a fresh transcript with `inspect` `transcript` after any speech edit, because word positions change.

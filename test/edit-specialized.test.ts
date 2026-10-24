@@ -355,6 +355,94 @@ describe("specialized video edit commands", () => {
     });
   });
 
+  it("sends Kling 4.0 Video Edit elements, output length and resolution", async () => {
+    const element = {
+      frontal_image_url: "https://cdn.example.test/hero.png",
+      reference_image_urls: ["https://cdn.example.test/hero-side.png"],
+    };
+    await runEdit([
+      "edit",
+      "video",
+      "https://cdn.example.test/source.mp4",
+      "Put @Element1 in @Video1",
+      "--model",
+      "kling-4.0-video-edit",
+      "--element",
+      JSON.stringify(element),
+      "--ref",
+      "https://cdn.example.test/style.png",
+      "--duration",
+      "8",
+      "--resolution",
+      "1080p",
+      "--no-wait",
+    ]);
+
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "edit_video",
+      expect.objectContaining({
+        model: "kling-4.0-video-edit",
+        video_url: "https://cdn.example.test/source.mp4",
+        reference_images: ["https://cdn.example.test/style.png"],
+        elements: [element],
+        duration_seconds: 8,
+        resolution: "1080p",
+      }),
+    );
+  });
+
+  it.each([
+    [["--preserve-audio"]],
+    [["--duration", "31"]],
+    [["--duration", "4.5"]],
+    [["--resolution", "4k"]],
+    [["--quality", "pro"]],
+    [
+      [
+        "--element",
+        JSON.stringify({
+          frontal_image_url: "https://cdn.example.test/hero.png",
+          reference_image_urls: ["https://cdn.example.test/side.png"],
+          voice_id: "voice-1",
+        }),
+      ],
+    ],
+  ])(
+    "rejects Kling 4.0 Video Edit input it can't take before calling MCP: %s",
+    async (flags) => {
+      await expect(
+        runEdit([
+          "edit",
+          "video",
+          "https://cdn.example.test/source.mp4",
+          "Add rain",
+          "--model",
+          "kling-4.0-video-edit",
+          ...flags,
+          "--no-wait",
+        ]),
+      ).rejects.toThrow();
+      expect(mocks.callTool).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still treats --duration as estimate-only for edit models that follow the source", async () => {
+    await expect(
+      runEdit([
+        "edit",
+        "video",
+        "https://cdn.example.test/source.mp4",
+        "Add rain",
+        "--model",
+        "happy-horse-video-edit",
+        "--duration",
+        "8",
+        "--no-wait",
+      ]),
+    ).rejects.toThrow(/estimate-only/);
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
   it("routes an explicit edit model from generate video to edit_video", async () => {
     await runGenerate([
       "generate",
@@ -720,5 +808,113 @@ describe("specialized video edit commands", () => {
       message: expect.stringContaining('Unknown video category "editing"'),
     });
     expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+});
+
+describe("native GenJutsu motion transfer", () => {
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    mocks.callTool.mockResolvedValue({
+      job_id: "job_123",
+      status: "submitted",
+    });
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+  });
+  it.each(["genjutsu", "genjutsu-light"])(
+    "submits %s with ordered references and resolution",
+    async (model) => {
+      await runEdit([
+        "edit",
+        "motion",
+        "https://cdn.example.test/one.png",
+        "--ref",
+        "https://cdn.example.test/two.png",
+        "--model",
+        model,
+        "--motion-video",
+        "https://cdn.example.test/source.mp4",
+        "--resolution",
+        "1080p",
+        "--no-wait",
+      ]);
+      expect(mocks.callTool).toHaveBeenCalledWith(
+        "generate_motion_control_video",
+        expect.objectContaining({
+          model,
+          reference_images: [
+            "https://cdn.example.test/one.png",
+            "https://cdn.example.test/two.png",
+          ],
+          resolution: "1080p",
+          motion_video_url: "https://cdn.example.test/source.mp4",
+        }),
+      );
+      const args = mocks.callTool.mock.calls[0]![1];
+      expect(args).not.toHaveProperty("image_url");
+      expect(args).not.toHaveProperty("keep_original_sound");
+      expect(args).not.toHaveProperty("quality");
+      expect(args.idempotency_key).toMatch(/^[0-9a-f-]{36}$/);
+    },
+  );
+  it("rejects Kling-only controls before submitting", async () => {
+    await expect(
+      runEdit([
+        "edit",
+        "motion",
+        "https://cdn.example.test/one.png",
+        "--model",
+        "genjutsu",
+        "--motion-video",
+        "https://cdn.example.test/source.mp4",
+        "--quality",
+        "pro",
+      ]),
+    ).rejects.toThrow(/no quality/);
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+  it("keeps fractional source duration in cost estimates", async () => {
+    await runEdit([
+      "edit",
+      "motion",
+      "https://cdn.example.test/one.png",
+      "--model",
+      "genjutsu-light",
+      "--motion-video",
+      "https://cdn.example.test/source.mp4",
+      "--resolution",
+      "480p",
+      "--duration",
+      "4.208333",
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "genjutsu-light",
+      type: "video",
+      duration_seconds: 4.208333,
+      resolution: "480p",
+    });
+  });
+  it("also dispatches generate video to the native motion tool", async () => {
+    await runGenerate([
+      "generate",
+      "video",
+      "--model",
+      "genjutsu-light",
+      "--ref",
+      "https://cdn.example.test/one.png",
+      "--ref-video",
+      "https://cdn.example.test/source.mp4",
+      "--resolution",
+      "480p",
+      "--no-wait",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "generate_motion_control_video",
+      expect.objectContaining({
+        model: "genjutsu-light",
+        reference_images: ["https://cdn.example.test/one.png"],
+        resolution: "480p",
+      }),
+    );
   });
 });
