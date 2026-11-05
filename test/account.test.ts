@@ -128,10 +128,10 @@ describe("costs", () => {
     expect(help).not.toContain("real-people");
   });
 
-  it("quotes GPT Image 2.5 with the selected aspect, resolution and quality", async () => {
+  it("quotes GPT Image 2.6 with the selected aspect, resolution and quality", async () => {
     await runAccount([
       "costs",
-      "gpt-image-2.5-flare",
+      "gpt-image-2.6-flare",
       "--ar",
       "4:5",
       "--resolution",
@@ -140,10 +140,18 @@ describe("costs", () => {
       "xhigh",
     ]);
     expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
-      model_id: "gpt-image-2.5-flare",
+      model_id: "gpt-image-2.6-flare",
       aspect_ratio: "4:5",
       resolution: "2K",
       quality: "xhigh",
+    });
+  });
+
+  it("sends an older GPT Image 2.5 id unchanged, so the server quotes 2.6", async () => {
+    await runAccount(["costs", "gpt-image-2.5-sunburst", "--quality", "high"]);
+    expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
+      model_id: "gpt-image-2.5-sunburst",
+      quality: "high",
     });
   });
 });

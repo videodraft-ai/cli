@@ -161,7 +161,7 @@ export function registerPipelineCommands(program: Command): void {
     .option("--resolution <res>", "image resolution, such as 1K, 2K, 4K")
     .option(
       "--quality <tier>",
-      "image quality; GPT Image 2.5 adds xhigh and max",
+      "image quality; GPT Image 2.6 adds xhigh and max",
     )
     .option("--grid", "grid mode (stronger cross-shot consistency)")
     .option("--regenerate-all", "replace existing shot images too")

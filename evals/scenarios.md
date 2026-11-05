@@ -104,11 +104,11 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** choose `nano-banana-2-lite` explicitly.
 - **Must NOT:** blindly use the platform default or ask the user to select from the full catalog.
 
-## 13. Poster text selects GPT Image 2.5 Flare
+## 13. Poster text selects GPT Image 2.6 Flare
 
 - **Query:** "Create a movie poster with the exact title THE LAST SIGNAL and the tagline WE WERE NEVER ALONE."
-- **Must:** choose `gpt-image-2.5-flare` explicitly and preserve the exact requested text in the prompt. Choose Sunburst when the request places extra emphasis on precision or intricate detail.
-- **Must NOT:** choose a generic default without considering text-rendering quality.
+- **Must:** choose `gpt-image-2.6-flare` explicitly and preserve the exact requested text in the prompt. Choose `gpt-image-2.6-sunburst` when the request places extra emphasis on precision or intricate detail.
+- **Must NOT:** choose a generic default without considering text-rendering quality, or pick a retired GPT Image 2.5 ID.
 
 ## 14. Multi-shot character video uses a reference-first grid
 
@@ -150,7 +150,7 @@ Each scenario: the request, and what a correct run must and must not do.
 
 - **Query:** "Use GPT Image 2 to make a consistent three-shot storyboard of the same detective."
 - **Must:** preserve `gpt-image-2` for the shot-image/grid generation and use the decoded shots as later video references.
-- **Must NOT:** silently replace the requested image model with GPT Image 2.5 or Nano Banana 2.1.
+- **Must NOT:** silently replace the requested image model with GPT Image 2.6 or Nano Banana 2.1.
 
 ## 20. Incompatible explicit model is explained, not silently replaced
 
@@ -328,9 +328,15 @@ Each scenario: the request, and what a correct run must and must not do.
 
 ## A personal provider key stays exclusive
 
-- **Query:** (the user's Pika key is selected in Settings) "Make a GPT Image 2.5 poster for my bakery."
+- **Query:** (the user's Pika key is selected in Settings) "Make a GPT Image 2.6 poster for my bakery."
 - **Must:** pass an explicit `--quality` (`low`, `medium`, `high`, `xhigh` or `max`), since that connection has no `auto`; if the server still reports the model or a setting as unsupported, tell the user.
 - **Must NOT:** retry on VideoDraft credits or another key, drop a requested control, or switch models just to get the job accepted.
+
+## A Fal key runs GPT Image 2.6 at every quality
+
+- **Query:** (the user's Fal key is turned on) "Make a GPT Image 2.6 Sunburst product shot at max quality."
+- **Must:** run `videodraft generate image --model gpt-image-2.6-sunburst --quality max`, which runs on the user's key.
+- **Must NOT:** lower the quality, retry on VideoDraft credits, or switch models.
 
 ## FLUX 3 image only when asked for
 

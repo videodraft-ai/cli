@@ -40,20 +40,20 @@ async function runPipeline(args: string[]): Promise<void> {
   await buildPipelineProgram().parseAsync(args, { from: "user" });
 }
 
-describe("GPT Image 2.5 shot estimates", () => {
-  beforeEach(() => {
-    mocks.callTool.mockReset();
-    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+describe("GPT Image 2.6 shot estimates", () => {
+  const mockProject = (defaultImageModel: string) => {
     mocks.callTool.mockResolvedValueOnce({
       storyboard: {
-        settings: {
-          defaultImageModel: "gpt-image-2.5-sunburst",
-          aspectRatio: "4:5",
-        },
+        settings: { defaultImageModel, aspectRatio: "4:5" },
         scenes: [{}, {}],
       },
     });
     mocks.callTool.mockResolvedValueOnce({ cost: 10 });
+  };
+
+  beforeEach(() => {
+    mocks.callTool.mockReset();
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -61,6 +61,7 @@ describe("GPT Image 2.5 shot estimates", () => {
   });
 
   it("uses the project's actual defaults for omitted model and aspect", async () => {
+    mockProject("gpt-image-2.6-sunburst");
     await runPipeline([
       "shots",
       "project-1",
@@ -71,7 +72,7 @@ describe("GPT Image 2.5 shot estimates", () => {
       "--estimate",
     ]);
     expect(mocks.callTool).toHaveBeenNthCalledWith(2, "get_model_costs", {
-      model_id: "gpt-image-2.5-sunburst",
+      model_id: "gpt-image-2.6-sunburst",
       aspect_ratio: "4:5",
       type: "image",
       quality: "xhigh",
@@ -79,12 +80,30 @@ describe("GPT Image 2.5 shot estimates", () => {
     });
   });
 
+  it("sends a project default saved as 2.5 unchanged, so the server quotes 2.6", async () => {
+    mockProject("gpt-image-2.5-sunburst");
+    await runPipeline([
+      "shots",
+      "project-1",
+      "--quality",
+      "high",
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenNthCalledWith(2, "get_model_costs", {
+      model_id: "gpt-image-2.5-sunburst",
+      aspect_ratio: "4:5",
+      type: "image",
+      quality: "high",
+    });
+  });
+
   it("keeps explicit caller choices above project defaults", async () => {
+    mockProject("gpt-image-2.6-sunburst");
     await runPipeline([
       "shots",
       "project-1",
       "--model",
-      "gpt-image-2.5-flare",
+      "gpt-image-2.6-flare",
       "--ar",
       "1:1",
       "--quality",
@@ -92,7 +111,7 @@ describe("GPT Image 2.5 shot estimates", () => {
       "--estimate",
     ]);
     expect(mocks.callTool).toHaveBeenNthCalledWith(2, "get_model_costs", {
-      model_id: "gpt-image-2.5-flare",
+      model_id: "gpt-image-2.6-flare",
       aspect_ratio: "1:1",
       type: "image",
       quality: "high",

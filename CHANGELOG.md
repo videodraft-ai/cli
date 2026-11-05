@@ -5,6 +5,30 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-05
+
+### Changed
+
+- `generate sound-effect` runs on ElevenLabs Sound Effects v3, and `--duration`
+  now goes up to 30 s (was 22 s) at the same price per second.
+- GPT Image 2.6 Flare (`gpt-image-2.6-flare`) and Sunburst
+  (`gpt-image-2.6-sunburst`) replace GPT Image 2.5 in help, the bundled skill
+  and the model guide, with the same controls: up to 16 `--ref` images, 10
+  aspect ratios, `--resolution 1K|2K|4K`, `--num 1-4` and
+  `--quality auto|low|medium|high|xhigh|max` (auto is priced at max). Flare
+  takes the Flare recommendation for readable text and precise composition;
+  Sunburst is the option when extra precision or detail matters. On 2.6, low
+  and medium cost only a little less than high.
+
+### Compatibility
+
+- Commands, scripts and older skills that still pass a GPT Image 2.5 id or
+  name keep working: the server runs and quotes them on the matching 2.6
+  model. GPT Image 2.6 needs the matching VideoDraft backend release, which
+  deploys separately.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.30.0] - 2026-10-24
 
 ### Added
