@@ -890,7 +890,7 @@ export function registerGenerateCommands(program: Command): void {
     .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
     .option(
       "--quality <tier>",
-      "Ideogram 4.5: low, medium (default), high; regular edits also very_low. GPT Image 2.5: auto, low, medium, high, xhigh, max",
+      "Ideogram 4.5: low, medium (default), high; regular edits also very_low. GPT Image 2.6: auto (default), low, medium, high, xhigh, max",
     )
     .option(
       "--rendering-speed <tier>",
@@ -923,7 +923,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--num <n>",
-      "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.5 and FLUX 3: 1-4)",
+      "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.6 and FLUX 3: 1-4)",
     )
     .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.5)")
     .option(
@@ -3221,8 +3221,8 @@ export function registerGenerateCommands(program: Command): void {
 
   generate
     .command("sound-effect <prompt...>")
-    .description("Generate a sound effect (ElevenLabs Sound Effects)")
-    .option("--duration <seconds>", "length 0.5–22s (default 5)")
+    .description("Generate a sound effect (ElevenLabs Sound Effects v3)")
+    .option("--duration <seconds>", "length 0.5–30s (default 5)")
     .option("--influence <0-1>", "prompt influence (default 0.3)")
     .option("--project <id>", "link to a project's AI Studio session")
     .option(

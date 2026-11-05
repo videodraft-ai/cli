@@ -172,15 +172,15 @@ describe("models table", () => {
         "nano-banana-2",
         "nano-banana-pro",
         "nano-banana-2-lite",
-        "gpt-image-2.5-flare",
-        "gpt-image-2.5-sunburst",
+        "gpt-image-2.6-flare",
+        "gpt-image-2.6-sunburst",
       ],
       models: [
         { id: "flux-2-pro", name: "FLUX 2 Pro", tier: 2, credit_cost: 6 },
         { id: "gpt-image-2", name: "GPT-Image-2", tier: 2, credit_cost: 28 },
         {
-          id: "gpt-image-2.5-flare",
-          name: "GPT Image 2.5 Flare",
+          id: "gpt-image-2.6-flare",
+          name: "GPT Image 2.6 Flare",
           tier: 1,
           credit_cost: 20,
         },
@@ -198,7 +198,7 @@ describe("models table", () => {
     expect(rows).toEqual([
       ["nano-banana-2", "Nano Banana 2", "1", "7"],
       ["nano-banana-pro", "Nano Banana Pro", "1", "14"],
-      ["gpt-image-2.5-flare", "GPT Image 2.5 Flare", "1", "20"],
+      ["gpt-image-2.6-flare", "GPT Image 2.6 Flare", "1", "20"],
       ["flux-2-pro", "FLUX 2 Pro", "2", "6"],
       ["gpt-image-2", "GPT-Image-2", "2", "28"],
     ]);

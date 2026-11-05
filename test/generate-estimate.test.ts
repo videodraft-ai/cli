@@ -109,8 +109,10 @@ describe("generate --estimate model selection", () => {
   });
 
   it.each([
-    ["gpt-image-2.5-flare", "max"],
-    ["gpt-image-2.5-sunburst", "xhigh"],
+    ["gpt-image-2.6-flare", "max"],
+    ["gpt-image-2.6-sunburst", "xhigh"],
+    // Older scripts still name 2.5; the server quotes and runs it on 2.6.
+    ["gpt-image-2.5-flare", "high"],
   ])("keeps %s pricing inputs in the estimate", async (model, quality) => {
     await runGenerate([
       "generate",
@@ -140,35 +142,39 @@ describe("generate --estimate model selection", () => {
     });
   });
 
-  it("preserves the 2.5 variant, exact ratio, high-detail tier on submission", async () => {
-    mocks.callTool.mockResolvedValueOnce({
-      job_id: "image_25",
-      status: "submitted",
-    });
-    await runGenerate([
-      "generate",
-      "image",
-      "a glass bird",
-      "--model",
-      "gpt-image-2.5-sunburst",
-      "--ar",
-      "4:5",
-      "--resolution",
-      "2K",
-      "--quality",
-      "xhigh",
-      "--no-wait",
-    ]);
+  it.each(["gpt-image-2.6-sunburst", "gpt-image-2.5-sunburst"])(
+    "sends %s with its exact ratio and high-detail tier on submission",
+    async (model) => {
+      mocks.callTool.mockResolvedValueOnce({
+        job_id: "image_26",
+        status: "submitted",
+      });
+      await runGenerate([
+        "generate",
+        "image",
+        "a glass bird",
+        "--model",
+        model,
+        "--ar",
+        "4:5",
+        "--resolution",
+        "2K",
+        "--quality",
+        "xhigh",
+        "--no-wait",
+      ]);
 
-    expect(mocks.callTool).toHaveBeenCalledOnce();
-    expect(mocks.callTool).toHaveBeenCalledWith("generate_image", {
-      prompt: "a glass bird",
-      model: "gpt-image-2.5-sunburst",
-      aspect_ratio: "4:5",
-      resolution: "2K",
-      quality: "xhigh",
-    });
-  });
+      // The CLI never rewrites the model: the server runs 2.5 ids on 2.6.
+      expect(mocks.callTool).toHaveBeenCalledOnce();
+      expect(mocks.callTool).toHaveBeenCalledWith("generate_image", {
+        prompt: "a glass bird",
+        model,
+        aspect_ratio: "4:5",
+        resolution: "2K",
+        quality: "xhigh",
+      });
+    },
+  );
 
   it("estimates videos with the documented default when --model is omitted", async () => {
     await runGenerate(["generate", "video", "a tracking shot", "--estimate"]);

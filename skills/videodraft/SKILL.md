@@ -24,7 +24,7 @@ provider error. Keep the canonical VideoDraft model ID in CLI/MCP calls. Poll
 the original generation after a timeout instead of starting another paid job.
 New provider connections can support only a subset of models and settings;
 follow the server's availability response. ElevenLabs remains audio-only.
-For Pika GPT Image 2.5, supply an explicit quality (`low`, `medium`, `high`,
+For Pika GPT Image 2.6, supply an explicit quality (`low`, `medium`, `high`,
 `xhigh`, or `max`); `auto` is not supported by that connection. Nano Banana 2
 Lite is 1K only. Never remove requested controls or substitute a different
 model merely to make a personal connection accept the job.
@@ -80,7 +80,7 @@ Seedance 2.0 and 2.5 have no real-people option, including for hosted `full_vide
 2. Otherwise pick a **Tier 1** model.
 3. Use a **Tier 2** model only when no Tier 1 model supports the request, and say why. Never pick Tier 2 on your own for price, speed, novelty or variety.
 
-Tier 1: images `nano-banana-2.1`, `nano-banana-2`, `nano-banana-pro`, `nano-banana-2-lite`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, and `recraft-v4` for vector/SVG only; videos `gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-4.0`, `kling-3.0`, `kling-o3`, `flux-3-max`, `minimax-h3-max`; video edits `gemini-omni-1.1-flash`; talking-head portraits `veed-fabric`, `minimax-h3-max-lipsync`; motion transfer `kling-v3-motion-control`; audio ElevenLabs for speech tools, Lyria 3.5 for music at any length.
+Tier 1: images `nano-banana-2.1`, `nano-banana-2`, `nano-banana-pro`, `nano-banana-2-lite`, `gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`, and `recraft-v4` for vector/SVG only; videos `gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-4.0`, `kling-3.0`, `kling-o3`, `flux-3-max`, `minimax-h3-max`; video edits `gemini-omni-1.1-flash`; talking-head portraits `veed-fabric`, `minimax-h3-max-lipsync`; motion transfer `kling-v3-motion-control`; audio ElevenLabs for speech tools, Lyria 3.5 for music at any length.
 
 Tier 2 is every other catalog model (`wan-3.0`, `flux-3-image`, `minimax-h3`, `kling-v3-turbo`, `kling-2.6-pro`, `grok-imagine-video-1.5`, `happy-horse`, Veo 3.1, Seedream, Grok Imagine images, FLUX images, `sync-lipsync-2` and the rest). All of them stay available by name. Real Tier 2-only jobs: document or web-page references (`wan-3.0`), re-syncing existing footage (`sync-lipsync-2`).
 
@@ -93,7 +93,7 @@ Every `videodraft models image|video|audio --json` entry carries `tier` (1 or 2)
 - `nano-banana-2.1`: general default, editing, text, consistency, and references. Add `--thinking-level medium` or `high` for complex layouts, infographics or dense text.
 - `nano-banana-2`: the previous default; use it when temperature control is wanted.
 - `nano-banana-pro`: maximum quality. `nano-banana-2-lite`: fast, inexpensive drafts.
-- `gpt-image-2.5-flare`: replaces the GPT Image 2 recommendation for posters, logos, signs, title cards, readable text and composition. Use `gpt-image-2.5-sunburst` for extra precision/detail. Both use the same basic options as GPT Image 2: references (up to 16), aspect ratio, 1K/2K/4K resolution, image count (1-4), and quality. Quality adds xhigh/max; auto is charged at the max tier. Other model recommendations are unchanged; explicit `gpt-image-2` requests still use GPT Image 2.
+- `gpt-image-2.6-flare`: fast everyday generation and editing, and the pick for posters, logos, signs, title cards, readable text and precise composition. Use `gpt-image-2.6-sunburst` when extra precision, fine detail or edit consistency matters (it takes longer). GPT Image 2.6 replaces 2.5, so always pass a 2.6 id. Both use the same basic options as GPT Image 2: references (up to 16), aspect ratio, 1K/2K/4K resolution, image count (1-4), and quality, with PNG output and no seed. Quality adds xhigh/max; auto is charged at the max tier, so pass `--quality high` for a cheaper render (low and medium are only modestly cheaper than high). Other model recommendations are unchanged; explicit `gpt-image-2` requests still use GPT Image 2.
 
 **Videos:**
 
