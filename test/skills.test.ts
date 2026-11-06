@@ -95,7 +95,7 @@ describe("bundledSkillFiles", () => {
     expect(editor).not.toContain("short stable prefixes");
     expect(skill).toContain("Managed script/creation is bundled/free");
     expect(models).toContain(
-      "Video supplied as a creative reference: Gemini Omni 1.1 Flash accepts up to 3 videos of at most 3 seconds each, including mixed image and video input.",
+      "Video supplied as a creative reference: Gemini Omni 1.2 Flash accepts up to 3 videos of at most 15 seconds each, including mixed image and video input.",
     );
     expect(models).not.toContain("speech may add separate costs");
     expect(models).toContain(

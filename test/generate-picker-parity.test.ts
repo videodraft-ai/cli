@@ -147,7 +147,7 @@ describe("AI Studio option parity", () => {
       expect.objectContaining({ seed: 0, resolution: "4K" }),
     );
   });
-  it.each(["seedance-2", "seedance-2.5", "flux-3", "gemini-omni-1.1-flash"])(
+  it.each(["seedance-2", "seedance-2.5", "flux-3", "gemini-omni-1.2-flash"])(
     "supports explicit automatic duration for %s",
     async (model) => {
       await run([
@@ -626,4 +626,30 @@ it("picks Kling 4.0 without --model only when shots run past 15 seconds", async 
     "generate_video",
     expect.objectContaining({ model: "kling-3.0" }),
   );
+});
+
+describe("Omni source-image limits", () => {
+  it("rejects a source edit with a start image plus two references before calling the server", async () => {
+    await expect(
+      run([
+        "generate",
+        "video",
+        "Restyle the clip",
+        "--model",
+        "gemini-omni-1.2-flash",
+        "--source-video",
+        "https://example.test/source.mp4",
+        "--video-task",
+        "edit",
+        "--start-image",
+        "https://example.test/first.png",
+        "--ref",
+        "https://example.test/second.png",
+        "--ref",
+        "https://example.test/third.png",
+        "--no-wait",
+      ]),
+    ).rejects.toThrow(/at most 1 --ref images/);
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
 });

@@ -25,7 +25,7 @@ import {
 const KLING_4_EDIT_MODEL = "kling-4.0-video-edit";
 
 const VIDEO_EDIT_MODELS = new Set([
-  "gemini-omni-1.1-flash",
+  "gemini-omni-1.2-flash",
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
@@ -34,7 +34,7 @@ const VIDEO_EDIT_MODELS = new Set([
 
 /** Reference-image cap per edit model; mirrors the server's own limits. */
 const EDIT_MODEL_MAX_REFS: Record<string, number> = {
-  "gemini-omni-1.1-flash": 10,
+  "gemini-omni-1.2-flash": 2,
   "happy-horse-video-edit": 5,
   "kling-o3-video-ref-edit": 4,
   "grok-imagine-video-edit": 0,
@@ -53,7 +53,7 @@ const ELEMENT_EDIT_MODELS = new Set([
  * the SERVER makes the choice: it can measure the source duration, which the
  * CLI cannot, and it returns a priced menu when no model is safe to assume.
  */
-const ESTIMATE_FALLBACK_EDIT_MODEL = "gemini-omni-1.1-flash";
+const ESTIMATE_FALLBACK_EDIT_MODEL = "gemini-omni-1.2-flash";
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
@@ -84,11 +84,20 @@ function nonNegativeInteger(value: unknown, label: string): number | undefined {
  * This deliberately does NOT pick a model. The old ladder here mapped "one
  * --ref" to Wan 2.7 and "no --ref" to Grok, which meant the reference-image
  * COUNT silently selected the model and the user never saw it happen. The
- * server picks now: it measures the source, prefers Gemini Omni 1.1 Flash, and
+ * server picks now: it measures the source, prefers Gemini Omni 1.2 Flash, and
  * returns a priced choice payload rather than guessing.
  */
 function validateEditModel(explicit: string | undefined): string | undefined {
   if (!explicit) return undefined;
+  if (
+    [
+      "gemini-omni-1.1-flash",
+      "gemini-omni-1.1-flash-preview",
+      "gemini-omni-flash",
+      "gemini-omni-flash-preview",
+    ].includes(explicit)
+  )
+    return "gemini-omni-1.2-flash";
   if (!VIDEO_EDIT_MODELS.has(explicit)) {
     throw new UsageError(
       `Unsupported video edit model "${explicit}". Run videodraft models video --category video_edit and use one of those ids.`,
@@ -107,7 +116,7 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "gemini-omni-1.1-flash (preferred, auto-selected for sources up to 10s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit | kling-4.0-video-edit (edits a whole 3-30s source)",
+      "gemini-omni-1.2-flash (preferred, auto-selected for sources from 3 to 15s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit | kling-4.0-video-edit (edits a whole 3-30s source)",
     )
     .option(
       "--element <json|@file>",
@@ -123,7 +132,7 @@ export function registerEditCommands(program: Command): void {
     .option("--ref <url|file>", "reference image (repeatable)", collect, [])
     .option(
       "--ref-video <url|file>",
-      "deprecated: Gemini Omni 1.1 Flash edits accept exactly one input video, so a creative reference video cannot accompany the source",
+      "deprecated: Gemini Omni 1.2 Flash edits accept exactly one input video, so a creative reference video cannot accompany the source",
       collect,
       [],
     )
@@ -189,10 +198,13 @@ export function registerEditCommands(program: Command): void {
       const editSeed = opts.seed === undefined ? undefined : Number(opts.seed);
       if (
         editSeed !== undefined &&
-        (model !== "happy-horse-video-edit" || !Number.isSafeInteger(editSeed))
+        (!["happy-horse-video-edit", "gemini-omni-1.2-flash"].includes(
+          model ?? "gemini-omni-1.2-flash",
+        ) ||
+          !Number.isSafeInteger(editSeed))
       )
         throw new UsageError(
-          "--seed requires Happy Horse Video Edit and a safe integer.",
+          "--seed requires Gemini Omni 1.2 on Google or Happy Horse Video Edit, and a safe integer.",
         );
       if (
         opts.safetyChecker !== undefined &&
@@ -239,7 +251,7 @@ export function registerEditCommands(program: Command): void {
       // than "unknown option", and rather than a provider 400 mid-generation.
       if (refVideoCount > 0) {
         throw new UsageError(
-          "gemini-omni-1.1-flash accepts exactly one input video for an edit, so --ref-video cannot accompany the source. Drop the references, or use `generate video --video-task generate` to guide a new clip with them.",
+          "gemini-omni-1.2-flash accepts exactly one input video for an edit, so --ref-video cannot accompany the source. Drop the references, or use `generate video --video-task generate` to guide a new clip with them.",
         );
       }
       if (
@@ -271,12 +283,12 @@ export function registerEditCommands(program: Command): void {
         throw new UsageError('--quality must be "standard" or "pro".');
       }
       if (
-        model === "gemini-omni-1.1-flash" &&
+        model === "gemini-omni-1.2-flash" &&
         opts.resolution &&
         !normalizeGeminiOmniResolutionOption(opts.resolution)
       ) {
         throw new UsageError(
-          'gemini-omni-1.1-flash --resolution must be "360p", "720p", "1080p", or "4k".',
+          'gemini-omni-1.2-flash --resolution must be "360p", "720p", "1080p", or "4k".',
         );
       }
       if (
@@ -288,7 +300,7 @@ export function registerEditCommands(program: Command): void {
           'kling-4.0-video-edit --resolution must be "720p" or "1080p".',
         );
       }
-      if ((!model || model === "gemini-omni-1.1-flash") && opts.resolution) {
+      if ((!model || model === "gemini-omni-1.2-flash") && opts.resolution) {
         const normalizedResolution = normalizeGeminiOmniResolutionOption(
           opts.resolution,
         );
@@ -297,7 +309,7 @@ export function registerEditCommands(program: Command): void {
       if (
         opts.preserveAudio &&
         (model === "grok-imagine-video-edit" ||
-          model === "gemini-omni-1.1-flash" ||
+          model === "gemini-omni-1.2-flash" ||
           model === KLING_4_EDIT_MODEL)
       ) {
         throw new UsageError(
@@ -404,7 +416,7 @@ export function registerEditCommands(program: Command): void {
           if (choice.chunked_option?.chunks) {
             note(
               o,
-              `Full length: ${choice.chunked_option.chunks} x <=10s Gemini edits reassembled in the native editor, about ${choice.chunked_option.credits_estimate} credits. ${choice.chunked_option.caveat}`,
+              `Full length: ${choice.chunked_option.chunks} x <=15s Gemini edits reassembled in the native editor, about ${choice.chunked_option.credits_estimate} credits. ${choice.chunked_option.caveat}`,
             );
           }
           note(o, "Re-run with --model <id>. No credits were spent.");

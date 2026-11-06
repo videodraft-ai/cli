@@ -5,7 +5,7 @@ import { modelTable } from "../src/cli/model-table.js";
 const video = {
   recommended: {
     generation: [
-      "gemini-omni-1.1-flash",
+      "gemini-omni-1.2-flash",
       "seedance-2.5",
       "seedance-2",
       "kling-3.0",
@@ -13,7 +13,7 @@ const video = {
       "minimax-h3-max",
     ],
     video_edit: [
-      "gemini-omni-1.1-flash",
+      "gemini-omni-1.2-flash",
       "grok-imagine-video-edit",
       "happy-horse-video-edit",
       "kling-o3-video-ref-edit",
@@ -21,8 +21,8 @@ const video = {
   },
   models: [
     {
-      id: "gemini-omni-1.1-flash",
-      name: "Gemini Omni 1.1 Flash",
+      id: "gemini-omni-1.2-flash",
+      name: "Gemini Omni 1.2 Flash",
       tier: 1,
       category: "generation",
       tool: "generate_video",
@@ -132,7 +132,7 @@ describe("models table", () => {
     expect(hasTiers).toBe(true);
     expect(headers).toEqual(["id", "name", "tier", "category", "tool", "cost"]);
     expect(rows.map((row) => row[0])).toEqual([
-      "gemini-omni-1.1-flash",
+      "gemini-omni-1.2-flash",
       "seedance-2.5",
       "seedance-2",
       "kling-3.0",

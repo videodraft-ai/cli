@@ -22,7 +22,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 3. General standalone video selects Gemini + confirms cost
 
 - **Query:** "Make a 6-second video of a slow dolly over a misty lake."
-- **Must:** choose `gemini-omni-1.1-flash`; check/quote cost with the selected model before spending; run `videodraft generate video ... --model gemini-omni-1.1-flash`.
+- **Must:** choose `gemini-omni-1.2-flash`; check/quote cost with the selected model before spending; run `videodraft generate video ... --model gemini-omni-1.2-flash`.
 - **Must NOT:** create a project.
 
 ## 4. Voiceover is a complete deliverable
@@ -55,11 +55,11 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** save locally and reference the local path as a Markdown link in the reply (`[shot](./media/shot.png)`).
 - **Must NOT:** dump a bare CDN URL or use a file-send tool.
 
-## 9. Fifteen-second native-audio video does not use Gemini
+## 9. Fifteen-second native-audio video keeps Gemini as the default
 
 - **Query:** "Make a polished 15-second product video with native sound."
-- **Must:** choose `kling-v3-turbo`, `kling-o3`, `kling-3.0`, or `seedance2` based on the requested controls; pass the chosen model explicitly.
-- **Must NOT:** choose `gemini-omni-1.1-flash`, whose output is limited to 10 seconds.
+- **Must:** choose `gemini-omni-1.2-flash`, pass `--duration 15`, and quote the selected settings before spending.
+- **Must NOT:** switch models merely because the requested duration exceeds 10 seconds. A first-and-last-frame request still needs a compatible alternative above 10 seconds.
 
 ## 10. Video and audio references select Seedance
 
@@ -95,7 +95,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 11. Source-video editing selects Gemini
 
 - **Query:** "Edit this existing video into a rainy night version, about 8 seconds."
-- **Must:** choose `gemini-omni-1.1-flash` and pass the source with `--ref-video`.
+- **Must:** use `videodraft edit video <source> "..." --model gemini-omni-1.2-flash` for the source edit.
 - **Must NOT:** treat the video as a first-frame image or create a project.
 
 ## 12. Image model follows quality and speed intent
@@ -144,7 +144,7 @@ Each scenario: the request, and what a correct run must and must not do.
 
 - **Query:** "Make a 6-second misty-lake clip using Veo 3.1."
 - **Must:** pass `--model google-veo3.1` and use settings supported by Veo 3.1.
-- **Must NOT:** replace it with Gemini Omni 1.1 Flash merely because Gemini is the general default.
+- **Must NOT:** replace it with Gemini Omni 1.2 Flash merely because Gemini is the general default.
 
 ## 19. Explicit legacy image model survives the grid workflow
 
@@ -154,8 +154,8 @@ Each scenario: the request, and what a correct run must and must not do.
 
 ## 20. Incompatible explicit model is explained, not silently replaced
 
-- **Query:** "Use Gemini Omni 1.1 Flash for a silent 15-second 4K video."
-- **Must:** explain that Gemini Omni 1.1 Flash supports 4K but is limited to 3-10 seconds and always includes audio; recommend compatible alternatives for the requested 15-second silent output and wait for the user's choice.
+- **Query:** "Use Gemini Omni 1.2 Flash for a silent 15-second 4K video."
+- **Must:** explain that Gemini Omni 1.2 Flash supports 3-15 seconds and 4K but always includes audio; recommend compatible alternatives for the requested 15-second silent output and wait for the user's choice.
 - **Must NOT:** silently switch to Seedance, Kling, or Veo.
 
 ## 21. Explicit video model survives the project workflow
@@ -203,19 +203,19 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 28. Existing-video edit uses the video-edit category
 
 - **Query:** "Use this style image to turn my existing product clip into a warm evening scene. Keep its motion and audio."
-- **Must:** run `videodraft edit video <video> "..." --ref <image> --preserve-audio` with an explicit active `--model` that can preserve source audio (`happy-horse-video-edit` or `kling-o3-video-ref-edit`), because the preferred default `gemini-omni-1.1-flash` regenerates the audio track.
-- **Must NOT:** send the model id to generic `generate video`, replace the source video with a text-only generation, or claim Gemini Omni 1.1 Flash will keep the original audio.
+- **Must:** run `videodraft edit video <video> "..." --ref <image> --preserve-audio` with an explicit active `--model` that can preserve source audio (`happy-horse-video-edit` or `kling-o3-video-ref-edit`), because the preferred default `gemini-omni-1.2-flash` regenerates the audio track.
+- **Must NOT:** send the model id to generic `generate video`, replace the source video with a text-only generation, or claim Gemini Omni 1.2 Flash will keep the original audio.
 
 ## 28a. A plain source edit takes the preferred model by default
 
 - **Query:** "Make it snow in this 6-second clip."
-- **Must:** run `videodraft edit video <video> "..."` and let the server select `gemini-omni-1.1-flash`, or name it explicitly. No `--model` guess based on how many reference images were passed.
+- **Must:** run `videodraft edit video <video> "..."` and let the server select `gemini-omni-1.2-flash`, or name it explicitly. No `--model` guess based on how many reference images were passed.
 - **Must NOT:** default to `grok-imagine-video-edit`, `happy-horse-video-edit`, or another specialist when nothing about the request rules Gemini out. Wan 2.7 is retired and must not be suggested.
 
-## 28b. A source longer than 10s surfaces the choice instead of truncating silently
+## 28b. A source longer than 15s surfaces the choice instead of truncating silently
 
 - **Query:** "Restyle this 30-second clip to look like winter."
-- **Must:** recognise that the preferred edit model caps the source at 10s, present the returned `needs_model_choice` options (what each model would edit, what it would drop, what it would cost) or the chunked native-editor route, and let the user decide.
+- **Must:** recognise that the preferred edit model caps the source at 15s, present the returned `needs_model_choice` options (what each model would edit, what it would drop, what it would cost) or the chunked native-editor route, and let the user decide.
 - **Must NOT:** silently submit to a model that edits only the first 8-15 seconds, or report the result as a full-length edit. If a truncating model is chosen, say how many seconds are dropped.
 
 ## 29. Motion reference uses motion control
@@ -278,7 +278,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## A talking character speaks from the prompt
 
 - **Query:** "Here is my character. Make her walk into the cafe and say 'Sorry I'm late'."
-- **Must:** use `videodraft generate video` with the image as a start frame or reference and the line written in the prompt, in quotes, on a model that speaks natively (`gemini-omni-1.1-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0` or `kling-o3`).
+- **Must:** use `videodraft generate video` with the image as a start frame or reference and the line written in the prompt, in quotes, on a model that speaks natively (`gemini-omni-1.2-flash`, `seedance-2.5`, `seedance-2`, `kling-3.0` or `kling-o3`).
 - **Must NOT:** generate a silent clip, run `generate voiceover`, and then `avatar lipsync` them together; or send this in-scene shot to `avatar fabric`.
 - **Companion query:** "Dub this finished clip into Spanish with this audio." That is the one job for `videodraft avatar lipsync`.
 
