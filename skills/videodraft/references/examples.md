@@ -23,7 +23,7 @@ mkdir -p outputs
 while IFS=, read -r name image tagline; do
   job=$(videodraft generate video \
     "Premium product shot of ${name}: ${tagline}. Slow orbit, studio lighting." \
-    --model gemini-omni-1.1-flash --ar 9:16 --duration 6 \
+    --model gemini-omni-1.2-flash --ar 9:16 --duration 6 \
     --start-image "$image" \
     --no-wait --json | jq -r .job_id)
   echo "$name,$job" >> outputs/jobs.csv
@@ -35,27 +35,27 @@ videodraft wait $(cut -d, -f2 outputs/jobs.csv) \
 # map job ids back to product names via outputs/jobs.csv
 ```
 
-Submit-then-collect parallelizes server-side generation; the single multi-id `wait` keeps it to one local process and one batched poll request per tick no matter how many jobs. Gemini Omni 1.1 Flash is selected because these are six-second first-frame product clips. Estimate first: `videodraft costs gemini-omni-1.1-flash --type video --duration 6 --resolution 720p --audio` × rows, and confirm with the user.
+Submit-then-collect parallelizes server-side generation; the single multi-id `wait` keeps it to one local process and one batched poll request per tick no matter how many jobs. Gemini Omni 1.2 Flash is selected because these are six-second first-frame product clips. Estimate first: `videodraft costs gemini-omni-1.2-flash --type video --duration 6 --resolution 720p --audio` × rows, and confirm with the user.
 
-Extend an uploaded clip or conversationally edit an official Google interaction with Gemini Omni 1.1 Flash:
+Extend an uploaded clip or conversationally edit an official Google interaction with Gemini Omni 1.2 Flash:
 
 Each extension appends 3-10 seconds at the end. Edit and extend accept EXACTLY ONE input video, so `--ref-video` cannot accompany `--source-video` or `--previous-interaction-id`; only `--ref` images can. New dialogue is allowed only when the source video is silent, so a chain of spoken beats must carry its speech in the first turn. A continuation is submitted as the prior turn's output, so 40 seconds total is reachable only by extending from a source of 30s or less, and a ladder dead-ends past 30s.
 
 ```bash
-# Uploaded-video extension. Reference IMAGES are fine here; reference videos are not.
-videodraft generate video --model gemini-omni-1.1-flash \
+# Google uploaded-video extension. Up to two reference images are allowed; reference videos are not.
+videodraft generate video --model gemini-omni-1.2-flash \
   --source-video ./ending.mp4 --ref ./wardrobe.png \
   --extend --duration 6 --resolution 1080p \
   --download ./media/extended.mp4
 
 # Conversational edit from the interaction_id of an earlier generation. Add --extend to lengthen instead.
-videodraft generate video --model gemini-omni-1.1-flash \
+videodraft generate video --model gemini-omni-1.2-flash \
   --previous-interaction-id "$INTERACTION_ID" \
   --resolution 720p \
   --download ./media/continued.mp4
 ```
 
-Fal BYOK supports the currently callable Gemini Omni 1.1 generation and basic source-edit endpoints at zero VideoDraft credits. Its published callable v1.1 endpoints do not expose continuation, extension, or separate creative references on a source edit. Do not infer a Fal route or retry on paid Google while Fal BYOK is active.
+Fal BYOK supports the currently callable Gemini Omni 1.2 generation, basic source-edit and source-extension endpoints at zero VideoDraft credits. Its published callable v1.2 endpoints support uploaded-source extension, but not Google interaction IDs or separate edit/extend references. Do not infer a Fal route or retry on paid Google while Fal BYOK is active.
 
 ## 2. Hosted full marketing video from one idea (fallback)
 
@@ -122,14 +122,14 @@ videodraft avatar lipsync ./presenter.mp4 \
   --sync-mode loop --download ./media/presenter-localized.mp4
 ```
 
-Edit an existing video with a dedicated edit model:
+Edit an existing video with a dedicated edit model. Image references in the Gemini example require Google; Fal BYOK source edits accept no additional reference media:
 
 ```bash
 videodraft models video --category video_edit
 videodraft edit video ./product-demo.mp4 \
-  "Preserve the product but follow the reference camera rhythm" \
-  --model gemini-omni-1.1-flash --ref-video ./camera-rhythm.mp4 \
-  --ref-video-duration 2.5 --resolution 1080p \
+  "Preserve the product and camera motion, and match the reference lighting" \
+  --model gemini-omni-1.2-flash --ref ./evening-style.jpg \
+  --resolution 1080p \
   --download ./media/product-demo-reframed.mp4
 
 videodraft edit video ./product-demo.mp4 \

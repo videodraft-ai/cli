@@ -5,6 +5,38 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-11-06
+
+### Changed
+
+- Gemini Omni 1.2 Flash replaces 1.1 as the preferred Tier 1 model for
+  generation and source editing. Generation and source edits support 3-15
+  seconds; first-and-last-frame generation and extensions remain 3-10 seconds.
+- Old Omni model IDs upgrade on new requests. CLI validation, cost estimates,
+  help, recipes and the bundled agent skill now use the 1.2 capabilities.
+- Creative reference generation accepts up to ten total images and three
+  videos of up to 15 seconds each. Source edits/extensions accept up to two
+  images on Google, including a supplied start image, and no extra video refs.
+- Google supports reproducibility seeds. Fal BYOK supports generation,
+  basic source edits and uploaded-source extension, with no seed, separate
+  edit/extend references or Google interaction IDs. The model is unavailable
+  with unsupported personal providers.
+
+### Fixed
+
+- Keep Omni as the default for 11-15-second estimates, preserve old explicit
+  model aliases, count all source-edit images before uploading, and describe
+  chunked edits using the new 15-second source limit.
+- Correct source-edit and continuation examples so they do not pass creative
+  video references to operations that cannot accept them.
+
+### Compatibility
+
+- Omni 1.2 requires the matching VideoDraft backend deployment, which is
+  released separately. Publishing the CLI does not deploy the web app or MCP.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; this npm release does not replace that binary.
+
 ## [0.31.0] - 2026-11-05
 
 ### Changed
@@ -182,7 +214,7 @@ All notable changes to the `videodraft` CLI. Format loosely follows
   `--source account|library` and `--page-size 1-100`, and prints the
   `--page-token` that fetches the next page with the same filters. With your
   own ElevenLabs key it lists that account's voices by default; `--source
-  library` explores the public library on that key.
+library` explores the public library on that key.
 
 ### Changed
 
