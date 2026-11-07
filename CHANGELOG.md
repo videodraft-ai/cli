@@ -5,6 +5,54 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-07
+
+### Added
+
+- `generate image --model gpt-image-2.6-flare --gif` (or Sunburst) returns a
+  looping animated GIF. `--frames` sets 2-16 frames (default 8) and
+  `--frame-ms` the milliseconds per frame (20-2000, default 120); either one
+  implies `--gif`. Frame size follows `--ar`, and `--resolution` does not
+  apply. `--ref` images guide the animation. Downloads keep the `.gif`
+  extension, and `--estimate` quotes the GIF price (2-8 frames cost the
+  same). Not available on a personal Pika key.
+- `generate video --model kling-4.0-flash` (aliases `kling4-flash`,
+  `kling-4-flash`, `kling-v4-flash`) runs Kling 4.0 Flash, the faster and
+  cheaper 720p tier of Kling 4.0. It takes the same inputs as Kling 4.0: text
+  to video; image to video from `--start-image`; or reference to video with
+  an optional `--start-image`, up to 10 images, 5 `--ref-video` clips of
+  3-20 s and 7 `--element` entries (3 video-backed, 3-8 s each), cited as
+  @Image1, @Video1 and @Element1. 3-20 s at 720p, audio always on.
+- `edit video --model kling-4.0-flash-video-edit` edits a whole 3-20 s source
+  at 720p with up to 10 `--ref` images and 7 image-only `--element` entries.
+  The output matches the source unless `--duration` (3-20) sets a new length.
+  `generate video --model kling-4.0-flash-video-edit` with one `--ref-video`
+  source routes there too.
+- `--estimate` and `costs` bill Flash reference and element videos by length
+  (`--ref-video-seconds`, up to 20 s); without it the quote assumes 3 s per
+  clip and says so. For `kling-4.0-flash-video-edit`, `--ref-video-seconds`
+  is the source length.
+
+### Changed
+
+- Reject Kling 4.0 Flash `--segment` shots, `--end-image`, element voices,
+  resolutions other than 720p, durations outside 3-20 s, quality tiers, auto
+  duration and `--no-audio` before calling MCP.
+- Kling 4.0 Flash and Kling 4.0 Flash Video Edit are Tier 2: agents use them
+  only when the user names them. Kling 4.0 stays the preferred Kling, and no
+  request without `--model` picks Flash.
+- The bundled skill and model guide cover both Flash models. Prices still
+  come only from `videodraft costs` and `--estimate`.
+
+### Compatibility
+
+- Kling 4.0 Flash, its video edit and GPT Image 2.6 GIF output need the
+  VideoDraft backend release of November 7, 2026, which is live. Backends
+  without it reject both Flash models and `--gif`, `--frames` and
+  `--frame-ms` before charging; other commands are unchanged.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.31.1] - 2026-11-06
 
 ### Changed
