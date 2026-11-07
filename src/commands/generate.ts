@@ -509,6 +509,73 @@ function optionalPositiveNumber(
 }
 
 /**
+ * Kling 4.0 and Kling 4.0 Flash, its faster and cheaper 720p tier, share one
+ * contract for generation and for video edits. The CLI cannot import the web
+ * app's app/config/kling-4.ts, so this mirrors only what differs between the
+ * tiers; the server enforces the same limits.
+ */
+export interface Kling4CliTier {
+  /** Generation model (text, image and reference to video). */
+  model: string;
+  name: string;
+  /** Video edit model. */
+  editModel: string;
+  editName: string;
+  /** Longest output in whole seconds, for generation and edits (min 3). */
+  maxSeconds: number;
+  resolutions: readonly string[];
+  /** --segment shots (multi_prompt). */
+  multiShot: boolean;
+  /** --end-image in image-to-video. */
+  endFrame: boolean;
+  /** voice_id on --element entries. */
+  voices: boolean;
+  /** Reference videos and video elements together, in seconds. */
+  maxCombinedVideoSeconds: number;
+}
+
+export const KLING_4_CLI_TIERS: readonly Kling4CliTier[] = [
+  {
+    model: "kling-4.0",
+    name: "Kling 4.0",
+    editModel: "kling-4.0-video-edit",
+    editName: "Kling 4.0 Video Edit",
+    maxSeconds: 30,
+    resolutions: ["720p", "1080p"],
+    multiShot: true,
+    endFrame: true,
+    voices: true,
+    maxCombinedVideoSeconds: 30,
+  },
+  {
+    model: "kling-4.0-flash",
+    name: "Kling 4.0 Flash",
+    editModel: "kling-4.0-flash-video-edit",
+    editName: "Kling 4.0 Flash Video Edit",
+    maxSeconds: 20,
+    resolutions: ["720p"],
+    multiShot: false,
+    endFrame: false,
+    voices: false,
+    maxCombinedVideoSeconds: 20,
+  },
+];
+
+/** The Kling 4.0 tier a generation model id belongs to, if any. */
+export function kling4GenerationTier(
+  model: string | undefined,
+): Kling4CliTier | undefined {
+  return KLING_4_CLI_TIERS.find((tier) => tier.model === model);
+}
+
+/** The Kling 4.0 tier a video edit model id belongs to, if any. */
+export function kling4EditTier(
+  model: string | undefined,
+): Kling4CliTier | undefined {
+  return KLING_4_CLI_TIERS.find((tier) => tier.editModel === model);
+}
+
+/**
  * Widest combined reference-video window any model accepts, used only to parse
  * the flag before the model is known. `refVideoSecondsWindow` holds the real
  * per-model limits.
@@ -521,9 +588,10 @@ const REF_VIDEO_SECONDS_MAX = 30;
  * whether those input seconds are billable.
  */
 function refVideoSecondsWindow(model: string | undefined): number | null {
+  const kling4Tier = kling4GenerationTier(model);
+  if (kling4Tier) return kling4Tier.maxCombinedVideoSeconds;
   switch (model) {
     case "seedance-2.5":
-    case "kling-4.0":
       return 30;
     case "seedance-2":
     case "minimax-h3":
@@ -579,6 +647,45 @@ function optionalThinkingLevel(
       EXIT.USAGE,
     );
   return level;
+}
+
+/** --gif / --frames / --frame-ms: GPT Image 2.6 animated GIF fields. Either
+ *  frame flag implies --gif. */
+export function gifImageOptions(opts: {
+  gif?: boolean;
+  frames?: unknown;
+  frameMs?: unknown;
+}): {
+  output_format?: "gif";
+  frame_count?: number;
+  frame_duration_ms?: number;
+} {
+  const integer = (
+    value: unknown,
+    flag: string,
+    min: number,
+    max: number,
+  ): number | undefined => {
+    if (value === undefined) return undefined;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max)
+      throw new CliError(
+        `${flag} must be an integer from ${min} to ${max}.`,
+        EXIT.USAGE,
+      );
+    return parsed;
+  };
+  const frameCount = integer(opts.frames, "--frames", 2, 16);
+  const frameDurationMs = integer(opts.frameMs, "--frame-ms", 20, 2000);
+  if (!opts.gif && frameCount === undefined && frameDurationMs === undefined)
+    return {};
+  return {
+    output_format: "gif",
+    ...(frameCount !== undefined ? { frame_count: frameCount } : {}),
+    ...(frameDurationMs !== undefined
+      ? { frame_duration_ms: frameDurationMs }
+      : {}),
+  };
 }
 
 function optionalBooleanChoice(
@@ -922,6 +1029,18 @@ export function registerGenerateCommands(program: Command): void {
       "Recraft background color, e.g. #ffffff",
     )
     .option(
+      "--gif",
+      "GPT Image 2.6 animated GIF (looping); frame size follows --ar, --resolution does not apply",
+    )
+    .option(
+      "--frames <n>",
+      "GIF frames, 2-16 (default 8; 2-8 cost the same); implies --gif",
+    )
+    .option(
+      "--frame-ms <ms>",
+      "GIF milliseconds per frame, 20-2000 (default 120); implies --gif",
+    )
+    .option(
       "--num <n>",
       "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.6 and FLUX 3: 1-4)",
     )
@@ -1019,6 +1138,7 @@ export function registerGenerateCommands(program: Command): void {
         recraft_background_color: opts.recraftBackground
           ? parseImageColor(opts.recraftBackground)
           : undefined,
+        ...gifImageOptions(opts),
       };
       const imageSeed = optionalSeed(opts.seed);
 
@@ -1094,7 +1214,10 @@ export function registerGenerateCommands(program: Command): void {
       await handleAsyncJob(ctx, submitted, {
         wait: opts.wait !== false,
         download: opts.download,
-        label: "Generating image",
+        label:
+          imageOptions.output_format === "gif"
+            ? "Generating GIF"
+            : "Generating image",
       });
     });
 
@@ -1163,7 +1286,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "combined reference-video duration for an exact --estimate (Seedance 2.x and Kling 4.0 bill input seconds, MiniMax H3 Max bills them as reference tokens; MiniMax H3 and Wan 3.0 do not). Max 30s on Seedance 2.5 and Kling 4.0, 15s elsewhere",
+      "combined reference-video duration for an exact --estimate (Seedance 2.x, Kling 4.0 and Kling 4.0 Flash bill input seconds, MiniMax H3 Max bills them as reference tokens; MiniMax H3 and Wan 3.0 do not). Max 30s on Seedance 2.5 and Kling 4.0, 20s on Kling 4.0 Flash, 15s elsewhere",
     )
     .option(
       "--ref-audio-seconds <seconds>",
@@ -1340,26 +1463,60 @@ export function registerGenerateCommands(program: Command): void {
         )
       )
         opts.model = "kling-4.0";
-      const isKling4Request = opts.model === "kling-4.0";
       if (
-        isKling4Request &&
+        [
+          "kling4-flash",
+          "kling-4-flash",
+          "kling-v4-flash",
+          "kling_4_flash",
+        ].includes(String(opts.model || ""))
+      )
+        opts.model = "kling-4.0-flash";
+      const isKling4Request = opts.model === "kling-4.0";
+      // Kling 4.0 or its Flash tier, named explicitly. Flash is never picked
+      // without --model.
+      const kling4Tier = kling4GenerationTier(opts.model);
+      if (
+        kling4Tier &&
         (opts.autoDuration ||
           opts.quality !== undefined ||
           opts.audio === false)
       )
         throw new CliError(
-          "Kling 4.0 has no quality tier or auto duration, and its audio is always on.",
+          `${kling4Tier.name} has no quality tier or auto duration, and its audio is always on.`,
           EXIT.USAGE,
         );
       if (
-        isKling4Request &&
+        kling4Tier &&
         duration !== undefined &&
-        (!Number.isInteger(duration) || duration < 3 || duration > 30)
+        (!Number.isInteger(duration) ||
+          duration < 3 ||
+          duration > kling4Tier.maxSeconds)
       )
         throw new CliError(
-          "Kling 4.0 --duration must be a whole second from 3 to 30.",
+          `${kling4Tier.name} --duration must be a whole second from 3 to ${kling4Tier.maxSeconds}.`,
           EXIT.USAGE,
         );
+      if (kling4Tier && !kling4Tier.endFrame && opts.endImage)
+        throw new CliError(
+          `${kling4Tier.model} takes no --end-image. Use --start-image alone for image-to-video, or --model kling-4.0 for start and end frames.`,
+          EXIT.USAGE,
+        );
+      if (
+        kling4Tier &&
+        opts.resolution !== undefined &&
+        kling4Tier.resolutions.length === 1
+      ) {
+        // Flash renders one resolution; Kling 4.0's 720p/1080p is checked by
+        // the server.
+        const resolution = String(opts.resolution).trim().toLowerCase();
+        if (resolution !== kling4Tier.resolutions[0])
+          throw new CliError(
+            `${kling4Tier.model} renders ${kling4Tier.resolutions[0]} only. Remove --resolution, or use --model kling-4.0 for 1080p.`,
+            EXIT.USAGE,
+          );
+        opts.resolution = resolution;
+      }
       const isFlux3MaxRequest = [
         "flux-3-max",
         "flux3max",
@@ -1408,6 +1565,12 @@ export function registerGenerateCommands(program: Command): void {
       const rawElements = parseKlingElements(opts.element ?? []);
       const voiceIds = (opts.voiceId ?? []) as string[];
       const segments = parseSegments(opts.segment ?? []);
+      if (kling4Tier && !kling4Tier.multiShot && segments.length > 0) {
+        throw new CliError(
+          `${kling4Tier.model} takes one prompt, not --segment shots. Use --model kling-4.0 for multi-shot prompts.`,
+          EXIT.USAGE,
+        );
+      }
       if (segments.length > 0 && prompt) {
         throw new CliError(
           "A main prompt cannot be combined with --segment. Use one or more --segment values by themselves.",
@@ -1706,6 +1869,9 @@ export function registerGenerateCommands(program: Command): void {
         }
       }
 
+      // The tier again, now that a request without --model may have picked
+      // Kling 4.0 (never Flash) above.
+      const selectedKling4Tier = kling4GenerationTier(opts.model);
       if (rawElements.length > 0) {
         if (opts.model === "kling-v3-turbo") {
           throw new CliError(
@@ -1714,13 +1880,13 @@ export function registerGenerateCommands(program: Command): void {
           );
         }
         if (
-          opts.model !== "kling-4.0" &&
+          !selectedKling4Tier &&
           opts.model !== "kling-3.0" &&
           opts.model !== "kling-o3" &&
           opts.model !== "kling-v3-motion-control"
         ) {
           throw new CliError(
-            "--element is supported by kling-4.0, kling-3.0, kling-o3, and kling-v3-motion-control only.",
+            "--element is supported by kling-4.0, kling-4.0-flash, kling-3.0, kling-o3, and kling-v3-motion-control only.",
             EXIT.USAGE,
           );
         }
@@ -1784,23 +1950,31 @@ export function registerGenerateCommands(program: Command): void {
             EXIT.USAGE,
           );
         }
-        if (opts.model === "kling-4.0") {
+        if (selectedKling4Tier) {
           const videoElements = rawElements.filter(
             (element) => element.video_url,
           ).length;
+          const voiceElements = rawElements.filter(
+            (element) => element.voice_id,
+          ).length;
           if (rawElements.length > 7)
             throw new CliError(
-              "kling-4.0 accepts at most 7 --element entries.",
+              `${selectedKling4Tier.model} accepts at most 7 --element entries.`,
               EXIT.USAGE,
             );
           if (videoElements > 3)
             throw new CliError(
-              "kling-4.0 accepts at most 3 video-backed --element entries.",
+              `${selectedKling4Tier.model} accepts at most 3 video-backed --element entries.`,
               EXIT.USAGE,
             );
-          if (rawElements.filter((element) => element.voice_id).length > 3)
+          if (!selectedKling4Tier.voices && voiceElements > 0)
             throw new CliError(
-              "kling-4.0 accepts voice_id on at most 3 --element entries.",
+              `${selectedKling4Tier.model} takes no voices. Remove voice_id from --element, or use --model kling-4.0 for Kling voices.`,
+              EXIT.USAGE,
+            );
+          if (voiceElements > 3)
+            throw new CliError(
+              `${selectedKling4Tier.model} accepts voice_id on at most 3 --element entries.`,
               EXIT.USAGE,
             );
         }
@@ -1847,33 +2021,35 @@ export function registerGenerateCommands(program: Command): void {
           }
         }
       }
-      if (opts.model === "kling-4.0") {
+      if (selectedKling4Tier) {
+        // Same limits on both tiers; Flash already refused --end-image.
+        const model = selectedKling4Tier.model;
         const imageCount = (opts.ref?.length ?? 0) + (opts.startImage ? 1 : 0);
         const videoCount = opts.refVideo?.length ?? 0;
         // References pick reference mode; a start image alone (with an
-        // optional end image) is image-to-video, as on Kling O3.
+        // optional end image on Kling 4.0) is image-to-video, as on Kling O3.
         const hasReferenceMedia =
           (opts.ref?.length ?? 0) > 0 ||
           videoCount > 0 ||
           rawElements.length > 0;
         if (opts.endImage && !opts.startImage)
           throw new CliError(
-            "kling-4.0 --end-image needs --start-image (image-to-video).",
+            `${model} --end-image needs --start-image (image-to-video).`,
             EXIT.USAGE,
           );
         if (opts.endImage && hasReferenceMedia)
           throw new CliError(
-            "kling-4.0 --end-image is for image-to-video, which takes a start and end image only. Reference mode has no end frame: drop --end-image or the references.",
+            `${model} --end-image is for image-to-video, which takes a start and end image only. Reference mode has no end frame: drop --end-image or the references.`,
             EXIT.USAGE,
           );
         if (opts.ar && opts.startImage && !hasReferenceMedia)
           throw new CliError(
-            "kling-4.0 image-to-video follows --start-image's framing; remove --ar, or add references for reference mode.",
+            `${model} image-to-video follows --start-image's framing; remove --ar, or add references for reference mode.`,
             EXIT.USAGE,
           );
         if (imageCount > 10)
           throw new CliError(
-            "kling-4.0 accepts at most 10 images, --start-image included.",
+            `${model} accepts at most 10 images, --start-image included.`,
             EXIT.USAGE,
           );
         if (
@@ -1882,12 +2058,12 @@ export function registerGenerateCommands(program: Command): void {
           5
         )
           throw new CliError(
-            "kling-4.0 --ref-video and video-backed --element entries share 5 clips.",
+            `${model} --ref-video and video-backed --element entries share 5 clips.`,
             EXIT.USAGE,
           );
         if (imageCount + videoCount + rawElements.length > 15)
           throw new CliError(
-            "kling-4.0 accepts at most 15 images, videos and elements in total.",
+            `${model} accepts at most 15 images, videos and elements in total.`,
             EXIT.USAGE,
           );
       }
@@ -2302,13 +2478,12 @@ export function registerGenerateCommands(program: Command): void {
         // this or every reference-video quote is short. MiniMax H3 no longer
         // bills reference video, but its existing 0 is preserved so a plain
         // estimate keeps the payload shape its tests assert.
-        // Kling 4.0 bills reference and element videos by length, each at
-        // least 3 s, so an unmeasured clip quotes that minimum.
-        const kling4VideoClips =
-          estimateModel === "kling-4.0"
-            ? (Array.isArray(opts.refVideo) ? opts.refVideo.length : 0) +
-              rawElements.filter((element) => element.video_url).length
-            : 0;
+        // Kling 4.0 and Flash bill reference and element videos by length,
+        // each at least 3 s, so an unmeasured clip quotes that minimum.
+        const kling4VideoClips = kling4GenerationTier(estimateModel)
+          ? (Array.isArray(opts.refVideo) ? opts.refVideo.length : 0) +
+            rawElements.filter((element) => element.video_url).length
+          : 0;
         const estimateReferenceVideoDuration =
           estimateModel === "minimax-h3"
             ? hasRefVideos
@@ -2321,7 +2496,7 @@ export function registerGenerateCommands(program: Command): void {
                 : undefined;
         const kling4LowerBoundReason =
           kling4VideoClips > 0 && refVideoSeconds === undefined
-            ? "kling-4.0 bills reference and element videos by their length. This quote assumes 3 s each; pass --ref-video-seconds for an exact quote."
+            ? `${estimateModel} bills reference and element videos by their length. This quote assumes 3 s each; pass --ref-video-seconds for an exact quote.`
             : undefined;
         // H3 Max bills reference media as pooled tokens. Missing video/audio
         // durations can be supplied by flag; image dimensions cannot be, since
@@ -2468,7 +2643,7 @@ export function registerGenerateCommands(program: Command): void {
       const videoEditModels = new Set([
         "happy-horse-video-edit",
         "grok-imagine-video-edit",
-        "kling-4.0-video-edit",
+        ...KLING_4_CLI_TIERS.map((tier) => tier.editModel),
       ]);
       const motionControlModels = new Set([
         "kling-v3-motion-control",

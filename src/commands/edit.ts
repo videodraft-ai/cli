@@ -15,21 +15,24 @@ import { capture } from "../cli/telemetry.js";
 import { emit, note, table } from "../cli/output.js";
 import { EXIT, UsageError } from "../core/errors.js";
 import {
+  KLING_4_CLI_TIERS,
   handleAsyncJob,
+  kling4EditTier,
   normalizeGeminiOmniResolutionOption,
   parseKlingElements,
   resolveKlingElements,
   resolveRefs,
 } from "./generate.js";
 
-const KLING_4_EDIT_MODEL = "kling-4.0-video-edit";
+/** Kling 4.0 Video Edit and Kling 4.0 Flash Video Edit. */
+const KLING_4_EDIT_MODELS = KLING_4_CLI_TIERS.map((tier) => tier.editModel);
 
 const VIDEO_EDIT_MODELS = new Set([
   "gemini-omni-1.2-flash",
   "happy-horse-video-edit",
   "kling-o3-video-ref-edit",
   "grok-imagine-video-edit",
-  KLING_4_EDIT_MODEL,
+  ...KLING_4_EDIT_MODELS,
 ]);
 
 /** Reference-image cap per edit model; mirrors the server's own limits. */
@@ -38,13 +41,14 @@ const EDIT_MODEL_MAX_REFS: Record<string, number> = {
   "happy-horse-video-edit": 5,
   "kling-o3-video-ref-edit": 4,
   "grok-imagine-video-edit": 0,
-  [KLING_4_EDIT_MODEL]: 10,
+  // Both Kling 4.0 edit tiers take 10 reference images.
+  ...Object.fromEntries(KLING_4_EDIT_MODELS.map((model) => [model, 10])),
 };
 
 /** Edit models that take image-only Kling elements. */
 const ELEMENT_EDIT_MODELS = new Set([
   "kling-o3-video-ref-edit",
-  KLING_4_EDIT_MODEL,
+  ...KLING_4_EDIT_MODELS,
 ]);
 
 /**
@@ -116,11 +120,11 @@ export function registerEditCommands(program: Command): void {
     .description("Edit an existing video with a dedicated video-edit model")
     .option(
       "--model <id>",
-      "gemini-omni-1.2-flash (preferred, auto-selected for sources from 3 to 15s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit | kling-4.0-video-edit (edits a whole 3-30s source)",
+      "gemini-omni-1.2-flash (preferred, auto-selected for sources from 3 to 15s) | grok-imagine-video-edit | kling-o3-video-ref-edit | happy-horse-video-edit | kling-4.0-video-edit (edits a whole 3-30s source) | kling-4.0-flash-video-edit (faster and cheaper: a whole 3-20s source at 720p)",
     )
     .option(
       "--element <json|@file>",
-      "Kling O3 or Kling 4.0 Video Edit image-only element (repeatable)",
+      "Kling O3, Kling 4.0 Video Edit or Kling 4.0 Flash Video Edit image-only element (repeatable)",
       collect,
       [],
     )
@@ -146,7 +150,7 @@ export function registerEditCommands(program: Command): void {
     .option("--quality <tier>", "Kling O3 only: standard or pro")
     .option(
       "--duration <seconds>",
-      "kling-4.0-video-edit: output length, 3-30s (default: the source length). Other models: estimate-only, since edits follow the source",
+      "kling-4.0-video-edit: output length, 3-30s; kling-4.0-flash-video-edit: 3-20s (default: the source length). Other models: estimate-only, since edits follow the source",
     )
     .option("--preserve-audio", "preserve original source audio when supported")
     .option("--project <id>", "group in a project's AI Studio session")
@@ -168,6 +172,9 @@ export function registerEditCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const model = validateEditModel(opts.model);
+      // Kling 4.0 Video Edit or its Flash tier: same inputs, Flash is 720p
+      // and 3-20s.
+      const kling4Tier = kling4EditTier(model);
       const rawElements = parseKlingElements(opts.element ?? []);
       if (
         rawElements.length &&
@@ -175,7 +182,7 @@ export function registerEditCommands(program: Command): void {
           rawElements.some((e) => e.video_url || e.voice_id))
       )
         throw new UsageError(
-          "--element requires Kling O3 Video Ref/Edit or Kling 4.0 Video Edit, with image-only elements and no voice_id.",
+          "--element requires Kling O3 Video Ref/Edit, Kling 4.0 Video Edit or Kling 4.0 Flash Video Edit, with image-only elements and no voice_id.",
         );
       if (
         rawElements.length + (opts.ref?.length ?? 0) > 4 &&
@@ -184,16 +191,13 @@ export function registerEditCommands(program: Command): void {
         throw new UsageError(
           "Kling O3 accepts at most 4 combined elements and reference images.",
         );
-      if (model === KLING_4_EDIT_MODEL && rawElements.length > 7)
+      if (kling4Tier && rawElements.length > 7)
         throw new UsageError(
-          "Kling 4.0 Video Edit accepts at most 7 --element entries.",
+          `${kling4Tier.editName} accepts at most 7 --element entries.`,
         );
-      if (
-        model === KLING_4_EDIT_MODEL &&
-        1 + (opts.ref?.length ?? 0) + rawElements.length > 15
-      )
+      if (kling4Tier && 1 + (opts.ref?.length ?? 0) + rawElements.length > 15)
         throw new UsageError(
-          "Kling 4.0 Video Edit accepts at most 15 inputs: the source video, --ref images and --element entries.",
+          `${kling4Tier.editName} accepts at most 15 inputs: the source video, --ref images and --element entries.`,
         );
       const editSeed = opts.seed === undefined ? undefined : Number(opts.seed);
       if (
@@ -217,12 +221,14 @@ export function registerEditCommands(program: Command): void {
 
       const duration = positiveNumber(opts.duration, "--duration");
       if (
-        model === KLING_4_EDIT_MODEL &&
+        kling4Tier &&
         duration !== undefined &&
-        (!Number.isInteger(duration) || duration < 3 || duration > 30)
+        (!Number.isInteger(duration) ||
+          duration < 3 ||
+          duration > kling4Tier.maxSeconds)
       )
         throw new UsageError(
-          "Kling 4.0 Video Edit --duration must be a whole second from 3 to 30.",
+          `${kling4Tier.editName} --duration must be a whole second from 3 to ${kling4Tier.maxSeconds}.`,
         );
       const sceneIndex = nonNegativeInteger(opts.scene, "--scene");
       const shotIndex = nonNegativeInteger(opts.shot, "--shot");
@@ -292,12 +298,14 @@ export function registerEditCommands(program: Command): void {
         );
       }
       if (
-        model === KLING_4_EDIT_MODEL &&
+        kling4Tier &&
         opts.resolution &&
-        !["720p", "1080p"].includes(String(opts.resolution).toLowerCase())
+        !kling4Tier.resolutions.includes(String(opts.resolution).toLowerCase())
       ) {
         throw new UsageError(
-          'kling-4.0-video-edit --resolution must be "720p" or "1080p".',
+          kling4Tier.resolutions.length === 1
+            ? `${kling4Tier.editModel} renders ${kling4Tier.resolutions[0]} only. Remove --resolution, or use --model kling-4.0-video-edit for 1080p.`
+            : `${kling4Tier.editModel} --resolution must be ${kling4Tier.resolutions.map((value) => `"${value}"`).join(" or ")}.`,
         );
       }
       if ((!model || model === "gemini-omni-1.2-flash") && opts.resolution) {
@@ -310,7 +318,7 @@ export function registerEditCommands(program: Command): void {
         opts.preserveAudio &&
         (model === "grok-imagine-video-edit" ||
           model === "gemini-omni-1.2-flash" ||
-          model === KLING_4_EDIT_MODEL)
+          kling4Tier)
       ) {
         throw new UsageError(
           `${model} does not expose source-audio preservation.`,
@@ -336,15 +344,15 @@ export function registerEditCommands(program: Command): void {
           note:
             model === undefined
               ? `No credits were spent (--estimate). Quoted with ${estimateModel}, the preferred edit model; the server picks the real model at submit time and returns a priced menu when this one cannot run the source.`
-              : model === KLING_4_EDIT_MODEL
-                ? "No credits were spent (--estimate). Kling 4.0 Video Edit bills the source plus the output, at least twice the output, and this quote assumes the source is as long as the output. For an exact quote run `videodraft costs kling-4.0-video-edit --type video --ref-video-seconds <source seconds>`, adding --duration only for a different output length."
+              : kling4Tier
+                ? `No credits were spent (--estimate). ${kling4Tier.editName} bills the source plus the output, at least twice the output, and this quote assumes the source is as long as the output. For an exact quote run \`videodraft costs ${kling4Tier.editModel} --type video --ref-video-seconds <source seconds>\`, adding --duration only for a different output length.`
                 : "No credits were spent (--estimate).",
         });
         return;
       }
-      if (duration !== undefined && model !== KLING_4_EDIT_MODEL) {
+      if (duration !== undefined && !kling4Tier) {
         throw new UsageError(
-          "--duration is estimate-only for video edits. Submitted edits follow the source and model duration; only kling-4.0-video-edit takes an output --duration.",
+          "--duration is estimate-only for video edits. Submitted edits follow the source and model duration; only kling-4.0-video-edit and kling-4.0-flash-video-edit take an output --duration.",
         );
       }
       const [[videoUrl], referenceImages, referenceVideos, elements] =
@@ -381,7 +389,7 @@ export function registerEditCommands(program: Command): void {
               : undefined,
           resolution: opts.resolution,
           quality: opts.quality,
-          duration_seconds: model === KLING_4_EDIT_MODEL ? duration : undefined,
+          duration_seconds: kling4Tier ? duration : undefined,
           preserve_audio: opts.preserveAudio ? true : undefined,
           project_id: opts.project,
           session_id: sessionArg(this, opts),

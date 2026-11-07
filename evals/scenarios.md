@@ -436,6 +436,30 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** run `videodraft edit video <clip> "<prompt citing @Video1>" --model kling-4.0-video-edit`, quoted with `videodraft costs kling-4.0-video-edit --type video --ref-video-seconds 20`.
 - **Must NOT:** cut the clip to fit a 10-second edit model, or pass `--ref-video` to an edit.
 
+## Kling 4.0 Flash only when asked for
+
+- **Query:** "Make a quick 8-second Kling 4.0 Flash clip of a paper boat in the rain."
+- **Must:** run `videodraft generate video --model kling-4.0-flash --duration 8` (720p, its only resolution) and quote the price from `--estimate`.
+- **Must NOT:** pass `--resolution 1080p`, `--segment`, `--end-image` or a `voice_id` on an `--element`, or pick Kling 4.0 Flash for a video request that names no model.
+
+## A Kling 4.0 Flash edit keeps to its 20-second source
+
+- **Query:** "Use Kling 4.0 Flash to turn this 12-second clip into a snowy night."
+- **Must:** run `videodraft edit video <clip> "<prompt citing @Video1>" --model kling-4.0-flash-video-edit`, quoted with `videodraft costs kling-4.0-flash-video-edit --type video --ref-video-seconds 12`.
+- **Must NOT:** pass `--resolution 1080p` or `--preserve-audio`, or send it a source longer than 20 seconds (offer `kling-4.0-video-edit` for a source up to 30 seconds instead).
+
+## A looping animated GIF comes from GPT Image 2.6
+
+- **Query:** "Make me a looping GIF sticker of a paper boat bobbing on waves."
+- **Must:** quote with `--estimate`, then run `videodraft generate image "<prompt describing the motion and a seamless loop>" --model gpt-image-2.6-flare --gif` (8 frames unless asked, since 2-8 frames cost the same), with `--ar` for the frame shape.
+- **Must NOT:** pass `--resolution`, use a video model for a short sticker loop, or attach the GIF to a storyboard shot or batch.
+
+## A GIF animates a given subject
+
+- **Query:** "Turn this logo into a 12-frame looping GIF, a bit slower than usual."
+- **Must:** run `videodraft generate image "<prompt>" --model gpt-image-2.6-flare --gif --frames 12 --frame-ms 200 --ref <logo>`, quoted first with `--estimate`.
+- **Must NOT:** pick a model other than GPT Image 2.6 for the GIF, or claim 12 frames cost the same as 8.
+
 ## GenJutsu motion transfer by name
 
 - **Query:** "Use GenJutsu to make my character perform the dance in this video."

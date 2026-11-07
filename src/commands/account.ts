@@ -112,7 +112,7 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--ref-video-seconds <seconds>",
-      "MiniMax H3 / H3 Max, Seedance or Kling 4.0 combined reference-video duration; for kling-4.0-video-edit, the source video's length",
+      "MiniMax H3 / H3 Max, Seedance, Kling 4.0 or Kling 4.0 Flash combined reference-video duration; for kling-4.0-video-edit and kling-4.0-flash-video-edit, the source video's length",
     )
     .option(
       "--edit-precision <mode>",
