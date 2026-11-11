@@ -5,6 +5,16 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-11-11
+
+### Changed
+
+- Agent skill: cuts are assembled on the editor timeline instead of being
+  stitched with ffmpeg or Python scripts, so users can adjust them by hand.
+- Agent skill: on a personal ElevenLabs key, agents run a few ElevenLabs jobs
+  at a time, rerun a "too many concurrent requests" failure once after the
+  others finish, and report other ElevenLabs errors as given.
+
 ## [0.32.0] - 2026-11-07
 
 ### Added
