@@ -135,7 +135,7 @@ Render your own Blender scene on a cloud GPU. You get one machine (an RTX PRO 60
 ```bash
 videodraft render prices
 videodraft render blender scene.blend --frames 1-240                  # hash, upload once, render, download media/renders/<job_id>.mp4
-videodraft render blender scene.blend --frames 1-240 --fps 24 --blender 4.5 --no-wait --json
+videodraft render blender scene.blend --frames 1-240 --blender 4.5 --no-wait --json
 videodraft render wait JOB_ID --out ./renders/
 videodraft render status JOB_ID
 videodraft render list

@@ -174,6 +174,20 @@ function stopHint(ctx: CommandContext): void {
   );
 }
 
+/**
+ * Why a job paused. The service sends `pause_reason`; servers without it only
+ * have the error text, and before either existed every pause was for credits.
+ */
+export function pauseReason(job: any): "credits" | "daily_limit" | "user" {
+  const reason = typeof job?.pause_reason === "string" ? job.pause_reason : "";
+  if (reason === "daily_limit" || reason === "user") return reason;
+  if (reason === "credits" || reason === "low_credits") return "credits";
+  const text = typeof job?.error === "string" ? job.error : "";
+  if (/daily/i.test(text)) return "daily_limit";
+  if (/machine was stopped/i.test(text)) return "user";
+  return "credits";
+}
+
 /** Poll until the job stops moving, then download the clip or fail with the right exit code. */
 async function waitAndDownload(
   ctx: CommandContext,
@@ -211,10 +225,23 @@ async function waitAndDownload(
 
   const status = String(job?.status ?? "unknown");
   if (status === "paused") {
+    if (pauseReason(job) === "credits") {
+      throw new CliError(
+        `Render ${jobId} paused: the account ran out of credits. Finished segments are kept.`,
+        EXIT.CREDITS,
+        `Top up at https://app.videodraft.ai/pricing, then run: videodraft render resume ${jobId}`,
+        job,
+      );
+    }
+    // The daily limit or a machine stop: not a billing problem, so not the credits exit code.
+    const why =
+      typeof job?.error === "string" && job.error
+        ? job.error
+        : "the Cloud render machine was stopped.";
     throw new CliError(
-      `Render ${jobId} paused: the account ran out of credits. Finished segments are kept.`,
-      EXIT.CREDITS,
-      `Top up at https://app.videodraft.ai/pricing, then run: videodraft render resume ${jobId}`,
+      `Render ${jobId} paused: ${why} Finished segments are kept.`,
+      EXIT.ERROR,
+      `Continue it with: videodraft render resume ${jobId}`,
       job,
     );
   }

@@ -555,6 +555,42 @@ describe("videodraft render", () => {
     });
   });
 
+  it("does not call a daily-limit or stop pause a credits problem", async () => {
+    const { file } = writeFile("scene.blend", 10);
+    const daily =
+      "Daily Cloud render limit reached (8 GPU-hours in 24 hours). Resume it later.";
+    for (const paused of [
+      { pause_reason: "daily_limit", error: daily },
+      { error: daily },
+      { pause_reason: "user", error: "The machine was stopped. Resume the job to continue." },
+    ]) {
+      tools(
+        {
+          cloud_render_upload_scene: { exists: true },
+          cloud_render_submit: submitted,
+        },
+        [{ job_id: JOB, status: "paused", segments_done: 1, segments_total: 2, ...paused }],
+      );
+      await expect(
+        run(["render", "blender", file, "--frames", "1-2", "--out", tmp]),
+      ).rejects.toMatchObject({
+        exitCode: EXIT.ERROR,
+        message: expect.stringContaining(paused.error),
+        hint: expect.stringContaining(`videodraft render resume ${JOB}`),
+      });
+    }
+    tools(
+      {
+        cloud_render_upload_scene: { exists: true },
+        cloud_render_submit: submitted,
+      },
+      [{ job_id: JOB, status: "paused", pause_reason: "credits", error: "Out of credits. Add credits, then resume the job." }],
+    );
+    await expect(
+      run(["render", "blender", file, "--frames", "1-2", "--out", tmp]),
+    ).rejects.toMatchObject({ exitCode: EXIT.CREDITS });
+  });
+
   it("maps a 402 from the GPU service to the credits exit code", async () => {
     const { file } = writeFile("scene.blend", 10);
     tools({

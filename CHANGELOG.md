@@ -5,6 +5,17 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-11-13
+
+### Fixed
+
+- `render blender` and `render wait` only report a pause as running out of
+  credits (exit code 4) when that is the reason. A pause for the daily
+  Cloud render limit or a stopped machine exits 1 with the reason and the
+  `render resume` command.
+- Cloud render examples no longer pass `--fps`, which overrides the scene's
+  own frame rate.
+
 ## [0.33.1] - 2026-11-12
 
 ### Fixed
