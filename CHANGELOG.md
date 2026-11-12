@@ -5,6 +5,14 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-12
+
+### Fixed
+
+- Cloud render docs: `--fps` defaults to the scene's own frame rate, not 30.
+  Pass it only to change the output frame rate.
+- `render blender` says "1 segment" instead of "1 segments".
+
 ## [0.33.0] - 2026-11-12
 
 ### Added

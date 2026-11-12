@@ -21,7 +21,7 @@ videodraft render stop                             # switch the GPU off now
 `render blender` flags:
 
 - `--frames <first>-<last>` (required): the inclusive frame range, or one frame such as `--frames 42`.
-- `--fps <n>`: frame rate of the output MP4 (default 30).
+- `--fps <n>`: frame rate of the output MP4 (default: the scene's own).
 - `--chunk <n>`: frames per segment. Segments render in order, and finished ones are kept when a job pauses, fails or is cancelled.
 - `--procs <n>`: Blender processes running in parallel on the GPU, 1-4.
 - `--blender 5.2|4.5`: Blender version (default 5.2).
