@@ -128,6 +128,22 @@ Each submission includes a UUID `request_id`. Retry interrupted submissions with
 
 Machine output preserves `artifacts` and adds `output_files`, `downloaded_files`, `manifest_path`, and `package_warnings`. Only rendered previews appear in `output_media`; meshes and texture maps never masquerade as playable images or videos. Use external 3D software to view/edit the meshes. This release does not add an AI Studio 3D viewer.
 
+## Cloud render (Blender on a cloud GPU)
+
+Render your own Blender scene on a cloud GPU. You get one machine (an RTX PRO 6000) that starts on demand, renders your jobs in order and switches itself off 2 minutes after the last one. It bills per second while it is on, at the rate `videodraft render prices` shows. Cloud render needs a paid plan or a past credit purchase.
+
+```bash
+videodraft render prices
+videodraft render blender scene.blend --frames 1-240                  # hash, upload once, render, download media/renders/<job_id>.mp4
+videodraft render blender scene.blend --frames 1-240 --fps 24 --blender 4.5 --no-wait --json
+videodraft render wait JOB_ID --out ./renders/
+videodraft render status JOB_ID
+videodraft render list
+videodraft render stop                                                # switch the GPU off when you are done
+```
+
+Pack the scene first (Blender: File > External Data > Pack Resources): the machine has no internet and sees only the `.blend`, and scripts inside it never run. The CLI uploads each scene once, in resumable 64 MiB chunks that survive a dropped connection, and polls every 10 seconds with no time limit. When credits run out mid-render, the job pauses with its finished segments kept and the command exits with code 4; after a top-up, `videodraft render resume JOB_ID` carries on.
+
 ## The project pipeline
 
 Use projects when the user asks for a story, storyboard, editable web project, timeline, production flow, or exported MP4.
@@ -157,6 +173,7 @@ difference is charged before it starts.
 | Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                                             |
 | Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync/h3-lipsync` |
 | 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download`                                                                                                                                                              |
+| Cloud render    | `render blender <scene.blend> --frames <a-b>` `render status/wait/list/cancel/resume/machine/stop/prices`                                                                                                                 |
 | Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                                                 |
 | Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                                                      |
 | Stock media     | `stock search "<query>"` `stock import <ref>` (free, no credits)                                                                                                                                                          |
@@ -189,7 +206,7 @@ npx videodraft skills install                  # zero-install: npx fetches the C
 videodraft skills install                      # if the CLI is on PATH — auto-detects your installed agents
 videodraft skills install --agent claude,codex # target specific agents (repeatable/comma; --all for every agent)
 videodraft skills install --project            # into ./.claude/skills for just this repo (else global)
-videodraft skills show                         # print the skill (also: skills show editor|models|3d|examples|pipeline|--all)
+videodraft skills show                         # print the skill (also: skills show editor|models|3d|examples|pipeline|render|--all)
 
 # Or install straight from the repo — no CLI on PATH needed first:
 npx -y skills add videodraft-ai/cli -g         # vercel-labs skills tool; npx -y skips npx's install prompt; -g = user scope

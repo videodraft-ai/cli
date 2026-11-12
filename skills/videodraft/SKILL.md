@@ -10,6 +10,7 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 - **Asset generation**: standalone images, video clips, Seed Audio, voiceovers, music, sound effects, dialogue, voice-changed audio, dubbed media, upscales, and image descriptions. This is the fastest and most important lane. Treat these as complete deliverables when the user asks for assets.
 - **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
 - **3D assets**: standalone Meshy 7.1 and Tripo H3.1 meshes, multi-view generation, complete artifact downloads, and Meshy humanoid rigging through MCP/CLI. Read [references/3d.md](references/3d.md), or `videodraft skills show 3d`. These assets have their own saved library and do not require an AI Studio session or web viewer.
+- **Cloud render**: render the user's own Blender scenes on a cloud GPU with `videodraft render blender`. See [Cloud render](#cloud-render-blender-on-a-cloud-gpu) below and [references/cloud-render.md](references/cloud-render.md), or `videodraft skills show render`.
 - **Native editing**: local `.vdproject` timelines, cuts, layouts, captions, effects, audio, and exports through the headless VideoDraft Editor. Inside VideoDraft ADE, this is the default production and export lane when `videodraft_editor` is available and no chosen app or existing external project takes precedence.
 - **Hosted project production**: idea → script → storyboard → hosted production timeline → exported MP4. Use the early stages for scripts, storyboards, and generated assets when useful. Treat hosted production and export as a fallback when the native editor is unavailable and no external app is selected, or as an explicit destination when the user asks for an editable web project or hosted workflow.
 
@@ -162,6 +163,23 @@ Video defaults to `--subject person` with refined edges. Use `--subject object` 
 Raw MCP tools are `remove_image_background` and `remove_video_background`; poll `check_generation_status` with their `job_id`. `get_model_costs` accepts `model_id: "pixelcut-background-removal"` or `"veed-background-removal"`, plus `source_url` for an exact quote (required for video) and optional `refine_edges`. Supply `max_credits` from the quote. These tools support VideoDraft credits or Fal BYOK only. After an uncertain submission, poll its job ID or reuse the same idempotency key; never start another paid job to recover a lost response.
 
 For an existing native-editor clip, follow the guarded [background-removal handoff](references/editor.md#background-removal-handoff): prepare the original source, process it through the CLI/MCP, import the transparent result, then apply it while keeping the original linked sound. PNG works directly; VP9 WebM requires an alpha-preserving MOV conversion and verification before import. Check conversion availability before spending credits.
+
+## Cloud render (Blender on a cloud GPU)
+
+Use Cloud render when the user wants their own Blender scene, an animation or a frame range, rendered on a cloud GPU, for example because rendering locally is too slow. It renders a saved `.blend`; it does not generate or edit the scene. It needs a paid plan or a past credit purchase.
+
+```bash
+videodraft render prices                              # live price per GPU-minute
+videodraft render blender scene.blend --frames 1-240  # upload, render, wait, download media/renders/<job_id>.mp4
+videodraft render stop                                # switch the GPU off when your task is done
+```
+
+- Pack the scene first (Blender: File > External Data > Pack Resources, then save). Files outside the `.blend` are missing on the GPU, and scripts inside it never run.
+- Each user has one GPU machine. It bills per second while it is on, at the rate `videodraft render prices` returns, and switches itself off 2 minutes after its last job. State the rate and get a go-ahead before long renders. When your task is done, run `videodraft render stop` so idle time is not billed.
+- Exit code 4 means credits ran out, before the job started or mid-render (the job pauses and keeps its finished segments). Tell the user; after they top up, run `videodraft render resume <job_id>`.
+- Renders can take hours. For long jobs use `--no-wait`, then `videodraft render wait <job_id>`. Never submit the same render again to recover from a lost wait; check `videodraft render list`.
+
+Flags, outputs and the MCP flow (`cloud_render_*` tools): [references/cloud-render.md](references/cloud-render.md), or `videodraft skills show render`.
 
 ## Prefer references when continuity matters
 
@@ -338,3 +356,4 @@ A hosted project is one JSON blob (script, storyboard scenes, shot cards, visual
 - [references/editor.md](references/editor.md) — native headless editor routing, project selection, import, timeline edits, verification, and export
 - [references/models.md](references/models.md) — choosing image/video models, pricing patterns, voices and styles
 - [references/examples.md](references/examples.md) — recipes: batch product videos from a CSV, talking-head from a script, changelog video in CI
+- [references/cloud-render.md](references/cloud-render.md): Cloud render commands, flags, exit codes, cost and the MCP flow

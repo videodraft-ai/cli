@@ -3,7 +3,7 @@
  * video exports (check_export_status).
  */
 
-import { TimeoutError } from "./errors.js";
+import { AuthError, RpcError, TimeoutError, ToolError } from "./errors.js";
 import type { VideoDraftClient } from "./rpc.js";
 
 export interface PollOptions {
@@ -192,6 +192,80 @@ export async function pollExport(
       );
     }
     await sleep(nextPollDelay(intervalMs, Date.now() - startedAt, options.adaptive));
+  }
+}
+
+// Cloud render statuses that end a wait. "paused" waits on the user, who must
+// add credits and resume, so polling it further would never finish.
+const RENDER_TERMINAL = new Set(["done", "failed", "cancelled", "paused"]);
+
+export interface RenderPollOptions {
+  /** Delay between status calls; default 10s. */
+  intervalMs?: number;
+  /** Give up after this long; default never, since renders can run for hours. */
+  timeoutMs?: number;
+  /** Failed status calls in a row tolerated before giving up; default 6. */
+  maxConsecutiveErrors?: number;
+  onTick?: (payload: any) => void;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/**
+ * A status call that failed for a reason that can pass: the network, a 5xx
+ * from either server, or the GPU service timing out. A long render should not
+ * lose its waiter to one dropped request.
+ */
+function isTransientStatusError(error: unknown): boolean {
+  if (error instanceof AuthError) return false;
+  if (error instanceof ToolError) {
+    const data = error.data as { http_status?: unknown; code?: unknown } | undefined;
+    return (
+      (typeof data?.http_status === "number" && data.http_status >= 500) ||
+      data?.code === "cloud_render_timeout" ||
+      data?.code === "cloud_render_unreachable"
+    );
+  }
+  if (error instanceof RpcError) {
+    return error.code === 0 || error.code === 429 || error.code >= 500;
+  }
+  // fetch() itself failed: offline, DNS, or our own request timeout.
+  const name = (error as { name?: unknown } | null)?.name;
+  return error instanceof TypeError || name === "TimeoutError" || name === "AbortError";
+}
+
+/** Poll a Cloud render job (cloud_render_status) until it stops moving. */
+export async function pollRenderJob(
+  client: VideoDraftClient,
+  jobId: string,
+  options: RenderPollOptions = {},
+): Promise<any> {
+  const intervalMs = options.intervalMs ?? 10_000;
+  const timeoutMs = options.timeoutMs ?? Number.POSITIVE_INFINITY;
+  const maxErrors = options.maxConsecutiveErrors ?? 6;
+  const wait = options.sleep ?? sleep;
+  const startedAt = Date.now();
+  let errors = 0;
+  for (;;) {
+    let payload: any;
+    try {
+      payload = await client.callTool("cloud_render_status", { job_id: jobId });
+      errors = 0;
+    } catch (error) {
+      errors++;
+      if (!isTransientStatusError(error) || errors >= maxErrors) throw error;
+      await wait(nextPollDelay(intervalMs, Date.now() - startedAt, false));
+      continue;
+    }
+    options.onTick?.(payload);
+    const status = String(payload?.status ?? "unknown");
+    if (RENDER_TERMINAL.has(status)) return payload;
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new TimeoutError(
+        `Timed out after ${Math.round(timeoutMs / 1000)}s waiting for render ${jobId} (last status: ${status}). ` +
+          `It keeps rendering; check later with: videodraft render status ${jobId}`,
+      );
+    }
+    await wait(nextPollDelay(intervalMs, Date.now() - startedAt, false));
   }
 }
 

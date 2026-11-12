@@ -489,12 +489,18 @@ const skillAll = JSON.parse(await run(["skills", "show", "--all", "--json"]));
 assert.deepEqual(Object.keys(skillAll.files).sort(), [
   "SKILL.md",
   "references/3d.md",
+  "references/cloud-render.md",
   "references/editor.md",
   "references/examples.md",
   "references/models.md",
   "references/pipeline.md",
 ]);
 ok("skills show --all returns every skill file");
+
+const renderSkill = JSON.parse(await run(["skills", "show", "render", "--json"]));
+assert.equal(renderSkill.section, "references/cloud-render.md");
+assert.ok(renderSkill.content.includes("videodraft render stop"));
+ok("skills show render serves the Cloud render reference");
 
 const editorSkill = JSON.parse(await run(["skills", "show", "editor", "--json"]));
 assert.equal(editorSkill.section, "references/editor.md");
