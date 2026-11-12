@@ -7,7 +7,7 @@ Cloud render renders the user's own `.blend` scene on a cloud GPU: one machine p
 ```bash
 videodraft render prices                          # live price per GPU-minute, GPU and machine type
 videodraft render blender scene.blend --frames 1-240
-videodraft render blender scene.blend --frames 1-240 --fps 24 --blender 4.5 --out ./media/renders/ --json
+videodraft render blender scene.blend --frames 1-240 --blender 4.5 --out ./media/renders/ --json
 videodraft render blender scene.blend --frames 1001-1500 --no-wait --json
 videodraft render wait JOB_ID --out ./media/renders/
 videodraft render status JOB_ID --json
