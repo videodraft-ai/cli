@@ -163,6 +163,8 @@ const SECTION_ALIASES: Record<string, string> = {
   models: "references/models.md",
   "3d": "references/3d.md",
   pipeline: "references/pipeline.md",
+  render: "references/cloud-render.md",
+  "cloud-render": "references/cloud-render.md",
 };
 
 export function registerSkillCommands(program: Command): void {
@@ -270,7 +272,7 @@ export function registerSkillCommands(program: Command): void {
   skills
     .command("show [section]")
     .description(
-      "Print the skill, or a section: skill | editor | examples | models | pipeline",
+      "Print the skill, or a section: skill | editor | examples | models | 3d | pipeline | render",
     )
     .option("--all", "output every skill file as a JSON map (path → contents)")
     .action(async function (this: Command, section: string | undefined) {
@@ -301,7 +303,7 @@ export function registerSkillCommands(program: Command): void {
       const content = rel === undefined ? undefined : files[rel];
       if (content === undefined) {
         throw new CliError(
-          `Unknown skill section "${section}". Try: skill | editor | examples | models | 3d | pipeline (or --all).`,
+          `Unknown skill section "${section}". Try: skill | editor | examples | models | 3d | pipeline | render (or --all).`,
           EXIT.USAGE,
         );
       }

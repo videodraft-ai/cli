@@ -10,6 +10,7 @@ describe("bundledSkillFiles", () => {
     expect(Object.keys(files).sort()).toEqual([
       "SKILL.md",
       "references/3d.md",
+      "references/cloud-render.md",
       "references/editor.md",
       "references/examples.md",
       "references/models.md",

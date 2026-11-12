@@ -5,6 +5,38 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-12
+
+### Added
+
+- `render blender <scene.blend> --frames <first>-<last>` renders a Blender
+  scene on your cloud GPU (Cloud render) and downloads the MP4 to
+  `media/renders/<job_id>.mp4`, or wherever `--out` says. It hashes the file
+  and uploads each scene only once, in resumable 64 MiB chunks that carry on
+  after a dropped connection, then submits, polls every 10 seconds with no
+  time limit and prints each status change and the segments done. `--fps`,
+  `--chunk`, `--procs` (1-4) and `--blender 5.2|4.5` set the render, and
+  `--no-wait` returns the job id.
+- `render wait`, `status`, `list`, `cancel`, `resume`, `machine`, `stop` and
+  `prices` manage jobs and the machine. The machine bills per second while it
+  is on, at the rate `render prices` shows, and switches itself off 2 minutes
+  after its last job; `render stop` switches it off at once.
+- A submit refused for credits, or a render that pauses because credits ran
+  out, exits with code 4. `render resume` continues a paused or failed job
+  from its unfinished segments.
+- Agent skill: a Cloud render section and `references/cloud-render.md`
+  (`skills show render`) on when to use it, packing scenes, cost, and running
+  `render stop` when the task is done.
+
+### Compatibility
+
+- Cloud render needs a paid plan or a past credit purchase, and the VideoDraft
+  backend release with the `cloud_render_*` MCP tools, which deploys
+  separately. Servers without it reject `render` commands before charging
+  anything.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.32.1] - 2026-11-11
 
 ### Changed
