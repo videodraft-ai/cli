@@ -381,7 +381,7 @@ export function registerRenderCommands(program: Command): void {
       const rate = submitted?.credits_per_minute;
       note(
         ctx.out,
-        `Submitted ${jobId}: frames ${frames.start}-${frames.end}${typeof submitted?.segments === "number" ? `, ${submitted.segments} segments` : ""}.`,
+        `Submitted ${jobId}: frames ${frames.start}-${frames.end}${typeof submitted?.segments === "number" ? `, ${submitted.segments} segment${submitted.segments === 1 ? "" : "s"}` : ""}.`,
       );
       note(
         ctx.out,
