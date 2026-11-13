@@ -225,9 +225,9 @@ export function stateText(job: any): string {
       case "waiting":
         return "waiting for a free GPU (not billed)";
       case "starting":
-        return "GPU found, starting up";
+        return "a GPU is starting for queued jobs (billed)";
       case "idle":
-        return "a machine is picking it up";
+        return "a machine is picking up queued work";
       case "rendering":
         return "waiting for one of your machines";
       default:
@@ -426,19 +426,23 @@ async function waitAndDownload(
           last = state;
           logLine(ctx, `${label}: ${state}`);
         }
+        const queuedSeconds =
+          typeof payload?.queued_seconds === "number"
+            ? payload.queued_seconds
+            : payload?.wait_seconds;
         if (
           !reassured &&
           payload?.status === "queued" &&
           payload?.machine?.phase === "waiting" &&
-          typeof payload?.wait_seconds === "number" &&
-          payload.wait_seconds > REASSURE_AFTER_SECONDS
+          typeof queuedSeconds === "number" &&
+          queuedSeconds > REASSURE_AFTER_SECONDS
         ) {
           reassured = true;
           logLine(
             ctx,
             fmt.dim(
               ctx.out,
-              `${label}: still no free GPU after ${formatDuration(payload.wait_seconds)}. That is normal at busy times; the wait is not billed and the job keeps its place.`,
+              `${label}: queued for ${formatDuration(queuedSeconds)}. Waiting for a GPU is not billed; at busy times it can take longer, and the job keeps its place.`,
             ),
           );
         }

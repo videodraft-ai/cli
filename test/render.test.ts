@@ -388,7 +388,7 @@ describe("render helpers", () => {
     expect(stateText({ status: "queued" })).toBe("queued");
     expect(
       stateText({ status: "queued", machine: { phase: "starting" } }),
-    ).toBe("GPU found, starting up");
+    ).toBe("a GPU is starting for queued jobs (billed)");
     expect(
       stateText({ status: "running", segments_done: 1, segments_total: 4 }),
     ).toBe("rendering (1/4 segments)");
@@ -1078,7 +1078,7 @@ describe("videodraft render", () => {
           job_id: JOB,
           name: "S4",
           status: "queued",
-          wait_seconds: 420,
+          queued_seconds: 420,
           machine: { phase: "waiting" },
           cost: { credits: 0 },
         },
@@ -1110,7 +1110,8 @@ describe("videodraft render", () => {
       await run(["render", "wait", JOB, "--out", path.join(tmp, "s4.mp4")]);
       const log = stderr.join("");
       expect(log).toContain(`${JOB} (S4): waiting for a free GPU (not billed)`);
-      expect(log).toContain("still no free GPU after 7m 0s");
+      expect(log).toContain("queued for 7m 0s");
+      expect(log).toContain("Waiting for a GPU is not billed");
       expect(log).toContain(`${JOB} (S4): rendering (1/2 segments)`);
       expect(log).toContain(`${JOB} (S4): 8.6 credits.`);
       expect(log).toContain(
@@ -1131,7 +1132,7 @@ describe("videodraft render", () => {
       ]);
       network();
       await run(["render", "wait", JOB, "--out", path.join(tmp, "s4.mp4")]);
-      expect(stderr.join("")).not.toContain("still no free GPU");
+      expect(stderr.join("")).not.toContain("queued for 7m 0s");
     });
 
     it("does not claim a cancelled job is free before the final bill is known", async () => {
