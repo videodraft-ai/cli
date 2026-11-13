@@ -130,7 +130,7 @@ Machine output preserves `artifacts` and adds `output_files`, `downloaded_files`
 
 ## Cloud render (Blender on a cloud GPU)
 
-Render your own Blender scene on a cloud GPU. You get one machine (an RTX PRO 6000) that starts on demand, renders your jobs in order and switches itself off 2 minutes after the last one. It bills per second while it is on, at the rate `videodraft render prices` shows. Cloud render needs a paid plan or a past credit purchase.
+Render your own Blender scene on a cloud GPU (an RTX PRO 6000). Every job gets its own machine, so several renders run at the same time; a machine starts on demand and switches itself off 1 minute after its last job. It bills per second while it is on, at the rate `videodraft render prices` shows, and `render status` shows a job's cost so far and an estimate.
 
 ```bash
 videodraft render prices
@@ -139,7 +139,8 @@ videodraft render blender scene.blend --frames 1-240 --blender 4.5 --no-wait --j
 videodraft render wait JOB_ID --out ./renders/
 videodraft render status JOB_ID
 videodraft render list
-videodraft render stop                                                # switch the GPU off when you are done
+videodraft render machine                                             # machines on now and what they cost per minute
+videodraft render stop                                                # switch every machine off when you are done
 ```
 
 Pack the scene first (Blender: File > External Data > Pack Resources): the machine has no internet and sees only the `.blend`, and scripts inside it never run. The CLI uploads each scene once, in resumable 64 MiB chunks that survive a dropped connection, and polls every 10 seconds with no time limit. When credits run out mid-render, the job pauses with its finished segments kept and the command exits with code 4; after a top-up, `videodraft render resume JOB_ID` carries on.

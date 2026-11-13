@@ -6,7 +6,7 @@
  *   render status | wait | list | cancel | resume | machine | stop | prices
  *
  * Each user has one GPU machine. It starts on demand, renders their jobs in
- * order, and switches itself off 2 minutes after the last one, billing per
+ * order, and switches itself off 1 minute after the last one, billing per
  * second while it is on; `render stop` switches it off at once. The rate comes
  * from the server (`render prices`), never from this file.
  */
@@ -22,12 +22,13 @@ import { fileSha256, uploadResumable } from "../core/resumable-upload.js";
 import { downloadUrl, extFromUrl, savedLine } from "../core/download.js";
 
 const BLENDER_VERSIONS = ["5.2", "4.5"];
+const GPU_SIZES = ["full", "half", "quarter"];
 const DEFAULT_OUT_DIR = path.join("media", "renders");
 const RENDER_POLL_MS = 10_000;
-const IDLE_SHUTDOWN_MINUTES = 2;
+const IDLE_SHUTDOWN = "1 minute";
 const TOP_UP_HINT =
   "Check your balance with `videodraft credits` or top up at https://app.videodraft.ai/pricing";
-const STOP_STEP = `The GPU bills until it switches itself off ${IDLE_SHUTDOWN_MINUTES} minutes after its last job; run \`videodraft render stop\` once no more renders are needed.`;
+const STOP_STEP = `The GPU bills until it switches itself off ${IDLE_SHUTDOWN} after its last job; run \`videodraft render stop\` once no more renders are needed.`;
 
 /** "1-240" (inclusive) or a single frame, "42". */
 export function parseFrameRange(value: string): { start: number; end: number } {
@@ -125,6 +126,17 @@ function segmentsText(job: any): string | undefined {
   return `${job.segments_done ?? 0}/${job.segments_total} segments`;
 }
 
+export function costText(job: any): string | undefined {
+  const cost = job?.cost;
+  if (typeof cost?.credits !== "number") return undefined;
+  const estimate =
+    typeof cost.estimated_total_credits === "number"
+      ? `, about ${cost.estimated_total_credits} in total${typeof cost.estimated_minutes_left === "number" ? `, ${cost.estimated_minutes_left} min left` : ""}`
+      : "";
+  if (cost.final === true) return `${cost.credits} credits`;
+  return `${cost.credits} credits so far${estimate}`;
+}
+
 function progressLine(jobId: string, job: any): string {
   const segments = segmentsText(job);
   return `${jobId}: ${job?.status ?? "unknown"}${segments ? ` (${segments})` : ""}`;
@@ -169,7 +181,7 @@ function stopHint(ctx: CommandContext): void {
     ctx.out,
     fmt.dim(
       ctx.out,
-      `The GPU switches itself off ${IDLE_SHUTDOWN_MINUTES} minutes after its last job. Run \`videodraft render stop\` when you are done.`,
+      `The GPU switches itself off ${IDLE_SHUTDOWN} after its last job. Run \`videodraft render stop\` when you are done.`,
     ),
   );
 }
@@ -210,8 +222,9 @@ async function waitAndDownload(
       timeoutMs,
       onTick: (payload) => {
         const line = progressLine(jobId, payload);
+        const cost = costText(payload);
         spin.update(
-          `${line} · ${formatDuration((Date.now() - startedAt) / 1000)}`,
+          `${line}${cost ? ` · ${cost}` : ""} · ${formatDuration((Date.now() - startedAt) / 1000)}`,
         );
         if (line !== last) {
           last = line;
@@ -292,9 +305,7 @@ async function waitAndDownload(
 export function registerRenderCommands(program: Command): void {
   const render = program
     .command("render")
-    .description(
-      "Cloud render: render Blender scenes on a cloud GPU (paid plans and credit buyers)",
-    );
+    .description("Cloud render: render Blender scenes on a cloud GPU");
 
   render
     .command("blender <scene>")
@@ -311,6 +322,10 @@ export function registerRenderCommands(program: Command): void {
       "frames per segment; finished segments survive a pause",
     )
     .option("--procs <n>", "Blender processes in parallel on the GPU, 1-4")
+    .option(
+      "--gpu <size>",
+      "GPU size from `render prices`: full (96 GB, default, fastest); half (48 GB) or quarter (24 GB) cost less per frame when offered",
+    )
     .option("--blender <version>", "Blender version: 5.2 (default) or 4.5")
     .option(
       "--out <path>",
@@ -324,6 +339,7 @@ export function registerRenderCommands(program: Command): void {
         chunk?: string;
         procs?: string;
         blender?: string;
+        gpu?: string;
         out?: string;
         wait: boolean;
       }>();
@@ -331,6 +347,9 @@ export function registerRenderCommands(program: Command): void {
       const fps = positiveInt(opts.fps, "--fps");
       const chunk = positiveInt(opts.chunk, "--chunk");
       const procs = positiveInt(opts.procs, "--procs", 4);
+      if (opts.gpu !== undefined && !GPU_SIZES.includes(opts.gpu)) {
+        throw new UsageError(`--gpu must be ${GPU_SIZES.join(", ")}.`);
+      }
       if (
         opts.blender !== undefined &&
         !BLENDER_VERSIONS.includes(opts.blender)
@@ -398,6 +417,7 @@ export function registerRenderCommands(program: Command): void {
             chunk,
             procs,
             blender_version: opts.blender,
+            gpu: opts.gpu,
           }),
         ),
       );
@@ -408,7 +428,7 @@ export function registerRenderCommands(program: Command): void {
       const rate = submitted?.credits_per_minute;
       note(
         ctx.out,
-        `Submitted ${jobId}: frames ${frames.start}-${frames.end}${typeof submitted?.segments === "number" ? `, ${submitted.segments} segment${submitted.segments === 1 ? "" : "s"}` : ""}.`,
+        `Submitted ${jobId}: frames ${frames.start}-${frames.end}${typeof submitted?.segments === "number" ? `, ${submitted.segments} segment${submitted.segments === 1 ? "" : "s"}` : ""}${typeof submitted?.gpu === "string" ? ` on ${submitted.gpu}` : ""}.`,
       );
       note(
         ctx.out,
@@ -460,11 +480,13 @@ export function registerRenderCommands(program: Command): void {
         kv(o, [
           ["job", job?.job_id ?? jobId],
           ["status", job?.status],
+          ["gpu", job?.gpu],
           [
             "frames",
             job?.start !== undefined ? `${job.start}-${job.end}` : undefined,
           ],
           ["segments", segmentsText(job)],
+          ["cost", costText(job)],
           ["attempts", job?.attempts],
           ["error", job?.error],
           ["created", job?.created_at],
@@ -545,7 +567,7 @@ export function registerRenderCommands(program: Command): void {
   render
     .command("machine")
     .description(
-      "Show your cloud GPU machine: state, billing and daily GPU time",
+      "Show your cloud GPU machines: state, billing and GPU time in the last 24 hours",
     )
     .action(async function (this: Command) {
       const ctx = buildContext(this);
@@ -553,13 +575,16 @@ export function registerRenderCommands(program: Command): void {
         ctx.client.callTool("cloud_render_machine", {}),
       );
       emit(ctx.out, machine, (o) => {
+        const machines: any[] = Array.isArray(machine?.machines)
+          ? machine.machines
+          : [];
         kv(o, [
           ["state", machine?.state],
-          ["zone", machine?.zone],
+          ["machines", machines.length || undefined],
           [
-            "price",
-            typeof machine?.credits_per_minute === "number"
-              ? `${machine.credits_per_minute} credits per GPU-minute`
+            "burning",
+            typeof machine?.credits_per_minute === "number" && machines.length
+              ? `${machine.credits_per_minute} credits per minute`
               : undefined,
           ],
           [
@@ -571,16 +596,34 @@ export function registerRenderCommands(program: Command): void {
           [
             "GPU time (24h)",
             typeof machine?.gpu_seconds_24h === "number"
-              ? `${formatDuration(machine.gpu_seconds_24h)}${typeof machine?.daily_limit_seconds === "number" ? ` of ${formatDuration(machine.daily_limit_seconds)}` : ""}`
+              ? formatDuration(machine.gpu_seconds_24h)
               : undefined,
           ],
         ]);
+        if (machines.length) {
+          table(
+            o,
+            ["machine", "gpu", "state", "job", "credits/min"],
+            machines.map((m) => [
+              String(m?.name ?? ""),
+              String(m?.gpu ?? ""),
+              String(m?.state ?? ""),
+              String(m?.job_id ?? ""),
+              m?.credits_per_minute === null ||
+              m?.credits_per_minute === undefined
+                ? ""
+                : String(m.credits_per_minute),
+            ]),
+          );
+        }
       });
     });
 
   render
     .command("stop")
-    .description("Switch your cloud GPU machine off now and settle its bill")
+    .description(
+      "Switch all your cloud GPU machines off now and settle the bill",
+    )
     .action(async function (this: Command) {
       const ctx = buildContext(this);
       const result = await renderCall(
@@ -601,34 +644,44 @@ export function registerRenderCommands(program: Command): void {
 
   render
     .command("prices")
-    .description("Show the live Cloud render price and GPU")
+    .description("Show the live Cloud render prices for each GPU size")
     .action(async function (this: Command) {
       const ctx = buildContext(this);
       const prices = await renderCall(
         ctx.client.callTool("cloud_render_prices", {}),
       );
       emit(ctx.out, prices, (o) => {
-        kv(o, [
-          ["gpu", prices?.gpu],
-          ["machine", prices?.model],
-          [
-            "price",
-            typeof prices?.credits_per_minute === "number"
-              ? `${prices.credits_per_minute} credits per GPU-minute`
-              : undefined,
-          ],
-          [
-            "usd",
-            typeof prices?.usd_per_hour === "number"
-              ? `$${prices.usd_per_hour} per hour`
-              : undefined,
-          ],
-        ]);
+        const gpus: any[] = Array.isArray(prices?.gpus) ? prices.gpus : [];
+        if (gpus.length) {
+          table(
+            o,
+            ["gpu", "name", "memory", "credits/min", "usd/hour"],
+            gpus.map((g) => [
+              String(g?.id ?? ""),
+              String(g?.name ?? ""),
+              typeof g?.vram_gb === "number" ? `${g.vram_gb} GB` : "",
+              String(g?.credits_per_minute ?? ""),
+              typeof g?.usd_per_hour === "number" ? `$${g.usd_per_hour}` : "",
+            ]),
+          );
+          if (prices?.choosing) note(o, fmt.dim(o, String(prices.choosing)));
+        } else {
+          // Servers from before GPU sizes: one price.
+          kv(o, [
+            ["gpu", prices?.gpu],
+            [
+              "price",
+              typeof prices?.credits_per_minute === "number"
+                ? `${prices.credits_per_minute} credits per GPU-minute`
+                : undefined,
+            ],
+          ]);
+        }
         note(
           o,
           fmt.dim(
             o,
-            `Billed per second while the machine is on; it switches itself off ${IDLE_SHUTDOWN_MINUTES} minutes after its last job.`,
+            `Billed per second while the machine is on; it switches itself off ${IDLE_SHUTDOWN} after its last job.`,
           ),
         );
       });

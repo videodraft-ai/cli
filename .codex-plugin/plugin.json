@@ -1,6 +1,6 @@
 {
   "name": "videodraft",
-  "version": "0.33.2",
+  "version": "0.34.0",
   "description": "AI video, image, audio and 3D asset generation plus the idea-to-MP4 storyboard/production pipeline, via the VideoDraft CLI.",
   "author": {
     "name": "VideoDraft",

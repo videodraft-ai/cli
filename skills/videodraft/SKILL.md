@@ -166,17 +166,18 @@ For an existing native-editor clip, follow the guarded [background-removal hando
 
 ## Cloud render (Blender on a cloud GPU)
 
-Use Cloud render when the user wants their own Blender scene, an animation or a frame range, rendered on a cloud GPU, for example because rendering locally is too slow. It renders a saved `.blend`; it does not generate or edit the scene. It needs a paid plan or a past credit purchase.
+Use Cloud render when the user wants their own Blender scene, an animation or a frame range, rendered on a cloud GPU, for example because rendering locally is too slow. It renders a saved `.blend`; it does not generate or edit the scene.
 
 ```bash
-videodraft render prices                              # live price per GPU-minute
+videodraft render prices                              # live price per GPU-minute for each GPU size on offer
 videodraft render blender scene.blend --frames 1-240  # upload, render, wait, download media/renders/<job_id>.mp4
-videodraft render stop                                # switch the GPU off when your task is done
+videodraft render stop                                # switch every GPU off when your task is done
 ```
 
-- Pack the scene first (Blender: File > External Data > Pack Resources, then save). Files outside the `.blend` are missing on the GPU, and scripts inside it never run.
-- Each user has one GPU machine. It bills per second while it is on, at the rate `videodraft render prices` returns, and switches itself off 2 minutes after its last job. State the rate and get a go-ahead before long renders. When your task is done, run `videodraft render stop` so idle time is not billed.
-- Exit code 4 means credits ran out, before the job started or mid-render (the job pauses and keeps its finished segments). Tell the user; after they top up, run `videodraft render resume <job_id>`.
+- Pack the scene first (Blender: File > External Data > Pack Resources, then save). Files outside the `.blend` are missing on the GPU, and scripts inside it never run. The engine (Cycles or Eevee) is whatever the scene is set to.
+- `videodraft render prices` lists the GPU sizes on offer; `--gpu full` (96 GB) is the default and fastest. When smaller sizes (`half`, `quarter`) are offered they cost less per frame but take longer: use them when the user wants it cheaper and is not in a hurry, and run a render again on a bigger size if it fails for GPU memory.
+- Every job gets its own machine, so several renders run at the same time. A machine bills per second while it is on, at the rate `videodraft render prices` returns, and switches itself off 1 minute after its last job. State the rate and get a go-ahead before long renders; `render status` shows a job's cost so far and an estimate. When your task is done, run `videodraft render stop` so idle time is not billed.
+- Exit code 4 means credits ran low, before the job started or mid-render (the job pauses and keeps its finished segments; uploading and starting need a minimum balance). Tell the user; after they top up, run `videodraft render resume <job_id>`.
 - Renders can take hours. For long jobs use `--no-wait`, then `videodraft render wait <job_id>`. Never submit the same render again to recover from a lost wait; check `videodraft render list`.
 
 Flags, outputs and the MCP flow (`cloud_render_*` tools): [references/cloud-render.md](references/cloud-render.md), or `videodraft skills show render`.
