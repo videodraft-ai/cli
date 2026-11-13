@@ -5,6 +5,35 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-13
+
+### Added
+
+- `render blender --gpu <size>` picks the GPU size from those `render
+prices` lists with their rates; `full` (96 GB, the default) is fastest,
+  and smaller sizes cost less per frame when they are offered. The skill
+  explains how to choose.
+- Every job gets its own machine, so several renders run in parallel.
+  `render machine` lists the machines and what they cost per minute.
+- `render status` and the waiting spinner show a job's cost so far and,
+  while it renders, an estimate for the whole job, including the minute
+  its machine waits before it switches off. A settled cost no longer says
+  "so far".
+
+### Changed
+
+- A machine switches itself off 1 minute after its last job (was 2), so a
+  short render costs less.
+
+## [0.33.3] - 2026-11-13
+
+### Changed
+
+- Cloud render has no daily GPU-time, open-job or frames-per-job limits,
+  and any signed-in account with credits can use it; credits are the only
+  limit. The skill no longer mentions a daily limit or a paid plan, and
+  `render machine` shows GPU time used in the last 24 hours.
+
 ## [0.33.2] - 2026-11-13
 
 ### Fixed

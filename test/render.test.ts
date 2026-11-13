@@ -38,6 +38,7 @@ import {
 import { pollRenderJob } from "../src/core/poll.js";
 import { EXIT, RpcError, ToolError } from "../src/core/errors.js";
 import {
+  costText,
   parseFrameRange,
   registerRenderCommands,
   renderOutputPath,
@@ -353,6 +354,25 @@ describe("render helpers", () => {
     expect(() => parseFrameRange("-5-10")).toThrow(/frame range like 1-240/);
   });
 
+  it("says a cost is so far until it is final", () => {
+    expect(
+      costText({
+        cost: {
+          credits: 2.8,
+          estimated_total_credits: 13.9,
+          estimated_minutes_left: 1.9,
+        },
+      }),
+    ).toBe("2.8 credits so far, about 13.9 in total, 1.9 min left");
+    expect(costText({ cost: { credits: 12.1, final: true } })).toBe(
+      "12.1 credits",
+    );
+    expect(costText({ cost: { credits: 9.4, final: false } })).toBe(
+      "9.4 credits so far",
+    );
+    expect(costText({})).toBeUndefined();
+  });
+
   it("names the clip after the job unless --out names a file", () => {
     expect(renderOutputPath(undefined, JOB, CLIP_URL)).toBe(
       path.join("media", "renders", `${JOB}.mp4`),
@@ -515,6 +535,40 @@ describe("videodraft render", () => {
     expect(output()).toMatchObject({ uploaded: true, status: "done" });
   });
 
+  it("--gpu picks the GPU size and refuses an unknown one", async () => {
+    const { file } = writeFile("scene.blend", 10);
+    tools({
+      cloud_render_upload_scene: { exists: true },
+      cloud_render_submit: { ...submitted, gpu: "quarter" },
+    });
+    await run([
+      "render",
+      "blender",
+      file,
+      "--frames",
+      "5",
+      "--gpu",
+      "quarter",
+      "--no-wait",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "cloud_render_submit",
+      expect.objectContaining({ gpu: "quarter" }),
+    );
+    await expect(
+      run([
+        "render",
+        "blender",
+        file,
+        "--frames",
+        "5",
+        "--gpu",
+        "l4",
+        "--no-wait",
+      ]),
+    ).rejects.toMatchObject({ exitCode: EXIT.USAGE });
+  });
+
   it("--no-wait returns the job without polling", async () => {
     const { file } = writeFile("scene.blend", 10);
     tools({
@@ -562,14 +616,25 @@ describe("videodraft render", () => {
     for (const paused of [
       { pause_reason: "daily_limit", error: daily },
       { error: daily },
-      { pause_reason: "user", error: "The machine was stopped. Resume the job to continue." },
+      {
+        pause_reason: "user",
+        error: "The machine was stopped. Resume the job to continue.",
+      },
     ]) {
       tools(
         {
           cloud_render_upload_scene: { exists: true },
           cloud_render_submit: submitted,
         },
-        [{ job_id: JOB, status: "paused", segments_done: 1, segments_total: 2, ...paused }],
+        [
+          {
+            job_id: JOB,
+            status: "paused",
+            segments_done: 1,
+            segments_total: 2,
+            ...paused,
+          },
+        ],
       );
       await expect(
         run(["render", "blender", file, "--frames", "1-2", "--out", tmp]),
@@ -584,7 +649,14 @@ describe("videodraft render", () => {
         cloud_render_upload_scene: { exists: true },
         cloud_render_submit: submitted,
       },
-      [{ job_id: JOB, status: "paused", pause_reason: "credits", error: "Out of credits. Add credits, then resume the job." }],
+      [
+        {
+          job_id: JOB,
+          status: "paused",
+          pause_reason: "credits",
+          error: "Out of credits. Add credits, then resume the job.",
+        },
+      ],
     );
     await expect(
       run(["render", "blender", file, "--frames", "1-2", "--out", tmp]),
