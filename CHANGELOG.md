@@ -5,6 +5,34 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-14
+
+### Added
+
+- `render blender --name <label>` names a job; without it, a job is named
+  after its scene file and frames (`main_v8 845-1350`). `render status`,
+  `wait`, `cancel` and `resume` take a name as well as a job id, and
+  `render list --name` finds jobs by name, so scripts no longer need their
+  own list of job ids.
+- `render status` and the end of `render wait` say where a job's billed
+  time went (start-up, rendering, and the idle minute before its machine
+  switches off) and how long it waited for a GPU, which is never billed.
+  A finished job whose machine is still on shows what its cost will be.
+- `render cancel` says what the cancelled job cost.
+
+### Changed
+
+- Waiting for a GPU now reads as free everywhere. `render wait` shows
+  "waiting for a free GPU (not billed)" and, after 5 minutes, says that
+  long waits are normal at busy times and the job keeps its place.
+- `render machine` shows what each machine is doing (waiting for a GPU,
+  starting up, rendering, idle, switching off) and counts only machines
+  Google has handed over in "billing now". It replaces "burning", which
+  counted machines still waiting for a GPU, and shows spend for the last
+  24 hours next to the all-time total.
+- `render list` shows each job's name, GPU size and cost, and what your
+  machines are doing.
+
 ## [0.34.0] - 2026-11-13
 
 ### Added

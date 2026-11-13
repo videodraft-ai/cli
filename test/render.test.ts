@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   callTool: vi.fn(),
   // waitInterval makes the render poller use intervalMs (1 ms) below.
   flags: { json: true, waitInterval: "1ms" } as Record<string, unknown>,
+  // Human output tests turn JSON off to read what a person sees.
+  json: true,
 }));
 
 vi.mock("../src/cli/context.js", async () => {
@@ -19,7 +21,7 @@ vi.mock("../src/cli/context.js", async () => {
     ...actual,
     buildContext: () => ({
       client: { callTool: mocks.callTool },
-      out: { json: true, color: false, isTTY: false },
+      out: { json: mocks.json, color: false, isTTY: false },
       flags: mocks.flags,
       baseUrl: "https://example.test",
       intervalMs: 1,
@@ -38,10 +40,16 @@ import {
 import { pollRenderJob } from "../src/core/poll.js";
 import { EXIT, RpcError, ToolError } from "../src/core/errors.js";
 import {
+  billedText,
   costText,
+  defaultJobName,
+  jobNameOption,
+  machinesSummary,
   parseFrameRange,
   registerRenderCommands,
   renderOutputPath,
+  stateText,
+  waitedText,
 } from "../src/commands/render.js";
 
 const CHUNK = RESUMABLE_CHUNK_ALIGNMENT;
@@ -373,6 +381,82 @@ describe("render helpers", () => {
     expect(costText({})).toBeUndefined();
   });
 
+  it("words a job's state, waits and billed time plainly", () => {
+    expect(stateText({ status: "queued", machine: { phase: "waiting" } })).toBe(
+      "waiting for a free GPU (not billed)",
+    );
+    expect(stateText({ status: "queued" })).toBe("queued");
+    expect(
+      stateText({ status: "queued", machine: { phase: "starting" } }),
+    ).toBe("a GPU is starting for queued jobs (billed)");
+    expect(
+      stateText({ status: "running", segments_done: 1, segments_total: 4 }),
+    ).toBe("rendering (1/4 segments)");
+    expect(
+      costText({
+        status: "queued",
+        machine: { phase: "waiting" },
+        cost: { credits: 0, gpu_seconds: 0 },
+      }),
+    ).toBe("nothing yet (waiting for a GPU is not billed)");
+    expect(
+      costText({
+        status: "queued",
+        machine: { phase: "starting" },
+        cost: { credits: 0 },
+      }),
+    ).toBe("0 credits so far");
+    expect(
+      costText({
+        status: "done",
+        cost: { credits: 8.6, estimated_total_credits: 9.4 },
+      }),
+    ).toBe("8.6 credits so far, about 9.4 once its machine switches off");
+    // A hand-off leaves about a second of idle time; it is not worth a word.
+    expect(
+      billedText({
+        cost: {
+          gpu_seconds: 326,
+          start_up_seconds: 0,
+          render_seconds: 325,
+          idle_seconds: 1,
+        },
+      }),
+    ).toBe("5m 26s of GPU time (rendering 5m 25s)");
+    expect(billedText({ cost: { gpu_seconds: 0 } })).toBeUndefined();
+    expect(waitedText({ wait_seconds: 757 })).toBe(
+      "12m 37s for a GPU, not billed",
+    );
+    expect(machinesSummary([])).toBe("none");
+    expect(
+      machinesSummary([
+        { phase: "waiting" },
+        { phase: "rendering" },
+        { phase: "waiting" },
+      ]),
+    ).toBe("3 machines: 1 rendering, 2 waiting for a GPU (not billed)");
+    // Servers from before phases: their states.
+    expect(machinesSummary([{ state: "running" }])).toBe(
+      "1 machine: 1 running",
+    );
+  });
+
+  it("names a job after its scene and frames, within 80 characters", () => {
+    expect(
+      defaultJobName("/x/main_v8_packed.blend", { start: 845, end: 1350 }),
+    ).toBe("main_v8_packed 845-1350");
+    expect(defaultJobName("/x/shot.BLEND", { start: 42, end: 42 })).toBe(
+      "shot 42",
+    );
+    const long = defaultJobName(`/x/${"a".repeat(120)}.blend`, {
+      start: 1,
+      end: 240,
+    });
+    expect([...long].length).toBe(80);
+    expect(long.endsWith(" 1-240")).toBe(true);
+    expect(jobNameOption(" S4   final ")).toBe("S4 final");
+  });
+
   it("names the clip after the job unless --out names a file", () => {
     expect(renderOutputPath(undefined, JOB, CLIP_URL)).toBe(
       path.join("media", "renders", `${JOB}.mp4`),
@@ -492,6 +576,8 @@ describe("videodraft render", () => {
       end: 48,
       fps: 24,
       blender_version: "4.5",
+      // Without --name, the scene's file name and the frames.
+      name: "scene 1-48",
     });
     const saved = path.join(out, `${JOB}.mp4`);
     expect(fs.readFileSync(saved, "utf8")).toBe("MP4DATA");
@@ -755,6 +841,333 @@ describe("videodraft render", () => {
     await run(args);
     expect(mocks.callTool).toHaveBeenCalledWith(tool, toolArgs);
     expect(output()).toEqual(reply);
+  });
+
+  it("--name labels the job; an older server that keeps no name is not misquoted", async () => {
+    const { file } = writeFile("main_v8_packed.blend", 10);
+    tools({
+      cloud_render_upload_scene: { exists: true },
+      cloud_render_submit: { ...submitted, name: "main_v8_packed 845-1350" },
+    });
+    await run(["render", "blender", file, "--frames", "845-1350", "--no-wait"]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "cloud_render_submit",
+      expect.objectContaining({ name: "main_v8_packed 845-1350" }),
+    );
+    expect(output()).toMatchObject({
+      name: "main_v8_packed 845-1350",
+      next_step: expect.stringContaining("Waiting for a GPU is not billed"),
+    });
+
+    stdout.length = 0;
+    tools({
+      cloud_render_upload_scene: { exists: true },
+      cloud_render_submit: submitted,
+    });
+    await run([
+      "render",
+      "blender",
+      file,
+      "--frames",
+      "845-1350",
+      "--name",
+      "  S7  final ",
+      "--no-wait",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "cloud_render_submit",
+      expect.objectContaining({ name: "S7 final" }),
+    );
+    expect(output().name).toBeNull();
+  });
+
+  it("refuses a --name that is empty, too long or looks like a job id", async () => {
+    const { file } = writeFile("scene.blend", 10);
+    for (const name of ["   ", "x".repeat(81), JOB, JOB.toUpperCase()]) {
+      await expect(
+        run(["render", "blender", file, "--frames", "1", "--name", name]),
+      ).rejects.toMatchObject({ exitCode: EXIT.USAGE });
+    }
+    expect(mocks.callTool).not.toHaveBeenCalled();
+  });
+
+  it("status, wait, cancel and resume take a job's name: the newest job with it", async () => {
+    const older = {
+      job_id: "job_00000000000000aa",
+      name: "S4 final",
+      status: "done",
+      created_at: "2026-11-13T16:00:00Z",
+    };
+    const newer = {
+      job_id: JOB,
+      name: "S4 final",
+      status: "running",
+      created_at: "2026-11-13T17:00:00Z",
+    };
+    const other = {
+      job_id: "job_00000000000000bb",
+      name: "other",
+      status: "queued",
+      created_at: "2026-11-13T18:00:00Z",
+    };
+    mocks.callTool.mockImplementation(async (tool: string, args: any) => {
+      if (tool === "cloud_render_list") return { jobs: [older, newer, other] };
+      if (tool === "cloud_render_status")
+        return { job_id: args.job_id, status: "running" };
+      if (tool === "cloud_render_cancel")
+        return { job_id: args.job_id, status: "cancelled" };
+      throw new Error(`unexpected tool ${tool}`);
+    });
+    await run(["render", "status", "s4  FINAL"]);
+    expect(mocks.callTool).toHaveBeenCalledWith("cloud_render_list", {
+      name: "s4 FINAL",
+      limit: 100,
+    });
+    expect(mocks.callTool).toHaveBeenCalledWith("cloud_render_status", {
+      job_id: JOB,
+    });
+    await run(["render", "cancel", "S4 final"]);
+    expect(mocks.callTool).toHaveBeenCalledWith("cloud_render_cancel", {
+      job_id: JOB,
+    });
+  });
+
+  it("refuses to guess between two jobs of one name, and says when none has it", async () => {
+    mocks.callTool.mockResolvedValue({
+      jobs: [
+        {
+          job_id: "job_00000000000000aa",
+          name: "S4",
+          status: "queued",
+          created_at: "2026-11-13T16:00:00Z",
+        },
+        {
+          job_id: "job_00000000000000bb",
+          name: "S4",
+          status: "running",
+          created_at: "2026-11-13T17:00:00Z",
+        },
+        // A server from before names returns jobs without them: never a match.
+        {
+          job_id: "job_00000000000000cc",
+          status: "queued",
+          created_at: "2026-11-13T18:00:00Z",
+        },
+      ],
+    });
+    await expect(run(["render", "cancel", "S4"])).rejects.toMatchObject({
+      exitCode: EXIT.USAGE,
+      message: expect.stringContaining("job_00000000000000aa"),
+    });
+    await expect(run(["render", "status", "nope"])).rejects.toThrow(
+      /No render job is named "nope"/,
+    );
+    expect(mocks.callTool).not.toHaveBeenCalledWith(
+      "cloud_render_cancel",
+      expect.anything(),
+    );
+  });
+
+  it("list --name asks the server and filters for older servers too", async () => {
+    mocks.callTool.mockResolvedValue({
+      jobs: [
+        { job_id: JOB, name: "S4", status: "done" },
+        { job_id: "job_00000000000000bb", name: "S5", status: "done" },
+      ],
+      machines: [],
+    });
+    await run(["render", "list", "--name", "s4"]);
+    expect(mocks.callTool).toHaveBeenCalledWith("cloud_render_list", {
+      name: "s4",
+    });
+    expect(output().jobs.map((j: any) => j.job_id)).toEqual([JOB]);
+  });
+
+  it("cancel reports what the job cost", async () => {
+    mocks.callTool.mockImplementation(async (tool: string) =>
+      tool === "cloud_render_cancel"
+        ? { job_id: JOB, status: "cancelled" }
+        : {
+            job_id: JOB,
+            status: "cancelled",
+            wait_seconds: 95,
+            cost: { credits: 0, gpu_seconds: 0, final: true },
+          },
+    );
+    await run(["render", "cancel", JOB]);
+    expect(output()).toMatchObject({
+      status: "cancelled",
+      wait_seconds: 95,
+      cost: { credits: 0, final: true },
+    });
+  });
+
+  describe("what a person sees", () => {
+    let stderr: string[];
+    beforeEach(() => {
+      mocks.json = false;
+      stderr = [];
+      vi.spyOn(process.stderr, "write").mockImplementation((chunk: any) => {
+        stderr.push(String(chunk));
+        return true;
+      });
+    });
+    afterEach(() => {
+      mocks.json = true;
+    });
+
+    it("render machine never shows a machine waiting for a GPU as billed", async () => {
+      mocks.callTool.mockResolvedValue({
+        state: "running",
+        credits_per_minute: 3.76,
+        billing_credits_per_minute: 3.76,
+        machines: [
+          {
+            name: "vd-a",
+            gpu: "full",
+            state: "running",
+            phase: "rendering",
+            billing: true,
+            zone: "us-south1-a",
+            job_id: JOB,
+            credits_per_minute: 3.76,
+          },
+          {
+            name: "vd-b",
+            gpu: "full",
+            state: "starting",
+            phase: "waiting",
+            billing: false,
+            zone: "us-central1-b",
+            job_id: "job_00000000000000aa",
+            credits_per_minute: 3.76,
+          },
+        ],
+        billed_24h: { seconds: 441, credits: 27.64 },
+        billed_all_time: { seconds: 4020, credits: 228.25 },
+        balance: 12000,
+      });
+      await run(["render", "machine"]);
+      const text = stdout.join("");
+      expect(text).toContain(
+        "2 machines: 1 rendering, 1 waiting for a GPU (not billed)",
+      );
+      expect(text).toMatch(/billing now\s+3\.76 credits per minute/);
+      expect(text).toContain("27.64 credits for 7m 21s of GPU time");
+      expect(text).toContain("228.25 credits for 1h 7m of GPU time");
+      expect(text).toMatch(
+        /vd-b\s+full\s+waiting for a GPU \(not billed\)\s+us-central1-b\s+not billed/,
+      );
+      // A waiting machine's last job is history, not what it does now.
+      expect(text).not.toContain("job_00000000000000aa");
+      expect(text).not.toContain("burning");
+      expect(stderr.join("")).toContain("Waiting for a GPU is not billed");
+    });
+
+    it("render wait says the wait is free and where the billed time went", async () => {
+      tools({}, [
+        {
+          job_id: JOB,
+          name: "S4",
+          status: "queued",
+          wait_seconds: 30,
+          machine: { phase: "waiting" },
+          cost: { credits: 0 },
+        },
+        {
+          job_id: JOB,
+          name: "S4",
+          status: "queued",
+          queued_seconds: 420,
+          machine: { phase: "waiting" },
+          cost: { credits: 0 },
+        },
+        {
+          job_id: JOB,
+          name: "S4",
+          status: "running",
+          segments_done: 1,
+          segments_total: 2,
+          cost: { credits: 1.2 },
+        },
+        {
+          job_id: JOB,
+          name: "S4",
+          status: "done",
+          clip_url: CLIP_URL,
+          wait_seconds: 431,
+          cost: {
+            credits: 8.6,
+            gpu_seconds: 138,
+            start_up_seconds: 15,
+            render_seconds: 38,
+            idle_seconds: 85,
+            final: true,
+          },
+        },
+      ]);
+      network();
+      await run(["render", "wait", JOB, "--out", path.join(tmp, "s4.mp4")]);
+      const log = stderr.join("");
+      expect(log).toContain(`${JOB} (S4): waiting for a free GPU (not billed)`);
+      expect(log).toContain("queued for 7m 0s");
+      expect(log).toContain("Waiting for a GPU is not billed");
+      expect(log).toContain(`${JOB} (S4): rendering (1/2 segments)`);
+      expect(log).toContain(`${JOB} (S4): 8.6 credits.`);
+      expect(log).toContain(
+        "Billed 2m 18s of GPU time (start-up 15s, rendering 38s, idle before switch-off 1m 25s). Waited 7m 11s for a GPU, not billed.",
+      );
+    });
+
+    it("does not say no GPU is available after one has been assigned", async () => {
+      tools({}, [
+        {
+          job_id: JOB,
+          status: "queued",
+          wait_seconds: 420,
+          machine: { phase: "starting" },
+          cost: { credits: 0 },
+        },
+        { job_id: JOB, status: "done", clip_url: CLIP_URL },
+      ]);
+      network();
+      await run(["render", "wait", JOB, "--out", path.join(tmp, "s4.mp4")]);
+      expect(stderr.join("")).not.toContain("queued for 7m 0s");
+    });
+
+    it("does not claim a cancelled job is free before the final bill is known", async () => {
+      mocks.callTool.mockImplementation(async (tool: string) =>
+        tool === "cloud_render_cancel"
+          ? { job_id: JOB, status: "cancelled" }
+          : {
+              job_id: JOB,
+              status: "cancelled",
+              cost: { credits: 0, gpu_seconds: 0, final: false },
+            },
+      );
+      await run(["render", "cancel", JOB]);
+      expect(stderr.join("")).toContain("0 credits so far");
+      expect(stderr.join("")).not.toContain("No credits were charged");
+    });
+
+    it("does not infer account charges from a zero final job cost", async () => {
+      mocks.callTool.mockImplementation(async (tool: string) =>
+        tool === "cloud_render_cancel"
+          ? { job_id: JOB, status: "cancelled" }
+          : {
+              job_id: JOB,
+              status: "cancelled",
+              cost: { credits: 0, gpu_seconds: 0, final: true },
+            },
+      );
+      await run(["render", "cancel", JOB]);
+      expect(stderr.join("")).toContain("Job cost: 0 credits");
+      expect(stderr.join("")).toContain(
+        "Machine charges not assigned to a job",
+      );
+      expect(stderr.join("")).toContain("videodraft render stop");
+      expect(stderr.join("")).not.toContain("it cost nothing");
+    });
   });
 
   it("render wait downloads a finished job", async () => {
