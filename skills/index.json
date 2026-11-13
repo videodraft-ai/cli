@@ -12,8 +12,8 @@
         },
         {
           "path": "references/cloud-render.md",
-          "sha256": "9d82618d63f3cc8e69e9d062edc09baa875146cb56069a5c5fc04db1718fdc85",
-          "bytes": 6406
+          "sha256": "450124a4b3a78868a56213d4ccd43670d6631b8d487cb0b050ef981cca08ebc9",
+          "bytes": 9916
         },
         {
           "path": "references/editor.md",
@@ -37,8 +37,8 @@
         },
         {
           "path": "SKILL.md",
-          "sha256": "4423cf42faa00cc3432e8b514a2194804c0e69f0946510a03b885ab656b71eaf",
-          "bytes": 59055
+          "sha256": "b52c6a5c9ab65d1ad48e07333ba2669d2a67f2d5a934857ee33c5aae7c31b249",
+          "bytes": 59773
         }
       ]
     }

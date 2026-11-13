@@ -130,16 +130,16 @@ Machine output preserves `artifacts` and adds `output_files`, `downloaded_files`
 
 ## Cloud render (Blender on a cloud GPU)
 
-Render your own Blender scene on a cloud GPU (an RTX PRO 6000). Every job gets its own machine, so several renders run at the same time; a machine starts on demand and switches itself off 1 minute after its last job. It bills per second while it is on, at the rate `videodraft render prices` shows, and `render status` shows a job's cost so far and an estimate.
+Render your own Blender scene on a cloud GPU (an RTX PRO 6000). Every job gets its own machine, so several renders run at the same time; a machine starts on demand and switches itself off 1 minute after its last job. Waiting for a GPU is never billed; once Google hands a machine over, it bills per second while it is on, at the rate `videodraft render prices` shows. `render status` shows a job's cost so far, an estimate, and where the billed time went.
 
 ```bash
 videodraft render prices
 videodraft render blender scene.blend --frames 1-240                  # hash, upload once, render, download media/renders/<job_id>.mp4
-videodraft render blender scene.blend --frames 1-240 --blender 4.5 --no-wait --json
-videodraft render wait JOB_ID --out ./renders/
-videodraft render status JOB_ID
-videodraft render list
-videodraft render machine                                             # machines on now and what they cost per minute
+videodraft render blender scene.blend --frames 1-240 --name "S4 final" --no-wait --json
+videodraft render wait "S4 final" --out ./renders/                   # a job id works too
+videodraft render status "S4 final"
+videodraft render list                                                # names, status, cost, and what each machine is doing
+videodraft render machine                                             # each machine's phase and what you pay now
 videodraft render stop                                                # switch every machine off when you are done
 ```
 
@@ -174,7 +174,7 @@ difference is charged before it starts.
 | Pipeline        | `create` `shots` `produce` (`--mode full_video`) `attach` `finalize` `export` `export-status` `video-prompts`                                                                                                             |
 | Generate        | `generate image/video/audio/voiceover/music/sound-effect/dialogue/voice-changer/dub/3d` `rig 3d` `edit video/motion` `upscale image/video` `interpolate` `avatar script/create/render/get/list/fabric/lipsync/h3-lipsync` |
 | 3D assets       | `models 3d` `assets 3d list` `assets 3d get <id> --download`                                                                                                                                                              |
-| Cloud render    | `render blender <scene.blend> --frames <a-b>` `render status/wait/list/cancel/resume/machine/stop/prices`                                                                                                                 |
+| Cloud render    | `render blender <scene.blend> --frames <a-b> [--name <label>]` `render status/wait/list/cancel/resume/machine/stop/prices`                                                                                                |
 | Jobs            | `status <job>` `wait <job>` `generations`                                                                                                                                                                                 |
 | Media           | `upload <file>` `media list` `describe <url\|file>` `download <url>`                                                                                                                                                      |
 | Stock media     | `stock search "<query>"` `stock import <ref>` (free, no credits)                                                                                                                                                          |
