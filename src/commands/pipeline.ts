@@ -159,6 +159,17 @@ export function registerPipelineCommands(program: Command): void {
     )
     .option("--ar <ratio>", "aspect ratio override")
     .option("--resolution <res>", "image resolution, such as 1K, 2K, 4K")
+    .option("--background <mode>", "Seedream 5.5: auto | opaque | transparent")
+    .option("--format <format>", "Seedream 5.5: png | jpeg")
+    .option(
+      "--image-width <px>",
+      "Seedream 5.5 custom output width (Fal or VideoDraft)",
+    )
+    .option(
+      "--image-height <px>",
+      "Seedream 5.5 custom output height (Fal or VideoDraft)",
+    )
+    .option("--watermark", "Seedream 5.5: add Fal's visible watermark")
     .option(
       "--quality <tier>",
       "image quality; GPT Image 2.6 adds xhigh and max",
@@ -176,27 +187,52 @@ export function registerPipelineCommands(program: Command): void {
           project_id: projectId,
           view: "summary",
         });
-        const costs = await ctx.client.callTool(
+        const costInputs = compact({
+          model_id:
+            opts.model ??
+            project?.storyboard?.settings?.defaultImageModel ??
+            "nano-banana-2.1",
+          type: "image",
+          aspect_ratio:
+            opts.ar ??
+            project?.storyboard?.settings?.aspectRatio ??
+            "landscape",
+          resolution: opts.resolution,
+          quality: opts.quality,
+          background: opts.background,
+          output_format: opts.format,
+          image_width:
+            opts.imageWidth !== undefined ? Number(opts.imageWidth) : undefined,
+          image_height:
+            opts.imageHeight !== undefined
+              ? Number(opts.imageHeight)
+              : undefined,
+          watermark: opts.watermark ? true : undefined,
+        });
+        const costs: any = await ctx.client.callTool(
           "get_model_costs",
-          compact({
-            model_id:
-              opts.model ??
-              project?.storyboard?.settings?.defaultImageModel ??
-              "nano-banana-2.1",
-            type: "image",
-            aspect_ratio:
-              opts.ar ??
-              project?.storyboard?.settings?.aspectRatio ??
-              "landscape",
-            resolution: opts.resolution,
-            quality: opts.quality,
-          }),
+          costInputs,
         );
+        const isSeedream55 =
+          costs?.model === "seedream-v5.5" ||
+          (!costs?.model && costInputs.model_id === "seedream-v5.5");
+        const gridShotCosts =
+          isSeedream55 && opts.grid
+            ? await ctx.client.callTool("get_model_costs", {
+                ...costInputs,
+                reference_image_count: 1,
+              })
+            : undefined;
         emit(ctx.out, {
           project_scenes:
             project?.storyboard?.scenes?.length ?? project?.scenes?.length,
           per_image_costs: costs,
-          note: "Total ≈ shots missing images × per-image cost (+1 grid image per scene in grid mode). No credits were spent.",
+          ...(gridShotCosts ? { grid_shot_costs: gridShotCosts } : {}),
+          note: isSeedream55
+            ? opts.grid
+              ? "Base-only quotes assume no references on the grid image and one grid reference per decoded shot. Extra references can increase either cost. Scenes with one target use a single image instead of a grid. No credits were spent."
+              : "Base-only per-image quote with no references. Attached references can increase the cost. No credits were spent."
+            : "Total ≈ shots missing images × per-image cost (+1 grid image per scene in grid mode). No credits were spent.",
         });
         return;
       }
@@ -212,6 +248,15 @@ export function registerPipelineCommands(program: Command): void {
           aspect_ratio: opts.ar,
           resolution: opts.resolution,
           quality: opts.quality,
+          background: opts.background,
+          output_format: opts.format,
+          image_width:
+            opts.imageWidth !== undefined ? Number(opts.imageWidth) : undefined,
+          image_height:
+            opts.imageHeight !== undefined
+              ? Number(opts.imageHeight)
+              : undefined,
+          watermark: opts.watermark ? true : undefined,
           grid: opts.grid || undefined,
           regenerate_all: opts.regenerateAll || undefined,
         }),

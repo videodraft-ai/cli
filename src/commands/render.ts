@@ -12,6 +12,11 @@
  * (`render stop` switches every machine off at once). Output says so wherever a
  * wait could look like money burning. The rate comes from the server
  * (`render prices`), never from this file.
+ *
+ * When no regular GPU is free for a few minutes, a full-GPU job also asks for a
+ * Spot GPU (a higher rate; Google can reclaim it, and the job then continues on
+ * another machine). Output says when a job asks for or runs on Spot, and when
+ * Google reclaims one; --no-spot keeps a job on regular GPUs.
  */
 
 import fs from "node:fs";
@@ -217,15 +222,25 @@ export function waitedText(job: any): string | undefined {
   return `${formatDuration(s)} for a GPU, not billed`;
 }
 
+/** A queued job that asks for a Spot GPU as well as a regular one (the server sends spot_note). */
+export function askingSpot(job: any): boolean {
+  return job?.status === "queued" && typeof job?.spot_note === "string";
+}
+
 /** What a job is doing, in a few words that never make a free wait sound billed. */
 export function stateText(job: any): string {
   const status = String(job?.status ?? "unknown");
+  const onSpot = job?.machine?.spot === true;
   if (status === "queued") {
     switch (job?.machine?.phase) {
       case "waiting":
-        return "waiting for a free GPU (not billed)";
+        return askingSpot(job)
+          ? "waiting for a free GPU, regular or Spot (not billed)"
+          : "waiting for a free GPU (not billed)";
       case "starting":
-        return "a GPU is starting for queued jobs (billed)";
+        return onSpot
+          ? "a Spot GPU is starting for queued jobs (billed)"
+          : "a GPU is starting for queued jobs (billed)";
       case "idle":
         return "a machine is picking up queued work";
       case "rendering":
@@ -236,9 +251,27 @@ export function stateText(job: any): string {
   }
   if (status === "running") {
     const segments = segmentsText(job);
-    return `rendering${segments ? ` (${segments})` : ""}`;
+    return `rendering${onSpot ? " on Spot" : ""}${segments ? ` (${segments})` : ""}`;
   }
   return status;
+}
+
+/** The Spot line of `render status`, or nothing for a job Spot does not concern. */
+export function spotText(job: any): string | undefined {
+  const reclaims = Number(job?.spot_reclaims ?? 0);
+  const reclaimed =
+    reclaims > 0
+      ? `; Google reclaimed its Spot machine ${reclaims === 1 ? "once" : `${reclaims} times`}`
+      : "";
+  if (job?.spot === "never") return "off for this job";
+  const rate =
+    typeof job?.spot_credits_per_minute === "number"
+      ? ` (${job.spot_credits_per_minute} credits per minute)`
+      : "";
+  if (job?.status === "running" && job?.machine?.spot === true)
+    return `rendering on a Spot machine${rate}${reclaimed}`;
+  if (askingSpot(job)) return `asking for a Spot GPU too${rate}${reclaimed}`;
+  return reclaimed ? reclaimed.slice(2) : undefined;
 }
 
 const PHASE_WORDS: Record<string, string> = {
@@ -409,6 +442,8 @@ async function waitAndDownload(
   const spin = spinner(ctx.out, `${label}: waiting`);
   let last = "";
   let reassured = false;
+  let spotSaid = false;
+  let reclaims: number | null = null;
   let job: any;
   try {
     job = await pollRenderJob(ctx.client, jobId, {
@@ -425,6 +460,35 @@ async function waitAndDownload(
         if (state !== last) {
           last = state;
           logLine(ctx, `${label}: ${state}`);
+        }
+        // Say once, plainly, what Spot means when a job starts asking for it, and every time
+        // Google reclaims a Spot machine from it.
+        const seen = Number(payload?.spot_reclaims ?? 0);
+        if (reclaims !== null && seen > reclaims) {
+          logLine(
+            ctx,
+            `${label}: Google reclaimed its Spot machine. Finished segments are kept; the job continues on the next machine.`,
+          );
+        }
+        reclaims = seen;
+        // A job can also go straight to a Spot machine that is already on: say it then.
+        const onSpot =
+          payload?.status === "running" && payload?.machine?.spot === true;
+        if (!spotSaid && (askingSpot(payload) || onSpot)) {
+          spotSaid = true;
+          const rate =
+            typeof payload?.spot_credits_per_minute === "number"
+              ? ` at ${payload.spot_credits_per_minute} credits per minute`
+              : "";
+          logLine(
+            ctx,
+            fmt.dim(
+              ctx.out,
+              onSpot
+                ? `${label}: it renders on a Spot machine${rate}. Google can reclaim it at any time, and the job then continues from its finished segments. Submit with --no-spot to use regular GPUs only.`
+                : `${label}: no regular GPU yet, so it also asks for a Spot GPU${rate}; the first GPU found takes the job. Google can reclaim a Spot machine at any time, and the job then continues from its finished segments. Submit with --no-spot to wait for a regular GPU only.`,
+            ),
+          );
         }
         const queuedSeconds =
           typeof payload?.queued_seconds === "number"
@@ -563,6 +627,10 @@ export function registerRenderCommands(program: Command): void {
     )
     .option("--blender <version>", "Blender version: 5.2 (default) or 4.5")
     .option(
+      "--no-spot",
+      "wait for a regular GPU only; by default a full-GPU job that finds none for a few minutes also asks for a Spot GPU (higher rate; Google can reclaim it, and the job then continues on another machine)",
+    )
+    .option(
       "--out <path>",
       "directory or file for the clip (default media/renders/<job_id>.mp4)",
     )
@@ -576,6 +644,7 @@ export function registerRenderCommands(program: Command): void {
         procs?: string;
         blender?: string;
         gpu?: string;
+        spot: boolean;
         out?: string;
         wait: boolean;
       }>();
@@ -657,6 +726,8 @@ export function registerRenderCommands(program: Command): void {
             blender_version: opts.blender,
             gpu: opts.gpu,
             name,
+            // Only the opt-out is sent: the server decides where Spot is offered.
+            spot: opts.spot === false ? "never" : undefined,
           }),
         ),
       );
@@ -679,6 +750,17 @@ export function registerRenderCommands(program: Command): void {
           `Waiting for a GPU is not billed. Once Google hands one over (usually within 10 minutes, longer at busy times), it bills ${typeof rate === "number" ? `${rate} credits per GPU-minute, ` : ""}per second.`,
         ),
       );
+      if (typeof submitted?.spot_note === "string") {
+        note(ctx.out, fmt.dim(ctx.out, `Spot: ${submitted.spot_note}`));
+      } else if (submitted?.spot === "never") {
+        note(
+          ctx.out,
+          fmt.dim(
+            ctx.out,
+            "Spot is off for this job: it waits for a regular GPU.",
+          ),
+        );
+      }
       const extra = { scene_sha: sha, uploaded, name: kept };
       if (!opts.wait) {
         const ref = kept ?? jobId;
@@ -739,6 +821,7 @@ export function registerRenderCommands(program: Command): void {
             job?.start !== undefined ? `${job.start}-${job.end}` : undefined,
           ],
           ["segments", segmentsText(job)],
+          ["spot", spotText(job)],
           ["waited", waitedText(job)],
           ["cost", costText(job)],
           ["billed", billedText(job)],
@@ -958,9 +1041,9 @@ export function registerRenderCommands(program: Command): void {
             machines.map((m) => [
               String(m?.name ?? ""),
               String(m?.gpu ?? ""),
-              phased
+              (phased
                 ? (PHASE_WORDS[m?.phase] ?? String(m?.phase ?? ""))
-                : String(m?.state ?? ""),
+                : String(m?.state ?? "")) + (m?.spot === true ? " (Spot)" : ""),
               String(m?.zone ?? ""),
               // The last job of an idle machine is history, not what it does now.
               !phased || m?.phase === "rendering"
@@ -977,6 +1060,9 @@ export function registerRenderCommands(program: Command): void {
         }
         if (!machines.length || machines.some((m) => m?.billing === false)) {
           note(o, fmt.dim(o, WAIT_NOTE));
+        }
+        if (typeof machine?.spot_note === "string") {
+          note(o, fmt.dim(o, `Spot: ${machine.spot_note}`));
         }
       });
     });
@@ -1038,6 +1124,14 @@ export function registerRenderCommands(program: Command): void {
                 : undefined,
             ],
           ]);
+        }
+        const spot = prices?.spot;
+        if (spot && typeof spot.credits_per_minute === "number") {
+          note(
+            o,
+            `Spot fallback: ${spot.credits_per_minute} credits/min${Array.isArray(spot.gpus) ? ` on ${spot.gpus.join(", ")}` : ""}${typeof spot.regions === "number" ? `, ${spot.regions} regions` : ""}.`,
+          );
+          if (typeof spot.note === "string") note(o, fmt.dim(o, spot.note));
         }
         note(
           o,
