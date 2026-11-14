@@ -5,6 +5,29 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-14
+
+### Added
+
+- Seedream 5.5 (`--model seedream-v5.5`): `generate image` takes
+  `--background auto|opaque|transparent`, `--format png|jpeg` and
+  `--watermark`, plus `--resolution 1.5K` and up to 6 outputs with `--num`.
+  `--image-width` and `--image-height` set an exact size; they need
+  VideoDraft credits or a Fal key, as `--watermark` does. `--seed` needs a
+  selected Pika personal key.
+- `shots` takes the same `--background`, `--format`, `--image-width`,
+  `--image-height` and `--watermark` options, and its `--estimate` quotes a
+  grid's decoded shots with their grid reference.
+- `costs` takes `--image-width` and `--image-height`.
+- Spot GPUs as a fallback: when Google has no regular GPU for a few
+  minutes, a full-GPU job also asks for a Spot GPU at a higher rate, and
+  the first GPU found takes it. Google can reclaim a Spot machine at any
+  time; the job then continues from its finished segments. `render wait`
+  says when a job starts asking for Spot and when Google reclaims its
+  machine, `render status` has a `spot` line, `render machine` marks Spot
+  machines, and `render prices` shows the Spot rate.
+- `render blender --no-spot` keeps a job on regular GPUs.
+
 ## [0.35.0] - 2026-11-14
 
 ### Added

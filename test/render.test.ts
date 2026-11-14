@@ -48,6 +48,7 @@ import {
   parseFrameRange,
   registerRenderCommands,
   renderOutputPath,
+  spotText,
   stateText,
   waitedText,
 } from "../src/commands/render.js";
@@ -441,6 +442,59 @@ describe("render helpers", () => {
     );
   });
 
+  it("says when a job asks for or runs on Spot, and when it is off", () => {
+    const note = "If no regular GPU is free for 5 minutes, ...";
+    expect(
+      stateText({
+        status: "queued",
+        machine: { phase: "waiting" },
+        spot_note: note,
+      }),
+    ).toBe("waiting for a free GPU, regular or Spot (not billed)");
+    expect(
+      stateText({
+        status: "queued",
+        machine: { phase: "starting", spot: true },
+      }),
+    ).toBe("a Spot GPU is starting for queued jobs (billed)");
+    expect(
+      stateText({
+        status: "running",
+        segments_done: 1,
+        segments_total: 4,
+        machine: { spot: true },
+      }),
+    ).toBe("rendering on Spot (1/4 segments)");
+    expect(
+      spotText({
+        status: "running",
+        spot: "auto",
+        spot_credits_per_minute: 4.34,
+        spot_reclaims: 1,
+        machine: { spot: true },
+      }),
+    ).toBe(
+      "rendering on a Spot machine (4.34 credits per minute); Google reclaimed its Spot machine once",
+    );
+    expect(
+      spotText({
+        status: "queued",
+        spot: "auto",
+        spot_note: note,
+        spot_credits_per_minute: 4.34,
+      }),
+    ).toBe("asking for a Spot GPU too (4.34 credits per minute)");
+    expect(spotText({ status: "queued", spot: "never" })).toBe(
+      "off for this job",
+    );
+    // A job Spot does not concern, or a server from before Spot: no line.
+    expect(spotText({ status: "queued", spot: "auto" })).toBeUndefined();
+    expect(spotText({ status: "done" })).toBeUndefined();
+    expect(spotText({ status: "done", spot: "auto", spot_reclaims: 2 })).toBe(
+      "Google reclaimed its Spot machine 2 times",
+    );
+  });
+
   it("names a job after its scene and frames, within 80 characters", () => {
     expect(
       defaultJobName("/x/main_v8_packed.blend", { start: 845, end: 1350 }),
@@ -653,6 +707,33 @@ describe("videodraft render", () => {
         "--no-wait",
       ]),
     ).rejects.toMatchObject({ exitCode: EXIT.USAGE });
+  });
+
+  it("--no-spot keeps the job on regular GPUs; by default the server decides", async () => {
+    const { file } = writeFile("scene.blend", 10);
+    tools({
+      cloud_render_upload_scene: { exists: true },
+      cloud_render_submit: { ...submitted, spot: "never" },
+    });
+    await run([
+      "render",
+      "blender",
+      file,
+      "--frames",
+      "5",
+      "--no-spot",
+      "--no-wait",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "cloud_render_submit",
+      expect.objectContaining({ spot: "never" }),
+    );
+    mocks.callTool.mockClear();
+    await run(["render", "blender", file, "--frames", "5", "--no-wait"]);
+    const call = mocks.callTool.mock.calls.find(
+      (c) => c[0] === "cloud_render_submit",
+    );
+    expect(call?.[1]).not.toHaveProperty("spot");
   });
 
   it("--no-wait returns the job without polling", async () => {
@@ -1117,6 +1198,124 @@ describe("videodraft render", () => {
       expect(log).toContain(
         "Billed 2m 18s of GPU time (start-up 15s, rendering 38s, idle before switch-off 1m 25s). Waited 7m 11s for a GPU, not billed.",
       );
+    });
+
+    it("render wait explains Spot once and says when Google reclaims a Spot machine", async () => {
+      const note = "If no regular GPU is free for 5 minutes, ...";
+      const asking = {
+        job_id: JOB,
+        name: "S4",
+        status: "queued",
+        spot: "auto",
+        spot_credits_per_minute: 4.34,
+        spot_note: note,
+        spot_reclaims: 0,
+        queued_seconds: 320,
+        machine: { phase: "waiting" },
+        cost: { credits: 0 },
+      };
+      const onSpot = {
+        ...asking,
+        status: "running",
+        spot_note: note,
+        segments_done: 1,
+        segments_total: 2,
+        machine: { phase: "rendering", spot: true },
+        cost: { credits: 2 },
+      };
+      tools({}, [
+        asking,
+        asking,
+        onSpot,
+        { ...asking, spot_reclaims: 1, segments_done: 1, segments_total: 2 },
+        { ...onSpot, spot_reclaims: 1 },
+        {
+          job_id: JOB,
+          name: "S4",
+          status: "done",
+          spot: "auto",
+          spot_reclaims: 1,
+          clip_url: CLIP_URL,
+          cost: { credits: 9, final: true },
+        },
+      ]);
+      network();
+      await run(["render", "wait", JOB, "--out", path.join(tmp, "s4.mp4")]);
+      const log = stderr.join("");
+      expect(log).toContain(
+        `${JOB} (S4): waiting for a free GPU, regular or Spot (not billed)`,
+      );
+      expect(
+        log.match(
+          /so it also asks for a Spot GPU at 4\.34 credits per minute/g,
+        ),
+      ).toHaveLength(1);
+      expect(log).toContain("Submit with --no-spot");
+      expect(log).toContain(`${JOB} (S4): rendering on Spot (1/2 segments)`);
+      // Said once, while it asked: not again when it starts rendering on Spot.
+      expect(log).not.toContain("it renders on a Spot machine");
+      expect(
+        log.match(
+          /Google reclaimed its Spot machine\. Finished segments are kept/g,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it("render wait says so when a job goes straight to a Spot machine", async () => {
+      tools({}, [
+        {
+          job_id: JOB,
+          name: "S5",
+          status: "running",
+          spot: "auto",
+          spot_credits_per_minute: 4.34,
+          spot_note: "If no regular GPU is free for 5 minutes, ...",
+          segments_done: 0,
+          segments_total: 1,
+          machine: { phase: "rendering", spot: true },
+          cost: { credits: 1 },
+        },
+        {
+          job_id: JOB,
+          name: "S5",
+          status: "done",
+          clip_url: CLIP_URL,
+          cost: { credits: 3, final: true },
+        },
+      ]);
+      network();
+      await run(["render", "wait", JOB, "--out", path.join(tmp, "s5.mp4")]);
+      expect(stderr.join("")).toContain(
+        `${JOB} (S5): it renders on a Spot machine at 4.34 credits per minute. Google can reclaim it`,
+      );
+    });
+
+    it("render prices shows the Spot fallback", async () => {
+      mocks.callTool.mockResolvedValue({
+        gpus: [
+          {
+            id: "full",
+            name: "RTX PRO 6000 (96 GB)",
+            vram_gb: 96,
+            credits_per_minute: 3.76,
+            usd_per_hour: 2.2566,
+            spot_credits_per_minute: 4.34,
+          },
+        ],
+        spot: {
+          gpus: ["full"],
+          credits_per_minute: 4.34,
+          after_minutes: 5,
+          regions: 19,
+          note: "If no regular GPU is free for 5 minutes, ...",
+        },
+      });
+      await run(["render", "prices"]);
+      const log = stderr.join("");
+      expect(log).toContain(
+        "Spot fallback: 4.34 credits/min on full, 19 regions.",
+      );
+      expect(log).toContain("If no regular GPU is free for 5 minutes");
     });
 
     it("does not say no GPU is available after one has been assigned", async () => {

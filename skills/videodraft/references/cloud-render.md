@@ -28,6 +28,7 @@ videodraft render stop                             # switch every GPU off now
 - `--procs <n>`: Blender processes running in parallel on the GPU, 1-4.
 - `--blender 5.2|4.5`: Blender version (default 5.2).
 - `--gpu full|half|quarter`: GPU size (default `full`). See [Choosing a GPU size](#choosing-a-gpu-size).
+- `--no-spot`: wait for a regular GPU only. See [Spot GPUs](#spot-gpus-when-regular-ones-run-out).
 - `--out <dir|file.mp4>`: where the clip goes (default `media/renders/<job_id>.mp4`).
 - `--no-wait`: submit, print the job id and return. Resume with `videodraft render wait <job_id>`.
 
@@ -54,6 +55,14 @@ Exit codes: 0 done; 1 failed, cancelled or another error; 2 bad flags; 3 not sig
 | `quarter` (when offered) | 24 GB      | slowest | lowest, most of all on Eevee |
 
 All bill per second. A smaller GPU is cheaper overall, not just per minute, because one render rarely uses a whole RTX PRO 6000. Use `full` when the user is waiting, has a deadline or the scene is heavy; a smaller size when they want it cheaper and are not in a hurry. The scene has to fit in the GPU memory: if a render fails for memory, run it again on a bigger size. `render status` shows a job's cost so far and, while it renders, an estimate for the whole job.
+
+## Spot GPUs, when regular ones run out
+
+When Google has no regular GPU for a few minutes (`after_minutes` in `render prices`), a full-GPU job also asks for a Spot GPU, while its request for a regular one keeps its place. Whichever GPU comes first takes the job, and a Spot machine that is already on (one that just finished a job) can also take the next job at once. Spot has one higher rate everywhere (`spot.credits_per_minute` in `render prices`): when you state the rate and get a go-ahead before a long render, give the Spot rate too, and tell the user when a job runs on Spot. The fallback itself needs no further go-ahead.
+
+Google can reclaim a Spot machine at any time. The job then goes back to the queue and continues from its finished segments, so only the segment in progress renders again; a Spot machine reclaimed in its first minute is not billed. `render wait` says when a job starts asking for Spot and when Google reclaims its machine; `render status` has a `spot` line, and `render machine` marks Spot machines.
+
+Use `--no-spot` (MCP: `spot: "never"`) when the user wants the regular rate only, or a render must not be interrupted, for example close to a deadline where a restart costs more time than a wait. The half and quarter sizes never use Spot.
 
 ## Scenes must be self-contained
 
@@ -84,6 +93,6 @@ Never submit the same render twice to recover from a lost wait or a timeout: the
 
 1. `cloud_render_upload_scene` with the file's `sha256` and `size`. `exists: true` means skip to step 3.
 2. PUT the bytes to `upload_url`: one PUT of the whole file, or chunks that are multiples of 256 KiB with `Content-Range: bytes <first>-<last>/<size>` (308 means send the next chunk from the Range header, 200 or 201 means complete). Then `cloud_render_finalize_scene` with the same `sha256`.
-3. `cloud_render_submit` with `scene_sha`, `start`, `end` and optional `name`, `gpu`, `fps`, `chunk`, `procs`, `blender_version`.
-4. Poll `cloud_render_status` every 10 seconds or more. `message` and `machine.phase` distinguish a free GPU wait from billable start-up; a queued job's machine is a candidate that can change. `queued_seconds` includes time queued; `wait_seconds` gives the free wait when known. `clip_url` is the finished MP4; `segment_urls` lists finished pieces before then; `cost` has the credits so far, `start_up_seconds`, `render_seconds` and `idle_seconds`, and `estimated_total_credits` (plus `estimated_minutes_left` while rendering).
+3. `cloud_render_submit` with `scene_sha`, `start`, `end` and optional `name`, `gpu`, `fps`, `chunk`, `procs`, `blender_version`, `spot` (`auto` by default, or `never`).
+4. Poll `cloud_render_status` every 10 seconds or more. `message` and `machine.phase` distinguish a free GPU wait from billable start-up; a queued job's machine is a candidate that can change. `queued_seconds` includes time queued; `wait_seconds` gives the free wait when known. `machine.spot` is true on a Spot machine, `spot_note` explains Spot when the job asks for or runs on one, and `spot_reclaims` counts the times Google reclaimed its machine. `clip_url` is the finished MP4; `segment_urls` lists finished pieces before then; `cost` has the credits so far, `start_up_seconds`, `render_seconds` and `idle_seconds`, and `estimated_total_credits` (plus `estimated_minutes_left` while rendering).
 5. `cloud_render_stop` when the work is done. `cloud_render_list` (with `name` to find jobs by name), `cloud_render_cancel`, `cloud_render_resume` and `cloud_render_machine` (each machine's `phase` and `billing`) match the CLI commands above.

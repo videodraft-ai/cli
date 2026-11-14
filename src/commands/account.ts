@@ -93,6 +93,14 @@ export function registerAccountCommands(program: Command): void {
     .option("--quality <tier>", 'e.g. "standard", "pro", "fast"')
     .option("--ar <ratio>", "image aspect ratio for accurate credit quotes")
     .option(
+      "--image-width <px>",
+      "custom image output width, paired with --image-height",
+    )
+    .option(
+      "--image-height <px>",
+      "custom image output height, paired with --image-width",
+    )
+    .option(
       "--rendering-speed <tier>",
       "Legacy image rendering speed; current Ideogram models use --quality low/medium/high (very_low for regular edits)",
     )
@@ -155,6 +163,8 @@ export function registerAccountCommands(program: Command): void {
         resolution?: string;
         quality?: string;
         ar?: string;
+        imageWidth?: string;
+        imageHeight?: string;
         renderingSpeed?: string;
         editPrecision?: string;
         audio?: boolean;
@@ -189,6 +199,12 @@ export function registerAccountCommands(program: Command): void {
           resolution: opts.resolution,
           quality: opts.quality,
           aspect_ratio: opts.ar,
+          image_width:
+            opts.imageWidth !== undefined ? Number(opts.imageWidth) : undefined,
+          image_height:
+            opts.imageHeight !== undefined
+              ? Number(opts.imageHeight)
+              : undefined,
           rendering_speed: opts.renderingSpeed,
           edit_precision: opts.editPrecision,
           generate_audio: opts.audio,

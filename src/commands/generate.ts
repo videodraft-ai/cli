@@ -994,7 +994,12 @@ export function registerGenerateCommands(program: Command): void {
       "image model id or display name (default nano-banana-2.1); run `videodraft models image`",
     )
     .option("--ar <ratio>", 'aspect ratio, e.g. "16:9" (FLUX 3 also "auto")')
-    .option("--resolution <res>", 'e.g. "1K", "2K", "4K"')
+    .option("--resolution <res>", 'e.g. "1K", "1.5K", "2K", "4K"')
+    .option(
+      "--background <mode>",
+      "Seedream 5.5: auto, opaque or transparent PNG",
+    )
+    .option("--format <format>", "Seedream 5.5 output: png (default) or jpeg")
     .option(
       "--quality <tier>",
       "Ideogram 4.5: low, medium (default), high; regular edits also very_low. GPT Image 2.6: auto (default), low, medium, high, xhigh, max",
@@ -1042,7 +1047,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--num <n>",
-      "variations in one call (model limit; Ideogram 4.5: 1-8, GPT Image 2.6 and FLUX 3: 1-4)",
+      "variations in one call (Ideogram 4.5: 1-8, Seedream 5.5: 1-6, GPT Image 2.6 and FLUX 3: 1-4)",
     )
     .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.5)")
     .option(
@@ -1073,9 +1078,13 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--image-width <px>",
-      "Ideogram 4.5 custom width (with --image-height)",
+      "Ideogram 4.5 or Seedream 5.5 custom width (with --image-height)",
     )
-    .option("--image-height <px>", "Ideogram 4.5 custom height")
+    .option("--image-height <px>", "custom height, with --image-width")
+    .option(
+      "--watermark",
+      "Seedream 5.5: add Fal's visible watermark (Fal or VideoDraft only)",
+    )
     .option("--style <id>", "style preset id")
     .option("--project <id>", "attach to a project")
     .option(
@@ -1098,7 +1107,20 @@ export function registerGenerateCommands(program: Command): void {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
       const prompt = promptWords.join(" ");
+      if (
+        opts.format &&
+        (opts.gif || opts.frames !== undefined || opts.frameMs !== undefined)
+      )
+        throw new CliError(
+          "--format cannot be combined with GIF options.",
+          EXIT.USAGE,
+        );
+      if (opts.format && !["png", "jpeg"].includes(opts.format))
+        throw new CliError("--format must be png or jpeg.", EXIT.USAGE);
       const imageOptions = {
+        background: opts.background,
+        ...(opts.watermark ? { watermark: true } : {}),
+        ...(opts.format ? { output_format: opts.format } : {}),
         edit_precision: opts.editPrecision,
         enable_prompt_expansion: optionalBooleanChoice(
           opts.promptExpansion,
