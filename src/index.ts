@@ -35,6 +35,7 @@ import { registerKlingVoiceCommands } from "./commands/kling-voices.js";
 import { register3DAssetCommands } from "./commands/model3d.js";
 import { registerBackgroundRemovalCommands } from "./commands/background-removal.js";
 import { registerRenderCommands } from "./commands/render.js";
+import { registerSessionCommands } from "./commands/session.js";
 
 // HTTPS_PROXY / HTTP_PROXY / NO_PROXY support for corporate networks. The
 // undici package ships EnvHttpProxyAgent; setting the global dispatcher makes
@@ -96,6 +97,7 @@ function buildProgram(): Command {
   registerBackgroundRemovalCommands(program);
   register3DAssetCommands(program);
   registerRenderCommands(program);
+  registerSessionCommands(program);
   registerJobCommands(program);
   registerMediaCommands(program);
   registerStockCommands(program);

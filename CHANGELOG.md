@@ -5,6 +5,18 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-15
+
+### Added
+
+- Cloud sessions, in early access for accounts that have them:
+  `videodraft render session ...` starts a cloud GPU machine to work on.
+  Push files once (unchanged files are not uploaded again), run shell
+  commands and Blender scripts on it, pull results back, render from it
+  without another upload, and keep named snapshots for 30 days. A session
+  pauses itself when idle and resumes on a new machine with its files.
+  The commands stay out of `--help` until sessions open to every account.
+
 ## [0.36.0] - 2026-11-14
 
 ### Added
