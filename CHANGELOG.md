@@ -5,6 +5,19 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-11-16
+
+### Changed
+
+- `render session status` says when a session's machine is on Spot, shows
+  short GPU time in seconds, and a GPU search prints one line instead of
+  one per zone.
+- `render session blender` names the job (with `--name`) when it submits.
+- The Cloud sessions guide is clearer about cost: start-up is billed before
+  a session is ready, each render job has about a minute and a half of idle
+  time before its machine switches off, and files a snapshot also holds stay
+  counted until the snapshot is deleted.
+
 ## [0.38.0] - 2026-11-16
 
 ### Added

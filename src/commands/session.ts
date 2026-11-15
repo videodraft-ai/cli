@@ -206,7 +206,21 @@ async function sessionCall(ctx: CommandContext, args: Record<string, unknown>) {
 export function machineText(m: any, joiner: string): string {
   const phase = String(m?.phase ?? "");
   const zone = m?.zone ? String(m.zone) : "";
-  return zone && !phase.includes(zone) ? `${phase}${joiner}${zone}` : phase;
+  const where =
+    zone && !phase.includes(zone) ? `${phase}${joiner}${zone}` : phase;
+  // A Spot machine bills at the Spot rate and Google can take it back: say so.
+  return m?.model === "SPOT" ? `${where}, on Spot` : where;
+}
+
+/** The same line without the zone it names: a GPU search across zones prints once, not per zone. */
+export function phaseKey(line: string): string {
+  return line.replace(/ (in |, )[a-z]+-[a-z]+\d+-[a-z]\b/g, "");
+}
+
+/** GPU time as people read it: seconds under a minute, minutes after. */
+export function gpuTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  return s < 60 ? `${s} s of GPU` : `${Math.round(s / 60)} GPU-min`;
 }
 
 function stateLine(s: any): string {
@@ -236,7 +250,7 @@ function showSession(ctx: CommandContext, s: any) {
       [
         "cost",
         s?.cost
-          ? `${s.cost.credits} credits (${Math.round(Number(s.cost.gpu_seconds ?? 0) / 60)} GPU-min)`
+          ? `${s.cost.credits} credits (${gpuTime(Number(s.cost.gpu_seconds ?? 0))})`
           : undefined,
       ],
       [
@@ -271,8 +285,8 @@ async function waitReady(
       const s = await sessionCall(ctx, { action: "status", session });
       const line = stateLine(s);
       spin.update(line);
-      if (!process.stderr.isTTY && line !== last) note(ctx.out, line);
-      last = line;
+      if (!process.stderr.isTTY && phaseKey(line) !== last) note(ctx.out, line);
+      last = phaseKey(line);
       if (s?.state === "ready") return s;
       if (s?.state !== "starting") {
         throw new CliError(
@@ -954,7 +968,7 @@ export function registerSessionCommands(program: Command): void {
         return emit(ctx.out, job, (out) =>
           note(
             out,
-            `Submitted ${jobId}. Wait for it with \`videodraft render wait ${jobId}\`.`,
+            `Submitted ${jobId}${o.name ? ` (${o.name})` : ""}. Wait for it with \`videodraft render wait ${jobId}\`.`,
           ),
         );
       // Name the job before the wait: without a terminal there is no spinner, and an agent
@@ -964,7 +978,7 @@ export function registerSessionCommands(program: Command): void {
           ctx.out,
           fmt.dim(
             ctx.out,
-            `Submitted ${jobId} (frames ${start}-${end}); rendering.`,
+            `Submitted ${jobId}${o.name ? ` (${o.name})` : ""}, frames ${start}-${end}; rendering.`,
           ),
         );
       const spin = spinner(ctx.out, `Rendering ${jobId}`);
