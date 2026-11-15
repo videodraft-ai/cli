@@ -643,8 +643,10 @@ describe("videodraft render", () => {
       uploaded: false,
       downloaded_files: [{ path: saved, bytes: 7, url: CLIP_URL }],
     });
-    // --json hides stderr hints, so the document itself says to stop the GPU.
-    expect(result.next_step).toContain("videodraft render stop");
+    // --json hides stderr hints, so the document itself says the GPU stops by itself and that
+    // the account-wide stop is only for when the user asks.
+    expect(result.next_step).toContain("nothing to stop");
+    expect(result.next_step).toContain("only when the user asks");
   });
 
   it("uploads a new scene with the resumable protocol, then finalizes it", async () => {
@@ -1364,7 +1366,7 @@ describe("videodraft render", () => {
       expect(stderr.join("")).toContain(
         "Machine charges not assigned to a job",
       );
-      expect(stderr.join("")).toContain("videodraft render stop");
+      expect(stderr.join("")).toContain("only when the user asks");
       expect(stderr.join("")).not.toContain("it cost nothing");
     });
   });

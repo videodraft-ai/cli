@@ -5,6 +5,35 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-16
+
+### Added
+
+- Cloud sessions for every account: `videodraft render session` starts a
+  cloud GPU machine to work on, one per project. Push files once (unchanged
+  files are not uploaded again), run shell commands and Blender scripts on
+  it, pull results back, and render from it without another upload. It
+  pauses itself when idle, resumes on a new machine with its files, and
+  keeps named snapshots for 30 days. The machine reaches the web for
+  downloads and `pip install --user`, and what commands install in its home
+  folder stays with the session. `videodraft skills show sessions` has the
+  guide.
+- `render session delete` frees a paused or released session's stored
+  files, and `render session list` shows the storage used and the cap.
+
+### Changed
+
+- `render session pull <folder>` puts that folder's files straight into
+  `--out`, accepts a trailing `/`, and leaves the session's home folder out
+  unless you name it.
+- Session commands ride out a dropped connection, status lines name the
+  zone once, and `render session blender` prints the job id when it
+  submits. A failed `render session run` exits 1, with the command's own
+  exit code in the output.
+- Agents are no longer told to run `render stop` when their task is done:
+  it switches off every machine on the account, other agents' sessions and
+  jobs included. Sessions now save before it switches them off.
+
 ## [0.37.0] - 2026-11-15
 
 ### Added

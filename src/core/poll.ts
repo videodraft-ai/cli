@@ -215,7 +215,7 @@ export interface RenderPollOptions {
  * from either server, or the GPU service timing out. A long render should not
  * lose its waiter to one dropped request.
  */
-function isTransientStatusError(error: unknown): boolean {
+export function isTransientStatusError(error: unknown): boolean {
   if (error instanceof AuthError) return false;
   if (error instanceof ToolError) {
     const data = error.data as { http_status?: unknown; code?: unknown } | undefined;

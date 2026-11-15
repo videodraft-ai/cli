@@ -11,6 +11,7 @@ describe("bundledSkillFiles", () => {
       "SKILL.md",
       "references/3d.md",
       "references/cloud-render.md",
+      "references/cloud-sessions.md",
       "references/editor.md",
       "references/examples.md",
       "references/models.md",

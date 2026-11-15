@@ -40,7 +40,7 @@ const MAX_NAME = 80;
 const REASSURE_AFTER_SECONDS = 300;
 const TOP_UP_HINT =
   "Check your balance with `videodraft credits` or top up at https://app.videodraft.ai/pricing";
-const STOP_STEP = `The GPU bills until it switches itself off ${IDLE_SHUTDOWN} after its last job; run \`videodraft render stop\` once no more renders are needed.`;
+const STOP_STEP = `The GPU bills until it switches itself off ${IDLE_SHUTDOWN} after its last job, so there is nothing to stop. \`videodraft render stop\` switches off every machine on the account, other agents' included: run it only when the user asks.`;
 const WAIT_NOTE =
   "Waiting for a GPU is not billed. Billing starts when Google hands a machine over, about 15 seconds before it renders.";
 
@@ -351,7 +351,7 @@ function stopHint(ctx: CommandContext): void {
     ctx.out,
     fmt.dim(
       ctx.out,
-      `The GPU switches itself off ${IDLE_SHUTDOWN} after its last job. Run \`videodraft render stop\` when you are done.`,
+      `The GPU switches itself off ${IDLE_SHUTDOWN} after its last job. \`videodraft render stop\` switches off every machine on the account, other agents' included: run it only when the user asks.`,
     ),
   );
 }
@@ -1070,7 +1070,7 @@ export function registerRenderCommands(program: Command): void {
   render
     .command("stop")
     .description(
-      "Switch all your cloud GPU machines off now and settle the bill",
+      "Switch every cloud GPU machine on your account off now, other agents' too (sessions save first)",
     )
     .action(async function (this: Command) {
       const ctx = buildContext(this);

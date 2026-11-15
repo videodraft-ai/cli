@@ -11,6 +11,7 @@ VideoDraft is an AI video creation platform where asset generation is the priori
 - **Asset I/O**: upload local files, download outputs, auto-upload local references, and save generated media where the user can see it.
 - **3D assets**: standalone Meshy 7.1 and Tripo H3.1 meshes, multi-view generation, complete artifact downloads, and Meshy humanoid rigging through MCP/CLI. Read [references/3d.md](references/3d.md), or `videodraft skills show 3d`. These assets have their own saved library and do not require an AI Studio session or web viewer.
 - **Cloud render**: render the user's own Blender scenes on a cloud GPU with `videodraft render blender`. See [Cloud render](#cloud-render-blender-on-a-cloud-gpu) below and [references/cloud-render.md](references/cloud-render.md), or `videodraft skills show render`.
+- **Cloud sessions**: a cloud GPU machine to build scenes and run Blender scripts on, one per project, with `videodraft render session`. Read [references/cloud-sessions.md](references/cloud-sessions.md), or `videodraft skills show sessions`.
 - **Native editing**: local `.vdproject` timelines, cuts, layouts, captions, effects, audio, and exports through the headless VideoDraft Editor. Inside VideoDraft ADE, this is the default production and export lane when `videodraft_editor` is available and no chosen app or existing external project takes precedence.
 - **Hosted project production**: idea → script → storyboard → hosted production timeline → exported MP4. Use the early stages for scripts, storyboards, and generated assets when useful. Treat hosted production and export as a fallback when the native editor is unavailable and no external app is selected, or as an explicit destination when the user asks for an editable web project or hosted workflow.
 
@@ -171,12 +172,12 @@ Use Cloud render when the user wants their own Blender scene, an animation or a 
 ```bash
 videodraft render prices                              # live price per GPU-minute for each GPU size on offer
 videodraft render blender scene.blend --frames 1-240  # upload, render, wait, download media/renders/<job_id>.mp4
-videodraft render stop                                # switch every GPU off when your task is done
+videodraft render stop                                # every machine on the account off (only when the user asks)
 ```
 
 - Pack the scene first (Blender: File > External Data > Pack Resources, then save). Files outside the `.blend` are missing on the GPU, and scripts inside it never run. The engine (Cycles or Eevee) is whatever the scene is set to.
 - `videodraft render prices` lists the GPU sizes on offer; `--gpu full` (96 GB) is the default and fastest. When smaller sizes (`half`, `quarter`) are offered they cost less per frame but take longer: use them when the user wants it cheaper and is not in a hurry, and run a render again on a bigger size if it fails for GPU memory.
-- Every job gets its own machine, so several renders run at the same time. A machine bills per second while it is on, at the rate `videodraft render prices` returns, and switches itself off 1 minute after its last job. State the rate and get a go-ahead before long renders; `render status` shows a job's cost so far and an estimate. When your task is done, run `videodraft render stop` so idle time is not billed.
+- Every job gets its own machine, so several renders run at the same time. A machine bills per second while it is on, at the rate `videodraft render prices` returns, and switches itself off 1 minute after its last job. State the rate and get a go-ahead before long renders; `render status` shows a job's cost so far and an estimate. `videodraft render stop` switches off every machine on the account, other agents' included, so run it only when the user asks.
 - When Google has no regular GPU for a few minutes, a full-GPU job also asks for a Spot GPU at a higher rate (`render prices` shows it), and the first GPU found takes the job; a Spot machine that is already on can also take the next job at once. When you state the rate before a long render, give the Spot rate too. Google can reclaim a Spot machine; the job then continues from its finished segments. Tell the user when a job runs on Spot, and use `--no-spot` when they want the regular rate only or the render must not be interrupted.
 - Waiting for a GPU is never billed. A job waits for Google to hand over a machine (usually 1 to 10 minutes, longer at busy times), then pays for about 15 seconds of start-up, the rendering, and about a minute of idle time before its machine switches off (none when another job takes the machine over). Test renders cost a few credits, so run tests and proofs in the cloud too, and submit jobs together. A queued job may have a machine starting or charges from an earlier attempt; check its phase and cost. Its displayed machine is only a candidate until the job is claimed.
 - Name jobs with `--name "S4 final"` (default: the scene's file name and frames); `render status`, `wait`, `cancel` and `resume` take the name, and `render list --name` finds it, so you need no file of job ids.
@@ -184,6 +185,8 @@ videodraft render stop                                # switch every GPU off whe
 - Renders can take hours. For long jobs use `--no-wait`, then `videodraft render wait <job_id>`. Never submit the same render again to recover from a lost wait; check `videodraft render list`.
 
 Flags, outputs and the MCP flow (`cloud_render_*` tools): [references/cloud-render.md](references/cloud-render.md), or `videodraft skills show render`.
+
+For building scenes with scripts, look-dev stills and many short Blender runs, or several projects at once, use a Cloud session: a cloud GPU machine a project keeps while it works (`videodraft render session start --name <project>`, then `push`, `run`, `pull`, and `render session blender` for the final frames). It pauses itself when idle and bills per second while on, at the same rate. Commands, limits and the MCP flow: [references/cloud-sessions.md](references/cloud-sessions.md), or `videodraft skills show sessions`.
 
 ## Prefer references when continuity matters
 
@@ -361,3 +364,4 @@ A hosted project is one JSON blob (script, storyboard scenes, shot cards, visual
 - [references/models.md](references/models.md) — choosing image/video models, pricing patterns, voices and styles
 - [references/examples.md](references/examples.md) — recipes: batch product videos from a CSV, talking-head from a script, changelog video in CI
 - [references/cloud-render.md](references/cloud-render.md): Cloud render commands, flags, exit codes, cost and the MCP flow
+- [references/cloud-sessions.md](references/cloud-sessions.md): Cloud sessions, a GPU machine to work on: when to use one, commands, the machine, files and storage
