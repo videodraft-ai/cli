@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   folderPrefix,
+  gpuTime,
   machineText,
+  phaseKey,
   pulledPath,
   retrying,
   withoutHome,
@@ -122,5 +124,36 @@ describe("render session pull and the home folder", () => {
     expect(withoutHome("out", files)).toHaveLength(3);
     expect(withoutHome(".home", files)).toHaveLength(3);
     expect(withoutHome("./.home/.local/", files)).toHaveLength(3);
+  });
+});
+
+describe("render session display", () => {
+  it("says when a machine is on Spot", () => {
+    expect(
+      machineText(
+        {
+          phase: "ready (billed while on)",
+          zone: "asia-southeast1-b",
+          model: "SPOT",
+        },
+        " in ",
+      ),
+    ).toBe("ready (billed while on) in asia-southeast1-b, on Spot");
+  });
+
+  it("prints a GPU search once, not once per zone", () => {
+    const a =
+      "s job_1: starting (waiting for a free GPU in us-east5-a (not billed))";
+    const b =
+      "s job_1: starting (waiting for a free GPU in europe-west10-b (not billed))";
+    expect(phaseKey(a)).toBe(phaseKey(b));
+    expect(
+      phaseKey("s job_1: ready (ready (billed while on), asia-southeast1-b)"),
+    ).not.toBe(phaseKey(a));
+  });
+
+  it("shows short GPU time in seconds", () => {
+    expect(gpuTime(33)).toBe("33 s of GPU");
+    expect(gpuTime(480)).toBe("8 GPU-min");
   });
 });
