@@ -19,7 +19,7 @@ import type { Command } from "commander";
 import { buildContext, compact, type CommandContext } from "../cli/context.js";
 import { emit, fmt, kv, note, spinner, table } from "../cli/output.js";
 import { CliError, EXIT, ToolError, UsageError } from "../core/errors.js";
-import { pollRenderJob } from "../core/poll.js";
+import { isTransientStatusError, pollRenderJob } from "../core/poll.js";
 import { fileSha256, uploadResumable } from "../core/resumable-upload.js";
 import { downloadUrl } from "../core/download.js";
 
@@ -176,14 +176,41 @@ export function collectFiles(
   return out;
 }
 
+/** Calls that are safe to repeat ride out a dropped connection or a busy server: a few tries,
+ *  2, 4 and 8 s apart. Never used for calls that create something (start, resume, run). */
+export async function retrying<T>(
+  fn: () => Promise<T>,
+  tries = 4,
+  wait: (ms: number) => Promise<unknown> = sleep,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt >= tries || !isTransientStatusError(error)) throw error;
+      await wait(2_000 * 2 ** (attempt - 1));
+    }
+  }
+}
+
+// Reading a session, and pausing or releasing it (asking twice does nothing more), can repeat.
+const REPEATABLE = new Set(["status", "list", "pause", "release"]);
+
 async function sessionCall(ctx: CommandContext, args: Record<string, unknown>) {
-  return call<any>(ctx.client.callTool("cloud_session", compact(args)));
+  const once = () =>
+    call<any>(ctx.client.callTool("cloud_session", compact(args)));
+  return REPEATABLE.has(String(args.action)) ? retrying(once) : once();
+}
+
+/** "waiting for a free GPU in us-east5-a (not billed)" already names its zone. */
+export function machineText(m: any, joiner: string): string {
+  const phase = String(m?.phase ?? "");
+  const zone = m?.zone ? String(m.zone) : "";
+  return zone && !phase.includes(zone) ? `${phase}${joiner}${zone}` : phase;
 }
 
 function stateLine(s: any): string {
-  const machine = s?.machine?.phase
-    ? ` (${s.machine.phase}${s.machine.zone ? `, ${s.machine.zone}` : ""})`
-    : "";
+  const machine = s?.machine?.phase ? ` (${machineText(s.machine, ", ")})` : "";
   return `${s?.name ? `${s.name} ` : ""}${s?.session_id}: ${s?.state}${machine}`;
 }
 
@@ -193,12 +220,7 @@ function showSession(ctx: CommandContext, s: any) {
       ["session", s?.session_id],
       ["name", s?.name ?? undefined],
       ["state", s?.state],
-      [
-        "machine",
-        s?.machine
-          ? `${s.machine.phase ?? ""}${s.machine.zone ? ` in ${s.machine.zone}` : ""}`
-          : undefined,
-      ],
+      ["machine", s?.machine ? machineText(s.machine, " in ") : undefined],
       [
         "files",
         s?.files
@@ -318,12 +340,14 @@ async function pushFiles(
   let uploadedBytes = 0;
   for (let i = 0; i < unique.length; i += BATCH) {
     const part = unique.slice(i, i + BATCH);
-    const plan = await call<any>(
-      ctx.client.callTool("cloud_session_files", {
-        action: "plan",
-        session,
-        files: part.map((e) => ({ sha256: e.sha256, size: e.size })),
-      }),
+    const plan = await retrying(() =>
+      call<any>(
+        ctx.client.callTool("cloud_session_files", {
+          action: "plan",
+          session,
+          files: part.map((e) => ({ sha256: e.sha256, size: e.size })),
+        }),
+      ),
     );
     const missing: any[] = Array.isArray(plan?.missing) ? plan.missing : [];
     const spin = spinner(ctx.out, `Uploading ${missing.length} new files`);
@@ -345,18 +369,19 @@ async function pushFiles(
   }
   let result: any = null;
   for (let i = 0; i < entries.length; i += BATCH) {
+    const part = entries.slice(i, i + BATCH).map((e) => ({
+      path: e.remote,
+      sha256: e.sha256,
+      size: e.size,
+      mode: e.mode,
+    }));
+    // Not repeated after a lost reply: a command may have saved newer content for these paths
+    // since, and setting the list again would put the old content back.
     result = await call<any>(
       ctx.client.callTool("cloud_session_files", {
         action: "commit",
         session,
-        files: entries
-          .slice(i, i + BATCH)
-          .map((e) => ({
-            path: e.remote,
-            sha256: e.sha256,
-            size: e.size,
-            mode: e.mode,
-          })),
+        files: part,
       }),
     );
   }
@@ -378,12 +403,14 @@ async function waitCommand(
   let printedBytes = 0;
   let delay = 1_500;
   for (;;) {
-    const c = await call<any>(
-      ctx.client.callTool("cloud_session_command", {
-        action: "status",
-        session,
-        command_id: commandId,
-      }),
+    const c = await retrying(() =>
+      call<any>(
+        ctx.client.callTool("cloud_session_command", {
+          action: "status",
+          session,
+          command_id: commandId,
+        }),
+      ),
     );
     if (stream && !ctx.out.json) {
       const tail = String(c?.log_tail ?? "");
@@ -404,33 +431,77 @@ async function waitCommand(
   }
 }
 
+/** A folder as the session names it: `./out/stills/` and `out\\stills` are `out/stills` (the
+ *  service refuses a path that ends in "/"). Empty means every file. */
+export function folderPrefix(prefix: string | undefined): string {
+  return (prefix ?? "")
+    .replace(/\\/g, "/")
+    .replace(/^(\.\/)+/, "")
+    .replace(/\/+$/, "");
+}
+
+/** The session's home folder (.home: what commands installed, Blender add-ons) stays on the
+ *  session unless a pull names it. */
+export function withoutHome<T extends { path?: unknown }>(
+  prefix: string | undefined,
+  files: readonly T[],
+): T[] {
+  // A named folder is already all the service listed.
+  if (folderPrefix(prefix)) return [...files];
+  return files.filter((f) => !String(f.path).startsWith(".home/"));
+}
+
+/** Where a pulled file goes under --out: a folder's files land without the folder's own path
+ *  (`pull s project/stills --out media/stills` puts the stills straight into media/stills), one
+ *  file lands under its name, and everything keeps its full path when no folder is named. */
+export function pulledPath(prefix: string | undefined, remote: string): string {
+  const base = folderPrefix(prefix);
+  if (!base) return remote;
+  if (remote === base) return path.posix.basename(remote);
+  return remote.startsWith(`${base}/`) ? remote.slice(base.length + 1) : remote;
+}
+
 async function pullFiles(
   ctx: CommandContext,
   session: string,
   prefix: string | undefined,
   outDir: string,
 ) {
-  const all: any[] = [];
+  const listed: any[] = [];
   let after: string | undefined;
   for (;;) {
-    const page = await call<any>(
-      ctx.client.callTool(
-        "cloud_session_files",
-        compact({ action: "list", session, prefix, after, limit: 5000 }),
+    const page = await retrying(() =>
+      call<any>(
+        ctx.client.callTool(
+          "cloud_session_files",
+          compact({
+            action: "list",
+            session,
+            prefix: folderPrefix(prefix) || undefined,
+            after,
+            limit: 5000,
+          }),
+        ),
       ),
     );
-    all.push(...(Array.isArray(page?.files) ? page.files : []));
+    listed.push(...(Array.isArray(page?.files) ? page.files : []));
     after = page?.next_after ?? undefined;
     if (!after) break;
   }
+  const all = withoutHome(prefix, listed);
   if (!all.length)
     throw new CliError(
       `No saved files${prefix ? ` under ${prefix}` : ""}. Run \`videodraft render session sync\` if a command just made them.`,
     );
+  // A folder's files land in --out without the folder's own path (pull s project/stills --out
+  // media/stills puts the stills straight into media/stills); one file lands under its name.
   // Skip files already here with the same content.
   const need: any[] = [];
   for (const f of all) {
-    const dest = path.join(outDir, ...String(f.path).split("/"));
+    const dest = path.join(
+      outDir,
+      ...pulledPath(prefix, String(f.path)).split("/"),
+    );
     if (
       fs.existsSync(dest) &&
       fs.statSync(dest).size === Number(f.size) &&
@@ -444,12 +515,14 @@ async function pullFiles(
   try {
     for (let i = 0; i < need.length; i += URL_BATCH) {
       const part = need.slice(i, i + URL_BATCH);
-      const r = await call<any>(
-        ctx.client.callTool("cloud_session_files", {
-          action: "urls",
-          session,
-          paths: part.map((f) => f.path),
-        }),
+      const r = await retrying(() =>
+        call<any>(
+          ctx.client.callTool("cloud_session_files", {
+            action: "urls",
+            session,
+            paths: part.map((f) => f.path),
+          }),
+        ),
       );
       const urls = new Map<string, string>(
         (r?.files ?? [])
@@ -482,15 +555,14 @@ async function pullFiles(
 
 export function registerSessionCommands(program: Command): void {
   // Under `render`, next to the machines it shares billing and the stop button with (and away
-  // from `sessions`, which are AI Studio's). Hidden from help until Cloud sessions open to every
-  // account: a CLI published before then works for accounts that have them and points nobody else.
+  // from `sessions`, which are AI Studio's).
   const render = program.commands.find((c) => c.name() === "render");
   if (!render)
     throw new Error(
       "registerRenderCommands must run before registerSessionCommands",
     );
   const s = render
-    .command("session", { hidden: true })
+    .command("session")
     .description(
       "Cloud sessions: a GPU machine you work on (files, commands, Blender scripts), paused when idle",
     );
@@ -557,11 +629,19 @@ export function registerSessionCommands(program: Command): void {
       });
       emit(ctx.out, r, (out) => {
         const rows: any[] = Array.isArray(r?.sessions) ? r.sessions : [];
-        if (!rows.length)
-          return note(
+        const storage =
+          typeof r?.storage?.used_bytes === "number" &&
+          typeof r?.storage?.cap_bytes === "number"
+            ? `Storage: ${formatBytes(r.storage.used_bytes)} of ${formatBytes(r.storage.cap_bytes)} (\`render session delete\` frees a paused or released session's files).`
+            : "";
+        if (!rows.length) {
+          note(
             out,
             "No sessions yet. Start one with `videodraft render session start`.",
           );
+          if (storage) note(out, fmt.dim(out, storage));
+          return;
+        }
         table(
           out,
           ["session", "name", "state", "files", "cost", "created"],
@@ -576,6 +656,7 @@ export function registerSessionCommands(program: Command): void {
               .replace("T", " "),
           ]),
         );
+        if (storage) note(out, fmt.dim(out, storage));
       });
     });
 
@@ -602,9 +683,13 @@ export function registerSessionCommands(program: Command): void {
       .action(async function (this: Command, session: string) {
         const o = this.opts<{ wait?: boolean }>();
         const ctx = buildContext(this);
-        let st = await sessionCall(ctx, { action: verb, session });
+        // Act on the id: once this session is released, its name can point at an older session
+        // of the same name, and a repeated release must not reach that one.
+        const current = await sessionCall(ctx, { action: "status", session });
+        const id = String(current?.session_id ?? session);
+        let st = await sessionCall(ctx, { action: verb, session: id });
         if (o.wait !== false && verb === "resume")
-          st = await waitReady(ctx, session);
+          st = await waitReady(ctx, id);
         if (o.wait !== false && verb !== "resume") {
           for (
             let i = 0;
@@ -613,12 +698,32 @@ export function registerSessionCommands(program: Command): void {
             i++
           ) {
             await sleep(3_000);
-            st = await sessionCall(ctx, { action: "status", session });
+            st = await sessionCall(ctx, { action: "status", session: id });
           }
         }
         showSession(ctx, st);
       });
   }
+
+  s.command("delete <session>")
+    .description(
+      "Free a paused or released session's stored files now (a paused one is released; snapshots keep their own copy)",
+    )
+    .action(async function (this: Command, session: string) {
+      const ctx = buildContext(this);
+      // By id, resolved once: a name could point at another session after this one changes.
+      const current = await sessionCall(ctx, { action: "status", session });
+      const id = String(current?.session_id ?? session);
+      const r = await call<any>(
+        ctx.client.callTool("cloud_session", { action: "delete", session: id }),
+      );
+      emit(ctx.out, r, (out) =>
+        note(
+          out,
+          `Deleted ${r?.deleted_files ?? 0} stored files of ${r?.name ?? id}; the session is ${r?.state}.`,
+        ),
+      );
+    });
 
   s.command("push <session> <paths...>")
     .description(
@@ -742,7 +847,9 @@ export function registerSessionCommands(program: Command): void {
     });
 
   s.command("pull <session> [prefix]")
-    .description("Download the session's saved files (or one folder)")
+    .description(
+      "Download the session's saved files, or one folder's (they land straight in --out)",
+    )
     .option("--out <dir>", "where to put them (default: the current folder)")
     .action(async function (this: Command, session: string, prefix?: string) {
       const o = this.opts<{ out?: string }>();
@@ -848,6 +955,16 @@ export function registerSessionCommands(program: Command): void {
           note(
             out,
             `Submitted ${jobId}. Wait for it with \`videodraft render wait ${jobId}\`.`,
+          ),
+        );
+      // Name the job before the wait: without a terminal there is no spinner, and an agent
+      // needs the id to follow or cancel it from elsewhere.
+      if (!ctx.out.json)
+        note(
+          ctx.out,
+          fmt.dim(
+            ctx.out,
+            `Submitted ${jobId} (frames ${start}-${end}); rendering.`,
           ),
         );
       const spin = spinner(ctx.out, `Rendering ${jobId}`);

@@ -2,6 +2,8 @@
 
 Cloud render renders the user's own `.blend` scene on cloud GPUs (NVIDIA RTX PRO 6000). Every job gets its own machine, so several jobs render at the same time; a machine starts on demand, takes the user's next job of its size when one is waiting, and switches itself off 1 minute after its last job. Waiting for a GPU is never billed. It generates nothing. Build or change the scene in Blender itself (in VideoDraft ADE, the `blender` app guide covers that); Cloud render only renders a saved file.
 
+To build or change scenes with scripts, make look-dev stills, or run many short Blender jobs, use a Cloud session instead: a GPU machine a project keeps while it works. See [cloud-sessions.md](cloud-sessions.md).
+
 ## Commands
 
 ```bash
@@ -16,7 +18,7 @@ videodraft render list --name "S4 final"
 videodraft render cancel JOB_ID
 videodraft render resume JOB_ID
 videodraft render machine                          # each machine's phase, what you pay now, 24 h and all-time spend
-videodraft render stop                             # switch every GPU off now
+videodraft render stop                             # every machine on the account off now, other agents' too
 ```
 
 `render blender` flags:
@@ -85,7 +87,7 @@ Each start has a one-minute minimum. So a short test job costs only a few credit
 
 Waiting for a GPU is free. A queued job may also have a machine starting, which is billed, or charges from an earlier attempt; check its phase and cost. If a GPU takes long, say Google is short of GPUs at the moment and the job keeps its place.
 
-Uploading and starting need a minimum balance; when only about two minutes of credit are left, every machine stops and the jobs pause. State the rate and get a go-ahead before long renders. When your task is finished, run `videodraft render stop` so idle time is not billed, unless the user still has renders queued.
+Uploading and starting need a minimum balance; when only about two minutes of credit are left, every machine stops and the jobs pause. State the rate and get a go-ahead before long renders. Machines switch themselves off 1 minute after their last job, so there is nothing to stop when your task is done. `render stop` switches off every machine on the account, other agents' jobs and sessions included: run it only when the user asks.
 
 Never submit the same render twice to recover from a lost wait or a timeout: the first job keeps running and billing. Check `videodraft render list` (or `render list --name <name>`) and continue with `render wait`.
 
@@ -95,4 +97,4 @@ Never submit the same render twice to recover from a lost wait or a timeout: the
 2. PUT the bytes to `upload_url`: one PUT of the whole file, or chunks that are multiples of 256 KiB with `Content-Range: bytes <first>-<last>/<size>` (308 means send the next chunk from the Range header, 200 or 201 means complete). Then `cloud_render_finalize_scene` with the same `sha256`.
 3. `cloud_render_submit` with `scene_sha`, `start`, `end` and optional `name`, `gpu`, `fps`, `chunk`, `procs`, `blender_version`, `spot` (`auto` by default, or `never`).
 4. Poll `cloud_render_status` every 10 seconds or more. `message` and `machine.phase` distinguish a free GPU wait from billable start-up; a queued job's machine is a candidate that can change. `queued_seconds` includes time queued; `wait_seconds` gives the free wait when known. `machine.spot` is true on a Spot machine, `spot_note` explains Spot when the job asks for or runs on one, and `spot_reclaims` counts the times Google reclaimed its machine. `clip_url` is the finished MP4; `segment_urls` lists finished pieces before then; `cost` has the credits so far, `start_up_seconds`, `render_seconds` and `idle_seconds`, and `estimated_total_credits` (plus `estimated_minutes_left` while rendering).
-5. `cloud_render_stop` when the work is done. `cloud_render_list` (with `name` to find jobs by name), `cloud_render_cancel`, `cloud_render_resume` and `cloud_render_machine` (each machine's `phase` and `billing`) match the CLI commands above.
+5. `cloud_render_stop` only when the user asks: it switches off every machine on the account, other agents' included. `cloud_render_list` (with `name` to find jobs by name), `cloud_render_cancel`, `cloud_render_resume` and `cloud_render_machine` (each machine's `phase` and `billing`) match the CLI commands above.
