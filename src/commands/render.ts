@@ -628,7 +628,7 @@ export function registerRenderCommands(program: Command): void {
     .option("--blender <version>", "Blender version: 5.2 (default) or 4.5")
     .option(
       "--no-spot",
-      "wait for a regular GPU only; by default a full-GPU job that finds none for a few minutes also asks for a Spot GPU (higher rate; Google can reclaim it, and the job then continues on another machine)",
+      "wait for a regular GPU only; by default a job that finds none for a few minutes also asks for a Spot GPU (higher rate; Google can reclaim it, and the job then continues on another machine)",
     )
     .option(
       "--out <path>",
@@ -1101,15 +1101,29 @@ export function registerRenderCommands(program: Command): void {
       emit(ctx.out, prices, (o) => {
         const gpus: any[] = Array.isArray(prices?.gpus) ? prices.gpus : [];
         if (gpus.length) {
+          // Spot rates per size, from the sizes Spot can be asked for today.
+          const spotSizes: any[] = Array.isArray(prices?.spot?.sizes)
+            ? prices.spot.sizes
+            : [];
+          const spotRate = (id: string) =>
+            spotSizes.find((x) => x?.gpu === id)?.credits_per_minute;
           table(
             o,
-            ["gpu", "name", "memory", "credits/min", "usd/hour"],
+            [
+              "gpu",
+              "name",
+              "memory",
+              "credits/min",
+              "usd/hour",
+              ...(spotSizes.length ? ["spot credits/min"] : []),
+            ],
             gpus.map((g) => [
               String(g?.id ?? ""),
               String(g?.name ?? ""),
               typeof g?.vram_gb === "number" ? `${g.vram_gb} GB` : "",
               String(g?.credits_per_minute ?? ""),
               typeof g?.usd_per_hour === "number" ? `$${g.usd_per_hour}` : "",
+              ...(spotSizes.length ? [String(spotRate(String(g?.id)) ?? "")] : []),
             ]),
           );
           if (prices?.choosing) note(o, fmt.dim(o, String(prices.choosing)));
@@ -1126,7 +1140,17 @@ export function registerRenderCommands(program: Command): void {
           ]);
         }
         const spot = prices?.spot;
-        if (spot && typeof spot.credits_per_minute === "number") {
+        if (spot && Array.isArray(spot.sizes) && spot.sizes.length) {
+          const rates = spot.sizes
+            .map((x: any) => `${x?.gpu} ${x?.credits_per_minute}`)
+            .join(", ");
+          note(
+            o,
+            `Spot fallback: ${rates} credits/min${typeof spot.after_minutes === "number" ? `, after ${spot.after_minutes} minutes without a regular GPU` : ""}.`,
+          );
+          if (typeof spot.note === "string") note(o, fmt.dim(o, spot.note));
+        } else if (spot && typeof spot.credits_per_minute === "number") {
+          // Servers from before Spot per size: one rate.
           note(
             o,
             `Spot fallback: ${spot.credits_per_minute} credits/min${Array.isArray(spot.gpus) ? ` on ${spot.gpus.join(", ")}` : ""}${typeof spot.regions === "number" ? `, ${spot.regions} regions` : ""}.`,

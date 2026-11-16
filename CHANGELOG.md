@@ -5,6 +5,21 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-16
+
+### Added
+
+- `render session start --gpu half|quarter`: a Cloud session on half the
+  GPU (48 GB) or a quarter (24 GB), at a lower rate. `render session status`
+  and `list` show each session's size.
+- `render prices` shows each size's Spot rate.
+
+### Changed
+
+- Half and quarter GPU jobs and sessions keep their full speed on long
+  renders, and fall back to Spot GPUs like the full size when regular ones
+  run out.
+
 ## [0.38.1] - 2026-11-16
 
 ### Changed

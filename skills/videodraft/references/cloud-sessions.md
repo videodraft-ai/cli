@@ -1,6 +1,6 @@
 # Cloud sessions: a GPU machine to work on
 
-A Cloud session is a cloud GPU machine (NVIDIA RTX PRO 6000, 96 GB) that you work on for a while: push files once, run shell commands and Blender scripts on it, pull results back, and render from it. Each project gets its own session, so several projects run at the same time without waiting on one local Blender.
+A Cloud session is a cloud GPU machine (NVIDIA RTX PRO 6000) that you work on for a while: push files once, run shell commands and Blender scripts on it, pull results back, and render from it. Each project gets its own session, so several projects run at the same time without waiting on one local Blender.
 
 ## Which to use
 
@@ -29,11 +29,21 @@ videodraft render session status film76
 videodraft render session list                               # every session, and storage used of the cap
 ```
 
-`start` flags: `--name` (use it everywhere instead of the id; give each project its own), `--from-snapshot <name>`, `--idle-minutes <n>` (1 to 1440, default 15), `--budget <credits>` (pauses the session at that cost; saving and switching off add about a minute), `--no-spot`, `--no-wait`. Without `--no-wait`, `start` waits until the machine is ready.
+`start` flags: `--name` (use it everywhere instead of the id; give each project its own), `--gpu full|half|quarter` (below), `--from-snapshot <name>`, `--idle-minutes <n>` (1 to 1440, default 15), `--budget <credits>` (pauses the session at that cost; saving and switching off add about a minute), `--no-spot`, `--no-wait`. Without `--no-wait`, `start` waits until the machine is ready.
+
+## GPU size
+
+| `--gpu`          | GPU memory | Rate (`render prices`) | Good for                                                    |
+| ---------------- | ---------- | ---------------------- | ----------------------------------------------------------- |
+| `full` (default) | 96 GB      | highest                | heavy scenes, full-size stills, anything the user waits for |
+| `half`           | 48 GB      | about 58% of full      | most scene building, look-dev and proofs                    |
+| `quarter`        | 24 GB      | about 29% of full      | scripts, small stills and proofs that fit 24 GB             |
+
+A session keeps its size: every machine it starts on, after a pause too, has the same GPU. For another size, start another session (`--from-snapshot` to bring the files). Its final frames can still render on any size: `render session blender --gpu`. On a half or quarter, run heavy Blender commands one at a time: commands share the GPU's memory.
 
 ## How it works
 
-- **Billing.** Per second from the moment Google hands the machine over, at the Cloud render rate, with at least a minute per start. Start-up (booting and loading the session's files) takes about 1 to 2 minutes before the session is ready and is billed; the status can still say "waiting" for part of it. Waiting for a GPU is not billed, and neither is a paused session. A session asks for a regular GPU and, after about 2 minutes without one, a Spot GPU too, at the higher Spot rate (`--no-spot` waits for a regular one); `status` says "on Spot" when it got one. Google can take a Spot machine back at any time: the session then pauses with what finished commands saved (a running command is cut off), and the next `run` resumes it.
+- **Billing.** Per second from the moment Google hands the machine over, at the Cloud render rate of the session's size, with at least a minute per start. Start-up (booting and loading the session's files) takes about 1 to 2 minutes before the session is ready and is billed; the status can still say "waiting" for part of it. Waiting for a GPU is not billed, and neither is a paused session. A session asks for a regular GPU and, after about 2 minutes without one, a Spot GPU of its size too, at that size's higher Spot rate (`--no-spot` waits for a regular one); `status` says "on Spot" when it got one. Google can take a Spot machine back at any time: the session then pauses with what finished commands saved (a running command is cut off), and the next `run` resumes it.
 - **Idle pause.** A session pauses itself after its idle minutes: billing stops, its files stay saved, and `resume` or the next `run` starts it on a new machine with them.
 - **Files.** `push` sends files and folders by content: unchanged files are never uploaded again. A folder keeps its name under `--to` (`push s blender --to project` makes `project/blender/...`); a file lands as `--to/<file name>`. Pushes go to storage, not the machine, so they work while the session starts or is paused: start with `--no-wait` and push during the GPU wait. Commands start once the machine has the current files. `pull <folder>` puts that folder's files straight into `--out`; without a folder, everything comes with its session path.
 - **The machine.** Linux with Blender 5.2 as `blender` (`$BLENDER`) and 4.5 as `$BLENDER_4_5`; Python 3 with NumPy, SciPy, OpenCV, Pillow and imageio; FFmpeg, ImageMagick, OpenEXR tools, git, curl, wget, 7-Zip, jq and common fonts. It reaches the web over HTTP and HTTPS, so scripts can download assets and `pip install --user` packages directly (much faster than pushing them from this computer). Commands run as a restricted user: no admin rights (no `apt`), and no access to the machine's credentials. Up to about 20 GB may be sent out to the internet per machine start; downloads are not counted.

@@ -1,7 +1,7 @@
 /**
  * `videodraft render session ...`: Cloud sessions, a GPU machine you work on for a while.
  *
- *   session start [--name n] [--from-snapshot s] [--idle-minutes n] [--budget c] [--no-spot]
+ *   session start [--name n] [--gpu full|half|quarter] [--from-snapshot s] [--idle-minutes n] [--budget c] [--no-spot]
  *   session push <session> <path...> [--to dir]     files go up by content: unchanged ones cost nothing
  *   session run <session> <command> [--cwd dir]      shell commands and Blender scripts on the GPU machine
  *   session pull <session> [prefix] [--out dir]      bring files back
@@ -217,6 +217,18 @@ export function phaseKey(line: string): string {
   return line.replace(/ (in |, )[a-z]+-[a-z]+\d+-[a-z]\b/g, "");
 }
 
+const SESSION_GPUS: Record<string, string> = {
+  full: "full (96 GB)",
+  half: "half (48 GB)",
+  quarter: "quarter (24 GB)",
+};
+
+/** A session's GPU size as people read it: "half (48 GB)". */
+export function gpuText(gpu: unknown): string | undefined {
+  if (typeof gpu !== "string" || !gpu) return undefined;
+  return SESSION_GPUS[gpu] ?? gpu;
+}
+
 /** GPU time as people read it: seconds under a minute, minutes after. */
 export function gpuTime(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -234,6 +246,7 @@ function showSession(ctx: CommandContext, s: any) {
       ["session", s?.session_id],
       ["name", s?.name ?? undefined],
       ["state", s?.state],
+      ["gpu", gpuText(s?.gpu)],
       ["machine", s?.machine ? machineText(s.machine, " in ") : undefined],
       [
         "files",
@@ -586,6 +599,10 @@ export function registerSessionCommands(program: Command): void {
       "Start a session on a cloud GPU machine (billed per second while on; waiting for a GPU is not billed)",
     )
     .option("--name <name>", "a name to use instead of the session id")
+    .option(
+      "--gpu <size>",
+      "GPU size from `render prices`: full (96 GB, default), half (48 GB) or quarter (24 GB)",
+    )
     .option("--from-snapshot <name>", "begin with the files of this snapshot")
     .option(
       "--idle-minutes <n>",
@@ -600,6 +617,7 @@ export function registerSessionCommands(program: Command): void {
     .action(async function (this: Command) {
       const o = this.opts<{
         name?: string;
+        gpu?: string;
         fromSnapshot?: string;
         idleMinutes?: string;
         budget?: string;
@@ -610,9 +628,14 @@ export function registerSessionCommands(program: Command): void {
       const budget = o.budget === undefined ? undefined : Number(o.budget);
       if (budget !== undefined && !(budget > 0))
         throw new UsageError("--budget must be a positive number of credits.");
+      if (o.gpu !== undefined && !(o.gpu in SESSION_GPUS))
+        throw new UsageError(
+          `--gpu must be ${Object.keys(SESSION_GPUS).join(", ")}.`,
+        );
       let st = await sessionCall(ctx, {
         action: "start",
         name: o.name,
+        gpu: o.gpu,
         from_snapshot: o.fromSnapshot,
         idle_minutes: positiveInt(o.idleMinutes, "--idle-minutes", 1440),
         budget_credits: budget,
@@ -658,11 +681,12 @@ export function registerSessionCommands(program: Command): void {
         }
         table(
           out,
-          ["session", "name", "state", "files", "cost", "created"],
+          ["session", "name", "state", "gpu", "files", "cost", "created"],
           rows.map((x) => [
             String(x.session_id),
             String(x.name ?? ""),
             String(x.state),
+            String(x.gpu ?? ""),
             `${x.files?.count ?? 0}`,
             `${x.cost?.credits ?? 0}`,
             String(x.created_at ?? "")
