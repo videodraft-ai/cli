@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   folderPrefix,
+  gpuText,
   gpuTime,
   machineText,
   phaseKey,
@@ -155,5 +156,17 @@ describe("render session display", () => {
   it("shows short GPU time in seconds", () => {
     expect(gpuTime(33)).toBe("33 s of GPU");
     expect(gpuTime(480)).toBe("8 GPU-min");
+  });
+});
+
+describe("render session GPU size", () => {
+  it("names each size with its memory, and passes unknown ones through", () => {
+    expect(gpuText("full")).toBe("full (96 GB)");
+    expect(gpuText("half")).toBe("half (48 GB)");
+    expect(gpuText("quarter")).toBe("quarter (24 GB)");
+    expect(gpuText("eighth")).toBe("eighth");
+    // Servers from before session sizes send none: no line.
+    expect(gpuText(undefined)).toBeUndefined();
+    expect(gpuText("")).toBeUndefined();
   });
 });

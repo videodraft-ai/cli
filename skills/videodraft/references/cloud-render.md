@@ -53,18 +53,18 @@ Exit codes: 0 done; 1 failed, cancelled or another error; 2 bad flags; 3 not sig
 | `--gpu`                  | GPU memory | Speed   | Cost per frame               |
 | ------------------------ | ---------- | ------- | ---------------------------- |
 | `full` (default)         | 96 GB      | fastest | highest                      |
-| `half` (when offered)    | 48 GB      | slower  | lower                        |
-| `quarter` (when offered) | 24 GB      | slowest | lowest, most of all on Eevee |
+| `half`                   | 48 GB      | slower  | lower                        |
+| `quarter`                | 24 GB      | slowest | lowest, most of all on Eevee |
 
 All bill per second. A smaller GPU is cheaper overall, not just per minute, because one render rarely uses a whole RTX PRO 6000. Use `full` when the user is waiting, has a deadline or the scene is heavy; a smaller size when they want it cheaper and are not in a hurry. The scene has to fit in the GPU memory: if a render fails for memory, run it again on a bigger size. `render status` shows a job's cost so far and, while it renders, an estimate for the whole job.
 
 ## Spot GPUs, when regular ones run out
 
-When Google has no regular GPU for a few minutes (`after_minutes` in `render prices`), a full-GPU job also asks for a Spot GPU, while its request for a regular one keeps its place. Whichever GPU comes first takes the job, and a Spot machine that is already on (one that just finished a job) can also take the next job at once. Spot has one higher rate everywhere (`spot.credits_per_minute` in `render prices`): when you state the rate and get a go-ahead before a long render, give the Spot rate too, and tell the user when a job runs on Spot. The fallback itself needs no further go-ahead.
+When Google has no regular GPU for a few minutes (`after_minutes` in `render prices`), a job also asks for a Spot GPU of its size, while its request for a regular one keeps its place. Whichever GPU comes first takes the job, and a Spot machine that is already on (one that just finished a job) can also take the next job at once. Each size has one higher Spot rate everywhere (the `spot credits/min` column of `render prices`; `spot.sizes` in `--json`): when you state the rate and get a go-ahead before a long render, give the Spot rate too, and tell the user when a job runs on Spot. The fallback itself needs no further go-ahead.
 
 Google can reclaim a Spot machine at any time. The job then goes back to the queue and continues from its finished segments, so only the segment in progress renders again; a Spot machine reclaimed in its first minute is not billed. `render wait` says when a job starts asking for Spot and when Google reclaims its machine; `render status` has a `spot` line, and `render machine` marks Spot machines.
 
-Use `--no-spot` (MCP: `spot: "never"`) when the user wants the regular rate only, or a render must not be interrupted, for example close to a deadline where a restart costs more time than a wait. The half and quarter sizes never use Spot.
+Use `--no-spot` (MCP: `spot: "never"`) when the user wants the regular rate only, or a render must not be interrupted, for example close to a deadline where a restart costs more time than a wait.
 
 ## Scenes must be self-contained
 
