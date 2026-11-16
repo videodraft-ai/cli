@@ -147,24 +147,27 @@ describe("AI Studio option parity", () => {
       expect.objectContaining({ seed: 0, resolution: "4K" }),
     );
   });
-  it.each(["seedance-2", "seedance-2.5", "flux-3", "gemini-omni-1.2-flash"])(
-    "supports explicit automatic duration for %s",
-    async (model) => {
-      await run([
-        "generate",
-        "video",
-        "A boat",
-        "--model",
-        model,
-        "--auto-duration",
-        "--no-wait",
-      ]);
-      expect(mocks.callTool).toHaveBeenCalledWith(
-        "generate_video",
-        expect.objectContaining({ model, auto_duration: true }),
-      );
-    },
-  );
+  it.each([
+    "seedance-2",
+    "seedance-2.5",
+    "seedance-2.5-flash",
+    "flux-3",
+    "gemini-omni-1.2-flash",
+  ])("supports explicit automatic duration for %s", async (model) => {
+    await run([
+      "generate",
+      "video",
+      "A boat",
+      "--model",
+      model,
+      "--auto-duration",
+      "--no-wait",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "generate_video",
+      expect.objectContaining({ model, auto_duration: true }),
+    );
+  });
   it("preserves empty negative prompt and zero CFG", async () => {
     await run([
       "generate",
