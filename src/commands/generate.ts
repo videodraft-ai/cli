@@ -591,6 +591,7 @@ function refVideoSecondsWindow(model: string | undefined): number | null {
   const kling4Tier = kling4GenerationTier(model);
   if (kling4Tier) return kling4Tier.maxCombinedVideoSeconds;
   switch (model) {
+    case "seedance-2.5-flash":
     case "seedance-2.5":
       return 30;
     case "seedance-2":
@@ -1494,6 +1495,50 @@ export function registerGenerateCommands(program: Command): void {
         ].includes(String(opts.model || ""))
       )
         opts.model = "kling-4.0-flash";
+      if (
+        ["seedance25flash", "seedance-2-5-flash"].includes(
+          String(opts.model || ""),
+        )
+      )
+        opts.model = "seedance-2.5-flash";
+      if (opts.model === "seedance-2.5-flash") {
+        if (opts.quality !== undefined)
+          throw new CliError(
+            "Seedance 2.5 Flash is a separate model with no --quality tier.",
+            EXIT.USAGE,
+          );
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) || duration < 4 || duration > 30)
+        )
+          throw new CliError(
+            "Seedance 2.5 Flash --duration must be a whole second from 4 to 30.",
+            EXIT.USAGE,
+          );
+        if (
+          opts.resolution &&
+          !["480p", "720p"].includes(String(opts.resolution).toLowerCase())
+        )
+          throw new CliError(
+            "Seedance 2.5 Flash --resolution must be 480p or 720p.",
+            EXIT.USAGE,
+          );
+        const images = opts.refImage?.length ?? 0,
+          videos = opts.refVideo?.length ?? 0,
+          audios = opts.refAudio?.length ?? 0;
+        if (images > 10 || videos > 5 || audios > 5)
+          throw new CliError(
+            "Seedance 2.5 Flash accepts at most 10 reference images, 5 videos and 5 audio clips.",
+            EXIT.USAGE,
+          );
+        if ((opts.startImage || opts.endImage) && images + videos + audios > 0)
+          throw new CliError(
+            "Seedance 2.5 Flash first/last frames cannot be combined with reference media.",
+            EXIT.USAGE,
+          );
+        if (opts.endImage && !opts.startImage)
+          throw new CliError("--end-image requires --start-image.", EXIT.USAGE);
+      }
       const isKling4Request = opts.model === "kling-4.0";
       // Kling 4.0 or its Flash tier, named explicitly. Flash is never picked
       // without --model.
@@ -1649,6 +1694,9 @@ export function registerGenerateCommands(program: Command): void {
             "seedance2",
             "seedance-2.5",
             "seedance25",
+            "seedance25flash",
+            "seedance-2.5-flash",
+            "seedance-2-5-flash",
             "flux-3",
             "flux3",
             "flux_3",

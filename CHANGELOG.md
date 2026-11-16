@@ -5,6 +5,22 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-16
+
+### Added
+
+- Seedance 2.5 Flash as a separate video model, with aliases, 4-30 second or
+  automatic duration, 480p/720p output, first/last frames, and image, video,
+  or audio references. The CLI validates Flash limits before submission and
+  supports reference-video duration estimates.
+
+### Changed
+
+- Bundled model guidance documents Flash's reference limits, audio-only mode,
+  and Atlas-based credit pricing, and updates Genjutsu pricing and Light's
+  output-only billing. Model availability and credit quotes follow the
+  connected VideoDraft server.
+
 ## [0.40.0] - 2026-11-16
 
 ### Changed
