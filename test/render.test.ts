@@ -48,6 +48,8 @@ import {
   parseFrameRange,
   registerRenderCommands,
   renderOutputPath,
+  spotRange,
+  spotRate,
   spotText,
   stateText,
   waitedText,
@@ -484,6 +486,20 @@ describe("render helpers", () => {
         spot_credits_per_minute: 4.34,
       }),
     ).toBe("asking for a Spot GPU too (4.34 credits per minute)");
+    // Google's price differs by region: while asking, the range; on a machine, its own rate.
+    expect(
+      spotText({
+        status: "queued",
+        spot: "auto",
+        spot_note: note,
+        spot_credits_per_minute: 3.73,
+        spot_credits_per_minute_from: 2.27,
+      }),
+    ).toBe("asking for a Spot GPU too (2.27 to 3.73 credits per minute)");
+    expect(
+      spotRate({ spot_credits_per_minute: 2.86, spot_credits_per_minute_from: null }),
+    ).toBe("2.86");
+    expect(spotRate({})).toBeUndefined();
     expect(spotText({ status: "queued", spot: "never" })).toBe(
       "off for this job",
     );
@@ -493,6 +509,22 @@ describe("render helpers", () => {
     expect(spotText({ status: "done", spot: "auto", spot_reclaims: 2 })).toBe(
       "Google reclaimed its Spot machine 2 times",
     );
+  });
+
+  it("shows each size's Spot range in render prices, or one rate from older servers", () => {
+    expect(
+      spotRange({
+        gpu: "full",
+        credits_per_minute: 3.73,
+        credits_per_minute_from: 2.27,
+        credits_per_minute_up_to: 3.73,
+      }),
+    ).toBe("2.27 to 3.73");
+    expect(spotRange({ gpu: "half", credits_per_minute: 2.5 })).toBe("2.5");
+    expect(
+      spotRange({ credits_per_minute_from: 1.2, credits_per_minute_up_to: 1.2 }),
+    ).toBe("1.2");
+    expect(spotRange({ gpu: "x" })).toBeUndefined();
   });
 
   it("names a job after its scene and frames, within 80 characters", () => {
