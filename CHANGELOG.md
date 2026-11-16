@@ -5,6 +5,18 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-16
+
+### Changed
+
+- Spot GPUs now cost Google's own Spot price in the region they land in,
+  never more than the regular rate and often 10 to 40% less; the cheapest
+  regions are asked first. `render prices` shows each size's Spot range, and
+  `render status` a Spot machine's own rate.
+- `render prices` shows the Cloud session rate of each size (a session's
+  bigger disk adds about a cent an hour).
+- Half and quarter GPUs can now get a regular GPU in 8 more zones.
+
 ## [0.39.0] - 2026-11-16
 
 ### Added

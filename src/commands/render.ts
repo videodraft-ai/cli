@@ -13,10 +13,11 @@
  * wait could look like money burning. The rate comes from the server
  * (`render prices`), never from this file.
  *
- * When no regular GPU is free for a few minutes, a full-GPU job also asks for a
- * Spot GPU (a higher rate; Google can reclaim it, and the job then continues on
- * another machine). Output says when a job asks for or runs on Spot, and when
- * Google reclaims one; --no-spot keeps a job on regular GPUs.
+ * When no regular GPU is free for a few minutes, a job also asks for a Spot GPU
+ * (Google's own Spot price where it lands, never more than the regular rate;
+ * Google can reclaim it, and the job then continues on another machine). Output
+ * says when a job asks for or runs on Spot, and when Google reclaims one;
+ * --no-spot keeps a job on regular GPUs.
  */
 
 import fs from "node:fs";
@@ -222,6 +223,19 @@ export function waitedText(job: any): string | undefined {
   return `${formatDuration(s)} for a GPU, not billed`;
 }
 
+/**
+ * One size's Spot rate in `render prices`: "2.27 to 3.73" (Google's price differs by region), or the
+ * one number a server from before that sends.
+ */
+export function spotRange(size: any): string | undefined {
+  const from = size?.credits_per_minute_from;
+  const upTo = size?.credits_per_minute_up_to ?? size?.credits_per_minute;
+  if (typeof upTo !== "number") return undefined;
+  return typeof from === "number" && from !== upTo
+    ? `${from} to ${upTo}`
+    : `${upTo}`;
+}
+
 /** A queued job that asks for a Spot GPU as well as a regular one (the server sends spot_note). */
 export function askingSpot(job: any): boolean {
   return job?.status === "queued" && typeof job?.spot_note === "string";
@@ -256,6 +270,19 @@ export function stateText(job: any): string {
   return status;
 }
 
+/**
+ * A job's Spot rate: on a Spot machine, the machine's own; while it asks for one, "2.27 to 3.73"
+ * (Google's price differs by region; servers before that send one number).
+ */
+export function spotRate(job: any): string | undefined {
+  const upTo = job?.spot_credits_per_minute;
+  if (typeof upTo !== "number") return undefined;
+  const from = job?.spot_credits_per_minute_from;
+  return typeof from === "number" && from !== upTo
+    ? `${from} to ${upTo}`
+    : `${upTo}`;
+}
+
 /** The Spot line of `render status`, or nothing for a job Spot does not concern. */
 export function spotText(job: any): string | undefined {
   const reclaims = Number(job?.spot_reclaims ?? 0);
@@ -264,10 +291,8 @@ export function spotText(job: any): string | undefined {
       ? `; Google reclaimed its Spot machine ${reclaims === 1 ? "once" : `${reclaims} times`}`
       : "";
   if (job?.spot === "never") return "off for this job";
-  const rate =
-    typeof job?.spot_credits_per_minute === "number"
-      ? ` (${job.spot_credits_per_minute} credits per minute)`
-      : "";
+  const r = spotRate(job);
+  const rate = r ? ` (${r} credits per minute)` : "";
   if (job?.status === "running" && job?.machine?.spot === true)
     return `rendering on a Spot machine${rate}${reclaimed}`;
   if (askingSpot(job)) return `asking for a Spot GPU too${rate}${reclaimed}`;
@@ -476,10 +501,8 @@ async function waitAndDownload(
           payload?.status === "running" && payload?.machine?.spot === true;
         if (!spotSaid && (askingSpot(payload) || onSpot)) {
           spotSaid = true;
-          const rate =
-            typeof payload?.spot_credits_per_minute === "number"
-              ? ` at ${payload.spot_credits_per_minute} credits per minute`
-              : "";
+          const r = spotRate(payload);
+          const rate = r ? ` at ${r} credits per minute` : "";
           logLine(
             ctx,
             fmt.dim(
@@ -628,7 +651,7 @@ export function registerRenderCommands(program: Command): void {
     .option("--blender <version>", "Blender version: 5.2 (default) or 4.5")
     .option(
       "--no-spot",
-      "wait for a regular GPU only; by default a job that finds none for a few minutes also asks for a Spot GPU (higher rate; Google can reclaim it, and the job then continues on another machine)",
+      "wait for a regular GPU only; by default a job that finds none for a few minutes also asks for a Spot GPU (Google's own Spot price, never more than the regular rate; Google can reclaim it, and the job then continues on another machine)",
     )
     .option(
       "--out <path>",
@@ -1105,8 +1128,14 @@ export function registerRenderCommands(program: Command): void {
           const spotSizes: any[] = Array.isArray(prices?.spot?.sizes)
             ? prices.spot.sizes
             : [];
-          const spotRate = (id: string) =>
-            spotSizes.find((x) => x?.gpu === id)?.credits_per_minute;
+          const spotCell = (id: string) => {
+            const x = spotSizes.find((y) => y?.gpu === id);
+            return x ? (spotRange(x) ?? "") : "";
+          };
+          // Cloud sessions: the same machines with a bigger disk (servers before that send none).
+          const sessions = gpus.some(
+            (g) => typeof g?.session_credits_per_minute === "number",
+          );
           table(
             o,
             [
@@ -1115,6 +1144,7 @@ export function registerRenderCommands(program: Command): void {
               "memory",
               "credits/min",
               "usd/hour",
+              ...(sessions ? ["session credits/min"] : []),
               ...(spotSizes.length ? ["spot credits/min"] : []),
             ],
             gpus.map((g) => [
@@ -1123,7 +1153,8 @@ export function registerRenderCommands(program: Command): void {
               typeof g?.vram_gb === "number" ? `${g.vram_gb} GB` : "",
               String(g?.credits_per_minute ?? ""),
               typeof g?.usd_per_hour === "number" ? `$${g.usd_per_hour}` : "",
-              ...(spotSizes.length ? [String(spotRate(String(g?.id)) ?? "")] : []),
+              ...(sessions ? [String(g?.session_credits_per_minute ?? "")] : []),
+              ...(spotSizes.length ? [spotCell(String(g?.id))] : []),
             ]),
           );
           if (prices?.choosing) note(o, fmt.dim(o, String(prices.choosing)));
@@ -1142,12 +1173,14 @@ export function registerRenderCommands(program: Command): void {
         const spot = prices?.spot;
         if (spot && Array.isArray(spot.sizes) && spot.sizes.length) {
           const rates = spot.sizes
-            .map((x: any) => `${x?.gpu} ${x?.credits_per_minute}`)
+            .map((x: any) => `${x?.gpu} ${spotRange(x) ?? ""}`)
             .join(", ");
           note(
             o,
             `Spot fallback: ${rates} credits/min${typeof spot.after_minutes === "number" ? `, after ${spot.after_minutes} minutes without a regular GPU` : ""}.`,
           );
+          if (typeof spot.pricing === "string")
+            note(o, fmt.dim(o, String(spot.pricing)));
           if (typeof spot.note === "string") note(o, fmt.dim(o, spot.note));
         } else if (spot && typeof spot.credits_per_minute === "number") {
           // Servers from before Spot per size: one rate.
