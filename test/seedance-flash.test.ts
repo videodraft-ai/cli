@@ -104,3 +104,45 @@ it.each([
   ).rejects.toThrow();
   expect(mocks.callTool).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["seedance-2", "standard", "4k", 82],
+  ["seedance-2", "mini", "480p", 4],
+  ["seedance-2", "fast", "720p", 13],
+  ["seedance-2.5", undefined, "4k", 102],
+] as const)(
+  "prints Seedance %s %s %s as one MCP rate",
+  async (model, quality, resolution, rate) => {
+    mocks.callTool.mockResolvedValue({
+      cost: 5 * rate,
+      credits_per_second: rate,
+    });
+    await run([
+      "--model",
+      model,
+      "--duration",
+      "5",
+      "--resolution",
+      resolution,
+      ...(quality ? ["--quality", quality] : []),
+      "--estimate",
+    ]);
+    expect(mocks.callTool).toHaveBeenCalledWith(
+      "get_model_costs",
+      expect.objectContaining({
+        model_id: model,
+        ...(quality ? { quality } : {}),
+        resolution,
+      }),
+    );
+    const args = mocks.callTool.mock.calls.at(0)?.[1];
+    expect(args).not.toHaveProperty("allow_real_people");
+    const write = vi.mocked(process.stdout.write);
+    const output = JSON.parse(String(write.mock.calls.at(-1)?.[0]));
+    expect(output.estimate).toMatchObject({
+      cost: 5 * rate,
+      credits_per_second: rate,
+    });
+    expect(output.estimate).not.toHaveProperty("higher_rate_cost");
+  },
+);
