@@ -160,9 +160,8 @@ videodraft produce <project> --mode full_video   # one Seedance video per scene
 videodraft export <project> --download final.mp4
 ```
 
-Seedance 2.x has no real-people option. A video that can't be made at the
-listed rate, usually one showing a real person, costs a higher rate, and the
-difference is charged before it starts.
+Seedance 2.0 and 2.5 have one price per quality and resolution. The project
+pipeline defaults to Seedance 2.0 Mini.
 
 ## Commands
 

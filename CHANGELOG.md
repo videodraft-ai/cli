@@ -5,6 +5,21 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.41.1] - 2026-11-21
+
+### Changed
+
+- The bundled skill and CLI docs describe one platform price per quality and
+  resolution for Seedance 2.0 and 2.5. Get a live quote with `costs` or
+  `generate video --estimate`.
+- The bundled skill lists 4K output for Seedance 2.5 and clarifies that the
+  hosted project pipeline defaults to Seedance 2.0 Mini.
+
+### Tests
+
+- Cover single-rate estimates for Seedance 2.0 Standard, Mini and Fast, and
+  Seedance 2.5 at 4K.
+
 ## [0.41.0] - 2026-11-16
 
 ### Added
