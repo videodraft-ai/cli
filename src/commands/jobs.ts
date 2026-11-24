@@ -16,6 +16,18 @@ import { CliError, EXIT } from "../core/errors.js";
 import { isModel3DResult, downloadModel3DPackage, model3DOutputFields, type Model3DDownload } from "../core/model3d.js";
 import { emit3DResult } from "./model3d.js";
 
+function draftDescription(draft?: {
+  canFinalize: boolean;
+  resolutions?: string[];
+  expiresAt?: string;
+  reason?: string;
+}): string {
+  if (!draft) return "";
+  return draft.canFinalize
+    ? `${draft.resolutions?.join("/") ?? "ready"}${draft.expiresAt ? " until " + draft.expiresAt : ""}`
+    : draft.reason || "Unavailable";
+}
+
 export function registerJobCommands(program: Command): void {
   program
     .command("status <job_id>")
@@ -43,6 +55,8 @@ export function registerJobCommands(program: Command): void {
       );
       emit(ctx.out, { ...result, output_media: media }, (o) => {
         note(o, `${jobId}: ${result?.status ?? "unknown"}`);
+        if (result?.draft)
+          note(o, `Draft finalization: ${draftDescription(result.draft)}`);
         if (result?.status === "failed" && result?.error) {
           note(o, fmt.red(o, String(result.error)));
         }
@@ -112,6 +126,7 @@ export function registerJobCommands(program: Command): void {
             ...(model3d ? result.payload : {}),
             job_id: jobId,
             status: result.status,
+            ...(result.payload?.draft ? { draft: result.payload.draft } : {}),
             outputs: result.outputUrls,
             downloaded_files: downloaded,
             output_media: buildMediaDescriptors(
@@ -178,6 +193,7 @@ export function registerJobCommands(program: Command): void {
     )
     .option("--project <id>", "scope to a project's generations")
     .option("--model <id>", "filter by exact model id")
+    .option("--drafts", "show Seedance 2.5 drafts")
     .option("--favorites", "only starred generations")
     .option("--full", "include full parameters (JSON output)")
     .option("--limit <n>", "max rows (default 30)")
@@ -193,6 +209,7 @@ export function registerJobCommands(program: Command): void {
           session_id: sessionArg(this, opts),
           project_id: opts.project,
           model: opts.model,
+          drafts_only: opts.drafts ? true : undefined,
           favorites_only: opts.favorites ? true : undefined,
           view: opts.full ? "full" : undefined,
           limit: opts.limit ? Number(opts.limit) : undefined,
@@ -201,9 +218,18 @@ export function registerJobCommands(program: Command): void {
       );
       const rows: any[] = result?.generations ?? result?.items ?? [];
       emit(ctx.out, result, (o) => {
+        const showDrafts = rows.some((g) => g.draft) || opts.drafts;
         table(
           o,
-          ["id", "type", "status", "model", "fav", "created"],
+          [
+            "id",
+            "type",
+            "status",
+            "model",
+            "fav",
+            "created",
+            ...(showDrafts ? ["finalize"] : []),
+          ],
           rows.map((g: any) => [
             String(g.id ?? g.job_id ?? ""),
             String(g.type ?? ""),
@@ -211,6 +237,7 @@ export function registerJobCommands(program: Command): void {
             String(g.model ?? "").slice(0, 24),
             g.isFavorite ? "★" : "",
             String(g.created_at ?? g.createdAt ?? "").slice(0, 19),
+            ...(showDrafts ? [draftDescription(g.draft)] : []),
           ]),
         );
         if (result?.inFlight !== undefined)
@@ -255,6 +282,8 @@ export function registerJobCommands(program: Command): void {
           `${g?.id ?? generationId}: ${g?.status ?? "unknown"}${g?.isFavorite ? " ★" : ""}`,
         );
         note(o, `${g?.type ?? ""} · ${g?.model ?? ""}`);
+        if (g?.draft)
+          note(o, `Draft finalization: ${draftDescription(g.draft)}`);
         if (g?.prompt) note(o, `prompt: ${g.prompt}`);
         if (g?.inputImageUrl) note(o, `input: ${g.inputImageUrl}`);
         if (g?.parameters && Object.keys(g.parameters).length > 0) {

@@ -159,15 +159,18 @@ export function registerPipelineCommands(program: Command): void {
     )
     .option("--ar <ratio>", "aspect ratio override")
     .option("--resolution <res>", "image resolution, such as 1K, 2K, 4K")
-    .option("--background <mode>", "Seedream 5.5: auto | opaque | transparent")
+    .option(
+      "--background <mode>",
+      "Ideogram 4.6: opaque or transparent. Seedream 5.5 also accepts auto.",
+    )
     .option("--format <format>", "Seedream 5.5: png | jpeg")
     .option(
       "--image-width <px>",
-      "Seedream 5.5 custom output width (Fal or VideoDraft)",
+      "Seedream 5.5 or Ideogram 4.6 custom output width (Fal or VideoDraft)",
     )
     .option(
       "--image-height <px>",
-      "Seedream 5.5 custom output height (Fal or VideoDraft)",
+      "Seedream 5.5 or Ideogram 4.6 custom output height (Fal or VideoDraft)",
     )
     .option("--watermark", "Seedream 5.5: add Fal's visible watermark")
     .option(
@@ -216,6 +219,13 @@ export function registerPipelineCommands(program: Command): void {
         const isSeedream55 =
           costs?.model === "seedream-v5.5" ||
           (!costs?.model && costInputs.model_id === "seedream-v5.5");
+        const isIdeogram46 = costs?.model === "ideogram-v4.6";
+        const editCosts = isIdeogram46
+          ? await ctx.client.callTool("get_model_costs", {
+              ...costInputs,
+              reference_image_count: 1,
+            })
+          : undefined;
         const gridShotCosts =
           isSeedream55 && opts.grid
             ? await ctx.client.callTool("get_model_costs", {
@@ -227,12 +237,15 @@ export function registerPipelineCommands(program: Command): void {
           project_scenes:
             project?.storyboard?.scenes?.length ?? project?.scenes?.length,
           per_image_costs: costs,
+          ...(editCosts ? { per_edit_costs: editCosts } : {}),
           ...(gridShotCosts ? { grid_shot_costs: gridShotCosts } : {}),
-          note: isSeedream55
-            ? opts.grid
-              ? "Base-only quotes assume no references on the grid image and one grid reference per decoded shot. Extra references can increase either cost. Scenes with one target use a single image instead of a grid. No credits were spent."
-              : "Base-only per-image quote with no references. Attached references can increase the cost. No credits were spent."
-            : "Total ≈ shots missing images × per-image cost (+1 grid image per scene in grid mode). No credits were spent.",
+          note: isIdeogram46
+            ? "Use per_image_costs for shots without a reference and per_edit_costs for shots with references, including grid decodes. Grid mode also generates one grid image per multi-shot scene. No credits were spent."
+            : isSeedream55
+              ? opts.grid
+                ? "Base-only quotes assume no references on the grid image and one grid reference per decoded shot. Extra references can increase either cost. Scenes with one target use a single image instead of a grid. No credits were spent."
+                : "Base-only per-image quote with no references. Attached references can increase the cost. No credits were spent."
+              : "Total ≈ shots missing images × per-image cost (+1 grid image per scene in grid mode). No credits were spent.",
         });
         return;
       }

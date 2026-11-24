@@ -350,11 +350,11 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** run `videodraft generate 3d --model meshy-7 --option geometry_resolution=4k` (meshy-7 runs Meshy 7.1) and quote the price from `--estimate`.
 - **Must NOT:** pass the deprecated `ultra_mode` or `model_type=lowpoly`.
 
-## An Ideogram 4.5 edit keeps the source image
+## An Ideogram 4.6 edit keeps the source image
 
 - **Query:** "With Ideogram, turn the sky in this photo into a sunset and keep everything else exactly as it is."
-- **Must:** run `videodraft generate image --model ideogram-v4.5 --source-image <photo> --edit-precision high` with Auto size (no `--image-width`/`--image-height`) and a `--quality` of `low`, `medium` or `high`.
-- **Must NOT:** pick the retired `ideogram-v4`, pass `--quality very_low` with `--edit-precision high`, or set a custom size on a precise edit.
+- **Must:** run `videodraft generate image --model ideogram-v4.6 --source-image <photo> --edit-precision high` with Auto size (no `--image-width`/`--image-height`) and a `--quality` of `low`, `medium` or `high`.
+- **Must NOT:** pick the retired `ideogram-v4`, request 4K at `--quality very_low`, or set a custom size on a precise edit.
 
 ## A price question gets a live quote
 
