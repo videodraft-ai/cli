@@ -8,7 +8,7 @@ import { modelTable, TIER_NOTE } from "../cli/model-table.js";
 import { emit, kv, note, table } from "../cli/output.js";
 import { UsageError } from "../core/errors.js";
 import { resetAllConnectionSessions } from "../core/session.js";
-import { parseVoiceoverMode } from "./generate.js";
+import { parseContextWindowBox, parseVoiceoverMode } from "./generate.js";
 
 /** get_model_costs ids for the standard voiceover (TTS) rate. */
 const VOICEOVER_COST_MODELS = ["voiceover", "tts", "speech", "text-to-speech"];
@@ -102,7 +102,7 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--rendering-speed <tier>",
-      "Legacy image rendering speed; current Ideogram models use --quality low/medium/high (very_low for regular edits)",
+      "Legacy image rendering speed; Ideogram 4.6 uses --quality very_low/low/medium/high",
     )
     .option("--audio", "include native model audio in the estimate")
     .option("--no-audio", "exclude native model audio")
@@ -116,7 +116,7 @@ export function registerAccountCommands(program: Command): void {
     .addOption(new Option("--no-allow-real-people").hideHelp())
     .option(
       "--ref-images <n>",
-      "input/reference image count including source for Ideogram 4.5; also MiniMax H3 / H3 Max / Grok",
+      "input/reference image count including source for Ideogram 4.6; also MiniMax H3 / H3 Max / Grok",
     )
     .option(
       "--ref-video-seconds <seconds>",
@@ -124,7 +124,19 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--edit-precision <mode>",
-      "Ideogram 4.5: regular | high (requires --ref-images)",
+      "Ideogram 4.6: regular | high (requires --ref-images)",
+    )
+    .option(
+      "--context-window <mode>",
+      "Ideogram 4.6 high precision: none or auto with --mask",
+    )
+    .option(
+      "--context-window-box <xmin,ymin,xmax,ymax>",
+      "Ideogram 4.6 high precision region in source pixels",
+    )
+    .option(
+      "--mask <url|file>",
+      "Include a mask in an Ideogram edit quote (no upload)",
     )
     .option("--num <n>", "image batch size")
     .option(
@@ -137,9 +149,9 @@ export function registerAccountCommands(program: Command): void {
     )
     .option(
       "--width <px>",
-      "Topaz: source width (with --height gives an exact quote)",
+      "Source width for Topaz or an Ideogram 4.6 Auto edit quote, with --height",
     )
-    .option("--height <px>", "Topaz: source height")
+    .option("--height <px>", "Topaz or Ideogram 4.6 source height")
     .option(
       "--source-fps <n>",
       "Topaz video upscale: source frame rate (>30 bills the 60fps rate)",
@@ -167,6 +179,9 @@ export function registerAccountCommands(program: Command): void {
         imageHeight?: string;
         renderingSpeed?: string;
         editPrecision?: string;
+        contextWindow?: string;
+        contextWindowBox?: string;
+        mask?: string;
         audio?: boolean;
         voiceControl?: boolean;
         length?: string;
@@ -207,6 +222,9 @@ export function registerAccountCommands(program: Command): void {
               : undefined,
           rendering_speed: opts.renderingSpeed,
           edit_precision: opts.editPrecision,
+          context_window: opts.contextWindow,
+          context_window_box: parseContextWindowBox(opts.contextWindowBox),
+          mask_url: opts.mask ? "https://example.com/mask.png" : undefined,
           generate_audio: opts.audio,
           voice_control: opts.voiceControl,
           reference_image_count: opts.refImages

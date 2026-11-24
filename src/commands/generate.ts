@@ -804,6 +804,7 @@ async function printEstimate(
     voiceControl?: boolean;
     /** Reference inputs are billed but their durations were not supplied. */
     lowerBoundReason?: string;
+    upperBoundReason?: string;
   },
 ): Promise<void> {
   const estimate = await ctx.client.callTool(
@@ -830,7 +831,8 @@ async function printEstimate(
     estimate,
     note: params.lowerBoundReason
       ? `No credits were spent (--estimate). LOWER BOUND: ${params.lowerBoundReason}`
-      : "No credits were spent (--estimate).",
+      : (params.upperBoundReason ?? "No credits were spent (--estimate)."),
+    ...(params.upperBoundReason ? { upper_bound: true } : {}),
     ...(params.lowerBoundReason ? { lower_bound: true } : {}),
   });
 }
@@ -902,6 +904,7 @@ export async function handleAsyncJob(
         status: result.status,
         outputs: result.outputUrls,
         outputMetadata: result.payload?.outputMetadata,
+        ...(result.payload?.draft ? { draft: result.payload.draft } : {}),
         ...(interactionId ? { interaction_id: interactionId } : {}),
         ...(result.payload?.video_task
           ? { video_task: result.payload.video_task }
@@ -931,6 +934,11 @@ export async function handleAsyncJob(
       (o) => {
         note(o, fmt.green(o, `Completed — job ${jobId}`));
         if (submitted?.key_note) note(o, fmt.dim(o, submitted.key_note));
+        if (result.payload?.draft?.canFinalize)
+          note(
+            o,
+            `Render final with videodraft finalize-draft ${jobId} --resolution 1080p`,
+          );
         if (interactionId && result.payload?.continuation_available !== false) {
           note(
             o,
@@ -960,6 +968,24 @@ export async function handleAsyncJob(
     spin.stop();
     throw err;
   }
+}
+
+export function parseContextWindowBox(value: string | undefined) {
+  if (value === undefined) return undefined;
+  const coordinates = value.split(",").map((part) => part.trim());
+  if (
+    coordinates.length !== 4 ||
+    !coordinates.every(
+      (part) => /^\d+$/.test(part) && Number.isSafeInteger(Number(part)),
+    )
+  ) {
+    throw new CliError(
+      "--context-window-box requires four comma-separated nonnegative integers.",
+      EXIT.USAGE,
+    );
+  }
+  const [x_min, y_min, x_max, y_max] = coordinates.map(Number);
+  return { x_min, y_min, x_max, y_max };
 }
 
 export function parseImageColor(value: string): {
@@ -998,12 +1024,12 @@ export function registerGenerateCommands(program: Command): void {
     .option("--resolution <res>", 'e.g. "1K", "1.5K", "2K", "4K"')
     .option(
       "--background <mode>",
-      "Seedream 5.5: auto, opaque or transparent PNG",
+      "Ideogram 4.6 generation and regular edits: opaque or transparent. Seedream 5.5 also accepts auto.",
     )
     .option("--format <format>", "Seedream 5.5 output: png (default) or jpeg")
     .option(
       "--quality <tier>",
-      "Ideogram 4.5: low, medium (default), high; regular edits also very_low. GPT Image 2.6: auto (default), low, medium, high, xhigh, max",
+      "Ideogram 4.6: very_low (up to 2K), low, medium (default), high. GPT Image 2.6: auto (default), low, medium, high, xhigh, max",
     )
     .option(
       "--rendering-speed <tier>",
@@ -1048,9 +1074,9 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--num <n>",
-      "variations in one call (Ideogram 4.5: 1-8, Seedream 5.5: 1-6, GPT Image 2.6 and FLUX 3: 1-4)",
+      "variations in one call (Ideogram 4.6: 1-8, Seedream 5.5: 1-6, GPT Image 2.6 and FLUX 3: 1-4)",
     )
-    .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.5)")
+    .option("--seed <n>", "seed (supported models only, e.g. Ideogram 4.6)")
     .option(
       "--ref <url|file>",
       "reference image (repeatable; local files are uploaded)",
@@ -1063,23 +1089,31 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--source-image <url|file>",
-      "Ideogram 4.5 editing source; --ref adds up to four extra references (three with a mask)",
+      "Ideogram 4.6 editing source; --ref adds up to four extra references (three with a mask)",
     )
     .option(
       "--mask <url|file>",
-      "Ideogram 4.5 edit mask: black edits, white preserves; match source dimensions",
+      "Ideogram 4.6 edit mask: black edits, white preserves; match source dimensions",
     )
     .option(
       "--edit-precision <mode>",
-      "Ideogram 4.5 edit precision: regular (default) | high; high/masked edits require Auto size",
+      "Ideogram 4.6 edit precision: regular (default) | high; high/masked edits require Auto size",
+    )
+    .option(
+      "--context-window <mode>",
+      "Ideogram 4.6 high precision: none or auto (requires mask)",
+    )
+    .option(
+      "--context-window-box <xmin,ymin,xmax,ymax>",
+      "Ideogram 4.6 high precision: region in source pixels, with exclusive maxima",
     )
     .option(
       "--prompt-expansion <true|false>",
-      "prompt expansion (default true): Ideogram 4.5 text-to-image, FLUX 3 generation and edits",
+      "prompt expansion (default true): Ideogram 4.6 text-to-image, FLUX 3 generation and edits",
     )
     .option(
       "--image-width <px>",
-      "Ideogram 4.5 or Seedream 5.5 custom width (with --image-height)",
+      "Ideogram 4.6 or Seedream 5.5 custom width (with --image-height)",
     )
     .option("--image-height <px>", "custom height, with --image-width")
     .option(
@@ -1119,6 +1153,8 @@ export function registerGenerateCommands(program: Command): void {
       if (opts.format && !["png", "jpeg"].includes(opts.format))
         throw new CliError("--format must be png or jpeg.", EXIT.USAGE);
       const imageOptions = {
+        context_window: opts.contextWindow,
+        context_window_box: parseContextWindowBox(opts.contextWindowBox),
         background: opts.background,
         ...(opts.watermark ? { watermark: true } : {}),
         ...(opts.format ? { output_format: opts.format } : {}),
@@ -1178,6 +1214,7 @@ export function registerGenerateCommands(program: Command): void {
           num: opts.num ? Number(opts.num) : undefined,
           imageOptions: {
             ...imageOptions,
+            seed: imageSeed,
             ...(opts.mask ? { mask_url: "https://example.com/mask.png" } : {}),
           },
           // grok-imagine-2.0 bills 1 credit per reference image on top of the
@@ -1258,6 +1295,14 @@ export function registerGenerateCommands(program: Command): void {
     .option(
       "--auto-duration",
       "Wan 3.0, Seedance 2/2.5 or Gemini Omni: automatic duration. Omni bills the task maximum; Wan/Seedance reserve the ceiling and reconcile unused credits. FLUX 3 Max requires a fixed 5-20s duration.",
+    )
+    .option(
+      "--draft",
+      "create a finalizable 480p preview with standard Seedance 2.5",
+    )
+    .option(
+      "--idempotency-key <key>",
+      "reuse a key when retrying the same draft submission",
     )
     .option("--resolution <res>", 'e.g. "360p", "720p", "1080p", "2K", "4K"')
     .option(
@@ -1391,6 +1436,47 @@ export function registerGenerateCommands(program: Command): void {
     .action(async function (this: Command, promptWords: string[] = []) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
+      if (opts.idempotencyKey && !opts.draft)
+        throw new CliError(
+          "--idempotency-key applies only with --draft.",
+          EXIT.USAGE,
+        );
+      if (opts.draft) {
+        if (
+          opts.model &&
+          ![
+            "seedance-2.5",
+            "seedance-2-5",
+            "seedance25",
+            "seedance2.5",
+          ].includes(opts.model)
+        )
+          throw new CliError(
+            "--draft requires standard Seedance 2.5.",
+            EXIT.USAGE,
+          );
+        if (opts.resolution && opts.resolution !== "480p")
+          throw new CliError(
+            "Seedance drafts require --resolution 480p or no resolution flag.",
+            EXIT.USAGE,
+          );
+        opts.model = "seedance-2.5";
+        opts.resolution = "480p";
+        // Earlier servers may ignore an unrecognized field on generate_video.
+        const catalog = await ctx.client.callTool("get_tool_catalog", {
+          category: "asset_generation",
+          lane: "assets",
+          guidance: "none",
+        });
+        if (
+          !catalog?.tools?.some(
+            (t: { name: string }) => t.name === "finalize_seedance_draft",
+          )
+        )
+          throw new CliError(
+            "This VideoDraft server does not support Seedance drafts.",
+          );
+      }
       if (["wan-2.7", "wan27", "wan-2.7-ref-edit"].includes(opts.model)) {
         throw new CliError(
           "Wan 2.7 is retired from VideoDraft generation. Use --model wan-3.0.",
@@ -2554,6 +2640,8 @@ export function registerGenerateCommands(program: Command): void {
           ? (Array.isArray(opts.refVideo) ? opts.refVideo.length : 0) +
             rawElements.filter((element) => element.video_url).length
           : 0;
+        const draftReferenceUpperBound =
+          opts.draft && hasRefVideos && !refVideoSeconds;
         const estimateReferenceVideoDuration =
           estimateModel === "minimax-h3"
             ? hasRefVideos
@@ -2562,7 +2650,9 @@ export function registerGenerateCommands(program: Command): void {
             : kling4VideoClips > 0
               ? (refVideoSeconds ?? kling4VideoClips * 3)
               : refVideoWindow !== null && hasRefVideos
-                ? refVideoSeconds
+                ? draftReferenceUpperBound
+                  ? refVideoWindow
+                  : refVideoSeconds
                 : undefined;
         const kling4LowerBoundReason =
           kling4VideoClips > 0 && refVideoSeconds === undefined
@@ -2638,6 +2728,9 @@ export function registerGenerateCommands(program: Command): void {
           // H3 Max bills reference video and audio as pooled tokens, so a
           // quote that cannot see their durations omits a real surcharge.
           lowerBoundReason: h3MaxLowerBoundReason ?? kling4LowerBoundReason,
+          upperBoundReason: draftReferenceUpperBound
+            ? "Maximum draft quote using 30 seconds of reference video. Pass --ref-video-seconds for a duration-specific estimate."
+            : undefined,
           voiceControl:
             voiceIds.length > 0 ||
             rawElements.some((element) => element.voice_id),
@@ -2871,6 +2964,12 @@ export function registerGenerateCommands(program: Command): void {
           duration_seconds: duration,
           auto_duration: opts.autoDuration ? true : undefined,
           resolution: opts.resolution,
+          ...(opts.draft
+            ? {
+                draft: true,
+                idempotency_key: opts.idempotencyKey ?? randomUUID(),
+              }
+            : {}),
           quality: opts.quality,
           generate_audio: opts.audio,
           start_image_url: startImage,
@@ -2915,6 +3014,48 @@ export function registerGenerateCommands(program: Command): void {
         wait: opts.wait !== false,
         download: opts.download,
         label: "Generating video",
+      });
+    });
+
+  program
+    .command("finalize-draft <generation_id>")
+    .description("Render a Seedance draft at a supported final resolution")
+    .requiredOption("--resolution <resolution>", "1080p or 4k")
+    .option("--estimate", "quote the final without submitting")
+    .option(
+      "--idempotency-key <key>",
+      "reuse a key when retrying the same final render",
+    )
+    .option("--download <path>", "download the completed video")
+    .option("--no-wait", "return the new VideoDraft job ID immediately")
+    .action(async function (this: Command, generationId: string) {
+      const ctx = buildContext(this);
+      const opts = this.opts();
+      const resolution = String(opts.resolution).toLowerCase();
+      if (!["1080p", "4k"].includes(resolution))
+        throw new CliError("Choose --resolution 1080p or 4k.", EXIT.USAGE);
+      const result = await ctx.client.callTool("finalize_seedance_draft", {
+        generation_id: generationId,
+        resolution,
+        ...(opts.estimate
+          ? { estimate_only: true }
+          : { idempotency_key: opts.idempotencyKey ?? randomUUID() }),
+      });
+      if (opts.estimate) {
+        emit(ctx.out, result, (o) =>
+          note(
+            o,
+            result.usedUserKey
+              ? "Final billed to your provider key (0 VideoDraft credits)."
+              : `Final render: ${result.creditCost} credits.`,
+          ),
+        );
+        return;
+      }
+      await handleAsyncJob(ctx, result, {
+        wait: opts.wait !== false,
+        download: opts.download,
+        label: "Rendering Seedance final",
       });
     });
 

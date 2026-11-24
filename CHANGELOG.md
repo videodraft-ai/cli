@@ -5,6 +5,24 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-25
+
+### Added
+
+- Create a 480p Seedance 2.5 preview with `generate video --draft`, find it
+  with `generations --drafts`, and render a supported final resolution with
+  `finalize-draft <generation_id>`. Draft and final have separate cost estimates.
+  These commands require a VideoDraft server with draft support.
+- Use Ideogram 4.6 with up to 4K output, transparent or opaque backgrounds,
+  and precise edits with a mask or an explicit region. Image generation,
+  storyboard image commands, and cost estimates accept the new controls.
+
+### Changed
+
+- Updated the bundled skill and model guide for Seedance drafts and Ideogram 4.6.
+  Auto-sized Ideogram edit estimates can show a range until the source size is known.
+- Corrected the cloud-session retention guidance for paused and released sessions.
+
 ## [0.41.1] - 2026-11-21
 
 ### Changed

@@ -91,7 +91,7 @@ it("forwards the editing source, all four extra references, quality, count and s
     "image",
     "Change the sign",
     "--model",
-    "ideogram-v4.5",
+    "ideogram-v4.6",
     "--source-image",
     "https://example.test/source.png",
     ...refs.flatMap((ref) => ["--ref", ref]),
@@ -108,7 +108,7 @@ it("forwards the editing source, all four extra references, quality, count and s
   expect(mocks.callTool).toHaveBeenCalledWith(
     "generate_image",
     expect.objectContaining({
-      model: "ideogram-v4.5",
+      model: "ideogram-v4.6",
       source_image: "https://example.test/source.png",
       reference_images: refs,
       quality: "low",
@@ -124,11 +124,13 @@ it("forwards precise masked editing with Auto geometry and no resolution", async
     "image",
     "Change the sign",
     "--model",
-    "ideogram-v4.5",
+    "ideogram-v4.6",
     "--source-image",
     "https://example.test/source.png",
     "--mask",
     "https://example.test/mask.png",
+    "--context-window-box",
+    "0,32,512,544",
     "--edit-precision",
     "high",
     "--ar",
@@ -141,6 +143,7 @@ it("forwards precise masked editing with Auto geometry and no resolution", async
   expect(tool).toBe("generate_image");
   expect(args).toMatchObject({
     mask_url: "https://example.test/mask.png",
+    context_window_box: { x_min: 0, y_min: 32, x_max: 512, y_max: 544 },
     edit_precision: "high",
     aspect_ratio: "auto",
     quality: "high",
@@ -154,9 +157,11 @@ it("preserves disabled expansion and explicit exact dimensions", async () => {
     "image",
     "A poster",
     "--model",
-    "ideogram-v4.5",
+    "ideogram-v4.6",
     "--prompt-expansion",
     "false",
+    "--background",
+    "transparent",
     "--image-width",
     "1248",
     "--image-height",
@@ -167,6 +172,7 @@ it("preserves disabled expansion and explicit exact dimensions", async () => {
     "generate_image",
     expect.objectContaining({
       enable_prompt_expansion: false,
+      background: "transparent",
       image_width: 1248,
       image_height: 832,
     }),
@@ -178,7 +184,7 @@ it("estimates regular Very Low editing from local source/reference paths without
     "image",
     "Change it",
     "--model",
-    "ideogram-v4.5",
+    "ideogram-v4.6",
     "--quality",
     "very_low",
     "--source-image",
@@ -193,7 +199,7 @@ it("estimates regular Very Low editing from local source/reference paths without
   ]);
   expect(mocks.callTool).toHaveBeenCalledOnce();
   expect(mocks.callTool).toHaveBeenCalledWith("get_model_costs", {
-    model_id: "ideogram-v4.5",
+    model_id: "ideogram-v4.6",
     type: "image",
     quality: "very_low",
     reference_image_count: 2,
@@ -204,7 +210,7 @@ it("estimates regular Very Low editing from local source/reference paths without
 it("costs command carries editing mode and total content-image count", async () => {
   await run([
     "costs",
-    "ideogram-v4.5",
+    "ideogram-v4.6",
     "--type",
     "image",
     "--quality",
@@ -217,7 +223,7 @@ it("costs command carries editing mode and total content-image count", async () 
   expect(mocks.callTool).toHaveBeenCalledWith(
     "get_model_costs",
     expect.objectContaining({
-      model_id: "ideogram-v4.5",
+      model_id: "ideogram-v4.6",
       quality: "very_low",
       reference_image_count: 1,
       edit_precision: "regular",
