@@ -575,6 +575,33 @@ export function kling4EditTier(
   return KLING_4_CLI_TIERS.find((tier) => tier.editModel === model);
 }
 
+/** Sand AI MAGI-2 on Atlas Cloud. Mirrors app/config/magi-2.ts. */
+export const MAGI_2_MODEL = "magi-2";
+const MAGI_2_ALIASES = ["magi2", "magi_2"];
+export const MAGI_2_ASPECT_RATIOS = [
+  "16:9",
+  "9:16",
+  "21:9",
+  "4:3",
+  "3:4",
+  "1:1",
+];
+export const MAGI_2_LIMITS = {
+  minSeconds: 4,
+  maxSeconds: 30,
+  images: 10,
+  videos: 5,
+  audios: 5,
+} as const;
+
+/** True for MAGI-2 or one of its aliases. */
+export function isMagi2CliModel(model: unknown): boolean {
+  return (
+    model === MAGI_2_MODEL ||
+    (typeof model === "string" && MAGI_2_ALIASES.includes(model))
+  );
+}
+
 /**
  * Widest combined reference-video window any model accepts, used only to parse
  * the flag before the model is known. `refVideoSecondsWindow` holds the real
@@ -593,6 +620,7 @@ function refVideoSecondsWindow(model: string | undefined): number | null {
   switch (model) {
     case "seedance-2.5-flash":
     case "seedance-2.5":
+    case MAGI_2_MODEL:
       return 30;
     case "seedance-2":
     case "minimax-h3":
@@ -1302,7 +1330,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--idempotency-key <key>",
-      "reuse a key when retrying the same draft submission",
+      "reuse a key when retrying the same Seedance draft or MAGI-2 submission (MAGI-2: a UUID)",
     )
     .option("--resolution <res>", 'e.g. "360p", "720p", "1080p", "2K", "4K"')
     .option(
@@ -1336,7 +1364,7 @@ export function registerGenerateCommands(program: Command): void {
     )
     .option(
       "--ref-audio <url|file>",
-      "reference audio (repeatable; Wan 3.0, MiniMax H3, MiniMax H3 Max, Seedance 2, or Seedance 2.5; local files uploaded)",
+      "reference audio (repeatable; Wan 3.0, MiniMax H3, MiniMax H3 Max, Seedance 2, Seedance 2.5, or MAGI-2; local files uploaded)",
       collect,
       [],
     )
@@ -1436,9 +1464,20 @@ export function registerGenerateCommands(program: Command): void {
     .action(async function (this: Command, promptWords: string[] = []) {
       const ctx = buildContext(this);
       const opts = this.opts<any>();
-      if (opts.idempotencyKey && !opts.draft)
+      if (opts.idempotencyKey && !opts.draft && !isMagi2CliModel(opts.model))
         throw new CliError(
-          "--idempotency-key applies only with --draft.",
+          "--idempotency-key applies only with --draft or --model magi-2.",
+          EXIT.USAGE,
+        );
+      if (
+        opts.idempotencyKey &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          String(opts.idempotencyKey),
+        ) &&
+        isMagi2CliModel(opts.model)
+      )
+        throw new CliError(
+          "MAGI-2 --idempotency-key must be a UUID.",
           EXIT.USAGE,
         );
       if (opts.draft) {
@@ -1587,6 +1626,78 @@ export function registerGenerateCommands(program: Command): void {
         )
       )
         opts.model = "seedance-2.5-flash";
+      if (isMagi2CliModel(opts.model)) {
+        opts.model = MAGI_2_MODEL;
+        const unsupported = [
+          opts.quality !== undefined ? "--quality" : null,
+          opts.autoDuration ? "--auto-duration" : null,
+          opts.audio === false ? "--no-audio" : null,
+          opts.seed !== undefined ? "--seed" : null,
+          opts.negative !== undefined ? "--negative" : null,
+          opts.cameraFixed ? "--camera-fixed" : null,
+          (opts.segment?.length ?? 0) > 0 ? "--segment" : null,
+          (opts.element?.length ?? 0) > 0 ? "--element" : null,
+          (opts.voiceId?.length ?? 0) > 0 ? "--voice-id" : null,
+          (opts.keyframe?.length ?? 0) > 0 ? "--keyframe" : null,
+          opts.sourceVideo ? "--source-video" : null,
+          opts.draft ? "--draft" : null,
+          opts.reasoningLevel !== undefined ? "--reasoning-level" : null,
+          opts.cfgScale !== undefined ? "--cfg-scale" : null,
+        ].filter((flag): flag is string => flag !== null);
+        if (unsupported.length > 0)
+          throw new CliError(
+            `MAGI-2 does not support ${unsupported.join(", ")}. It renders 1080p with audio always on from text, frames, or references.`,
+            EXIT.USAGE,
+          );
+        if (
+          duration !== undefined &&
+          (!Number.isInteger(duration) ||
+            duration < MAGI_2_LIMITS.minSeconds ||
+            duration > MAGI_2_LIMITS.maxSeconds)
+        )
+          throw new CliError(
+            "MAGI-2 --duration must be a whole second from 4 to 30.",
+            EXIT.USAGE,
+          );
+        if (
+          opts.resolution !== undefined &&
+          String(opts.resolution).trim().toLowerCase() !== "1080p"
+        )
+          throw new CliError(
+            "MAGI-2 renders 1080p only. Remove --resolution.",
+            EXIT.USAGE,
+          );
+        if (opts.resolution !== undefined) opts.resolution = "1080p";
+        const images = opts.ref?.length ?? 0,
+          videos = opts.refVideo?.length ?? 0,
+          audios = opts.refAudio?.length ?? 0;
+        if (
+          images > MAGI_2_LIMITS.images ||
+          videos > MAGI_2_LIMITS.videos ||
+          audios > MAGI_2_LIMITS.audios
+        )
+          throw new CliError(
+            "MAGI-2 accepts at most 10 --ref images, 5 --ref-video clips and 5 --ref-audio clips.",
+            EXIT.USAGE,
+          );
+        if ((opts.startImage || opts.endImage) && images + videos + audios > 0)
+          throw new CliError(
+            "MAGI-2 cannot combine --start-image/--end-image with references. Use frames or references, not both.",
+            EXIT.USAGE,
+          );
+        if (opts.endImage && !opts.startImage)
+          throw new CliError("--end-image requires --start-image.", EXIT.USAGE);
+        if (opts.startImage && opts.ar)
+          throw new CliError(
+            "MAGI-2 follows the first frame's shape; remove --ar with --start-image.",
+            EXIT.USAGE,
+          );
+        if (opts.ar && !MAGI_2_ASPECT_RATIOS.includes(String(opts.ar)))
+          throw new CliError(
+            `MAGI-2 --ar must be one of ${MAGI_2_ASPECT_RATIOS.join(", ")}.`,
+            EXIT.USAGE,
+          );
+      }
       if (opts.model === "seedance-2.5-flash") {
         if (opts.quality !== undefined)
           throw new CliError(
@@ -2969,7 +3080,9 @@ export function registerGenerateCommands(program: Command): void {
                 draft: true,
                 idempotency_key: opts.idempotencyKey ?? randomUUID(),
               }
-            : {}),
+            : opts.model === MAGI_2_MODEL
+              ? { idempotency_key: opts.idempotencyKey ?? randomUUID() }
+              : {}),
           quality: opts.quality,
           generate_audio: opts.audio,
           start_image_url: startImage,

@@ -29,7 +29,7 @@ videodraft render session status film76
 videodraft render session list                               # every session, and storage used of the cap
 ```
 
-`start` flags: `--name` (use it everywhere instead of the id; give each project its own), `--gpu full|half|quarter` (below), `--from-snapshot <name>`, `--idle-minutes <n>` (1 to 1440, default 15), `--budget <credits>` (pauses the session at that cost; saving and switching off add about a minute), `--no-spot`, `--no-wait`. Without `--no-wait`, `start` waits until the machine is ready.
+`start` flags: `--name` (use it everywhere instead of the id; give each project its own), `--gpu full|half|quarter` (below), `--from-snapshot <name>`, `--idle-minutes <n>` (1 to 1440, default 15), `--budget <credits>` (pauses the session at that cost; saving and switching off add about a minute; the budget covers the session's whole life, so a session that reached it cannot resume: snapshot it and start a new session from the snapshot with a bigger budget), `--no-spot`, `--no-wait`. Without `--no-wait`, `start` waits until the machine is ready.
 
 ## GPU size
 
