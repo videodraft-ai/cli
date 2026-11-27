@@ -221,7 +221,7 @@ Each scenario: the request, and what a correct run must and must not do.
 ## 29. Motion reference uses motion control
 
 - **Query:** "Make this character image perform the movement in this dance clip."
-- **Must:** use `videodraft edit motion <image> "..." --motion-video <video>` with Kling V3 Motion Control unless 2.6 is explicitly requested or lower cost is the priority.
+- **Must:** use `videodraft edit motion <image> "..." --motion-video <video>` with Kling V3 Motion Control by default.
 - **Must NOT:** treat the motion video as general creative inspiration or omit the subject image.
 
 ## 30. An exact-length sung track uses ElevenLabs Music v2.5
@@ -472,3 +472,15 @@ Each scenario: the request, and what a correct run must and must not do.
 - **Must:** run `videodraft remove-background image <photo> --download <name>.png`.
 - **Must NOT:** generate a new image from a prompt, send a thumbnail, or save the cutout as JPEG.
 - **Companion query:** "Now do the same for this clip of me talking." Quote with `videodraft remove-background video <clip> --estimate`, then run it with the default `--subject person` and save it as `.webm`.
+
+## MAGI-2 only when it fits or is asked for
+
+- **Query:** "Make a 20-second 1080p clip with sound of this woman walking through a night market, using this camera move." (with an image and a video)
+- **Must:** keep Gemini Omni or Seedance first when they fit; if the user names MAGI-2 or wants the low-cost 1080p option, run `videodraft generate video "<prompt citing the reference image and video>" --model magi-2 --ref <image> --ref-video <video> --duration 20 --ar 16:9`, quoted first with `--estimate`.
+- **Must NOT:** pass `--start-image` together with references, `--resolution`, `--no-audio`, `--seed` or a quality tier, or pick MAGI-2 ahead of the other Tier 1 video models on its own.
+
+## A lost MAGI-2 submission is retried with the same key
+
+- **Query:** "The MAGI-2 command timed out. Try again."
+- **Must:** rerun the identical command with `--idempotency-key <the key from the first result>` and poll the returned job.
+- **Must NOT:** submit with a new key, which could start and charge a second job.

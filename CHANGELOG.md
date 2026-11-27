@@ -5,6 +5,34 @@ All notable changes to the `videodraft` CLI. Format loosely follows
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-27
+
+### Added
+
+- `generate video --model magi-2` (alias `magi2`): Sand AI's MAGI-2, 4-30s at
+  1080p with native audio, from text (six aspect ratios), `--start-image` with
+  an optional `--end-image`, or up to 10 `--ref` images, 5 `--ref-video` and 5
+  `--ref-audio` clips. Frames and references cannot be combined. The CLI checks
+  these limits before uploading and always sends an idempotency key;
+  `--idempotency-key <uuid>` now also works with `--model magi-2` to retry a
+  lost submission safely. Quote with `costs magi-2` or `--estimate`. MAGI-2 runs
+  on Atlas Cloud only and requires a VideoDraft server with MAGI-2 support.
+
+### Changed
+
+- The bundled skill and model guide list MAGI-2 as the last Tier 1 video model.
+- The Cloud sessions guide explains that `--budget` covers a session's whole
+  life: a session that reached its budget cannot resume, so snapshot it and
+  start a new session from the snapshot with a bigger budget.
+
+### Compatibility
+
+- MAGI-2 needs the VideoDraft backend release that adds it, which deploys
+  separately. Until then the server rejects `--model magi-2` before charging
+  anything.
+- The CLI bundled inside an installed VideoDraft macOS app updates with the
+  desktop app; publishing this npm package does not replace that binary.
+
 ## [0.42.0] - 2026-11-25
 
 ### Added
